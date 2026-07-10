@@ -1,0 +1,13 @@
+{
+  "name": "do-you-like-game-realtime",
+  "version": "1.0.0",
+  "description": "Do you like ...? ゲーム - 教室内リアルタイム連携サーバー",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

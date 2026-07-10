@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>先生用ダッシュボード - Do you like ...? ゲーム</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 24px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  .top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .title { font-size: 24px; font-weight: 700; }
+  .actions { display: flex; align-items: center; gap: 12px; }
+  .conn-status { font-size: 13px; padding: 6px 14px; border-radius: 999px; background: #EDEBE3; color: #5F5E5A; }
+  .conn-status.ok { background: #E1F5EE; color: #0F6E56; }
+  .conn-status.err { background: #FAECE7; color: #993C1D; }
+  .reset-btn {
+    font-size: 13px; padding: 8px 16px; border-radius: 999px; border: 1px solid #D85A30;
+    color: #993C1D; background: #FAECE7; cursor: pointer;
+  }
+  .empty-msg { text-align: center; color: #888780; padding: 60px 20px; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .card {
+    background: #FFFFFF; border-radius: 16px; padding: 16px; position: relative;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center;
+  }
+  .rank { position: absolute; top: 10px; left: 12px; font-size: 15px; font-weight: 700; color: #888780; }
+  .avatar { width: 96px; height: 72px; border-radius: 10px; object-fit: cover; margin: 6px auto 8px; display: block; border: 2px solid #E6F1FB; }
+  .avatar-blank {
+    width: 96px; height: 72px; border-radius: 10px; margin: 6px auto 8px; background: #E6F1FB;
+    display: flex; align-items: center; justify-content: center; font-size: 22px; color: #185FA5;
+  }
+  .score { font-size: 26px; font-weight: 700; color: #854F0B; }
+  .score .unit { font-size: 13px; font-weight: 500; margin-left: 2px; }
+  .streak { font-size: 13px; color: #C2410C; margin-top: 4px; }
+  .status { font-size: 12px; color: #5F5E5A; margin-top: 8px; min-height: 16px; }
+  .progress-bg { background: #EDEBE3; border-radius: 999px; height: 6px; margin-top: 10px; overflow: hidden; }
+  .progress-fill { background: #378ADD; height: 100%; border-radius: 999px; }
+  .progress-label { font-size: 11px; color: #888780; margin-top: 4px; }
+  .updated { font-size: 10px; color: #B4B2A9; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="title">📊 クラスの状況（先生用）</div>
+    <div class="actions">
+      <span id="conn-status" class="conn-status">接続中...</span>
+      <button id="reset-btn" class="reset-btn">全員のスコアをリセット</button>
+    </div>
+  </div>
+  <div id="empty-msg" class="empty-msg" style="display:none;">まだ誰も登録していません。生徒にゲーム画面を開いてもらってください。</div>
+  <div id="grid" class="grid"></div>
+</div>
+<script>
+function fmtTime(ts){
+  var diff = Math.max(0, Date.now() - ts);
+  var m = Math.floor(diff / 60000);
+  if(m < 1) return "たった今";
+  if(m < 60) return m + "分前";
+  return Math.floor(m / 60) + "時間前";
+}
+function render(students){
+  var grid = document.getElementById("grid");
+  document.getElementById("empty-msg").style.display = students.length ? "none" : "block";
+  grid.innerHTML = "";
+  students.forEach(function(s, idx){
+    var rankLabel = idx < 3 ? ["🥇","🥈","🥉"][idx] : ("#" + (idx + 1));
+    var pct = s.total ? Math.round(s.used / s.total * 100) : 0;
+    var card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML =
+      '<div class="rank">' + rankLabel + '</div>' +
+      (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
+      '<div class="score">' + s.score + '<span class="unit">pt</span></div>' +
+      '<div class="streak">🔥 ' + s.streak + '（さいこう ' + s.best + '）</div>' +
+      '<div class="status">' + (s.status || "") + '</div>' +
+      '<div class="progress-bg"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="progress-label">' + s.used + ' / ' + s.total + ' まい</div>' +
+      '<div class="updated">' + fmtTime(s.updatedAt) + '</div>';
+    grid.appendChild(card);
+  });
+}
+function poll(){
+  fetch("/api/state")
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var el = document.getElementById("conn-status");
+      el.textContent = "接続中 ● " + d.students.length + "人";
+      el.className = "conn-status ok";
+      render(d.students);
+    })
+    .catch(function(){
+      var el = document.getElementById("conn-status");
+      el.textContent = "サーバーに接続できません";
+      el.className = "conn-status err";
+    })
+    .finally(function(){
+      setTimeout(poll, 1500);
+    });
+}
+document.getElementById("reset-btn").onclick = function(){
+  if(!confirm("全員のスコア・登録情報をリセットします。よろしいですか？")) return;
+  fetch("/api/reset", { method: "POST" }).then(poll);
+};
+poll();
+</script>
+</body>
+</html>

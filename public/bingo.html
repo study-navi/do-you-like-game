@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ビンゴ - Do you like ...? ゲーム</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.46.0/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 16px; touch-action: manipulation;
+  }
+  .app { max-width: 520px; margin: 0 auto; }
+  .title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 2px; }
+  .room-tag { text-align: center; font-size: 12px; color: #888780; margin-bottom: 16px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* setup screen */
+  .setup-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .setup-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 12px; }
+  .random-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #185FA5; color: #FFFFFF; cursor: pointer; margin-bottom: 4px;
+  }
+  .or-sep { text-align: center; font-size: 12px; color: #B4B2A9; margin: 10px 0; }
+  .setup-grid-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .setup-grid { display: grid; gap: 6px; }
+  .setup-cell {
+    background: #F1EFE8; border: 2px dashed #D3D1C7; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; padding: 4px; overflow: hidden;
+  }
+  .setup-cell.filled { border-style: solid; border-color: #A9C23F; background: #F3F8E4; }
+  .setup-cell .cell-en { font-weight: 700; }
+  .setup-cell .cell-ja { color: #888780; }
+  .fill-count { text-align: center; font-size: 13px; color: #5F5E5A; margin-bottom: 10px; }
+  .pool-title { font-size: 13px; font-weight: 600; color: #5F5E5A; margin-bottom: 8px; }
+  .pool-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; min-height: 44px; }
+  .pool-tile {
+    background: #EEEDFE; border-radius: 12px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    color: #534AB7; cursor: grab; display: flex; align-items: center; gap: 6px; touch-action: none;
+  }
+  .pool-tile.selected { outline: 3px solid #534AB7; }
+  .pool-tile.dragging { opacity: 0.35; }
+  .drag-ghost {
+    position: fixed; z-index: 999; pointer-events: none; background: #534AB7; color: #FFFFFF;
+    border-radius: 12px; padding: 8px 14px; font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+  .confirm-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #A9C23F; color: #FFFFFF; cursor: pointer; margin-top: 6px;
+  }
+  .confirm-btn:disabled { background: #D3D1C7; cursor: default; }
+  .size-note { text-align: center; font-size: 12px; color: #B4B2A9; margin-bottom: 10px; }
+
+  /* game screen */
+  .word-banner {
+    background: #FFFFFF; border-radius: 18px; padding: 16px; text-align: center; margin-bottom: 14px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  }
+  .word-banner .label { font-size: 11px; color: #B4B2A9; margin-bottom: 4px; }
+  .word-banner .en { font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .word-banner .ja { font-size: 13px; color: #888780; margin-top: 2px; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 30px; height: 30px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .board-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .board-grid { display: grid; gap: 6px; }
+  .board-cell {
+    background: #FFFFFF; border: 2px solid #E6E4DA; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 4px; overflow: hidden; position: relative;
+  }
+  .board-cell.marked { background: #E1F5EE; border-color: #1D9E75; }
+  .board-cell.marked::after {
+    content: "✓"; position: absolute; top: 2px; right: 5px; color: #0F6E56; font-weight: 700; font-size: 13px;
+  }
+  .board-cell.line { background: #FDF3D8; border-color: #F0B429; }
+  .board-cell .cell-en { font-weight: 700; }
+  .board-cell .cell-ja { color: #888780; }
+  .history-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
+  .history-chip {
+    flex: 0 0 auto; background: #F1EFE8; border-radius: 999px; padding: 5px 12px; font-size: 12px; color: #5F5E5A;
+  }
+  .redo-btn {
+    width: 100%; padding: 10px; font-size: 13px; border-radius: 999px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; cursor: pointer;
+  }
+
+  .bingo-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  }
+  .bingo-overlay.show { display: flex; }
+  .bingo-card { background: #FFFFFF; border-radius: 22px; padding: 30px 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .bingo-emoji { font-size: 50px; margin-bottom: 8px; }
+  .bingo-text { font-size: 26px; font-weight: 700; color: #185FA5; margin-bottom: 16px; }
+  .bingo-close { padding: 10px 26px; border-radius: 999px; border: none; background: #185FA5; color: #FFFFFF; font-weight: 600; cursor: pointer; }
+
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .room-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  .room-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .line-count-badge {
+    position: fixed; top: 12px; right: 12px; background: #185FA5; color: #FFFFFF;
+    padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 14px; z-index: 60;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+</style>
+</head>
+<body>
+<div id="line-count-badge" class="line-count-badge" style="display:none;">🎯 0本</div>
+<div id="room-overlay" class="room-overlay">
+  <div class="room-card">
+    <div class="room-title">教室コードを入力してください</div>
+    <div class="room-sub">先生に教えてもらったコードを入れてください（例: 3-1）</div>
+    <input type="text" id="room-code-input" class="room-input" placeholder="れい: 3-1">
+    <button id="room-code-btn" class="room-start-btn">はじめる</button>
+  </div>
+</div>
+
+<div class="app">
+  <div class="title">🎯 ビンゴ</div>
+  <div class="room-tag" id="room-tag"></div>
+
+  <div id="screen-setup" class="screen active">
+    <div class="setup-card">
+      <div class="setup-hint">カードを作ろう！<span id="size-label"></span></div>
+      <button class="random-btn" onclick="randomFill()">🎲 ランダムでうめる</button>
+      <div class="or-sep">・・・または・・・</div>
+      <div class="setup-grid-wrap"><div class="setup-grid" id="setup-grid"></div></div>
+      <div class="fill-count" id="fill-count"></div>
+      <div class="pool-title">下の単語をドラッグ（またはタップ）してマスにおいてね</div>
+      <div class="pool-wrap" id="pool-wrap"></div>
+      <button class="confirm-btn" id="confirm-btn" onclick="confirmCard()" disabled>これでOK！</button>
+    </div>
+  </div>
+
+  <div id="screen-game" class="screen">
+    <div class="word-banner">
+      <div class="label">さいしんの単語</div>
+      <div class="en" id="latest-en">-</div>
+      <div class="ja" id="latest-ja"></div>
+    </div>
+    <div class="board-wrap"><div class="board-grid" id="board-grid"></div></div>
+    <div class="history-strip" id="history-strip"></div>
+    <button class="redo-btn" onclick="backToSetup()">🔄 あたらしいカードにする</button>
+  </div>
+</div>
+
+<div id="bingo-overlay" class="bingo-overlay">
+  <div class="bingo-card">
+    <div class="bingo-emoji">🎉</div>
+    <div class="bingo-text">BINGO!</div>
+    <button class="bingo-close" onclick="closeBingoOverlay()">とじる</button>
+  </div>
+</div>
+
+<script>
+var items = [
+  {en:"soccer", ja:"サッカー", icon:"ti-ball-football", category:"sports"},
+  {en:"baseball", ja:"やきゅう", icon:"ti-ball-baseball", category:"sports"},
+  {en:"basketball", ja:"バスケ", icon:"ti-ball-basketball", category:"sports"},
+  {en:"volleyball", ja:"バレーボール", icon:"ti-ball-volleyball", category:"sports"},
+  {en:"tennis", ja:"テニス", icon:"ti-ball-tennis", category:"sports"},
+  {en:"swimming", ja:"すいえい", icon:"ti-swimming", category:"sports"},
+  {en:"running", ja:"かけっこ", icon:"ti-run", category:"sports"},
+  {en:"ice cream", ja:"アイスクリーム", icon:"ti-ice-cream", category:"food"},
+  {en:"pudding", ja:"プリン", icon:"ti-cake", category:"food"},
+  {en:"milk", ja:"ぎゅうにゅう", icon:"ti-milk", category:"food"},
+  {en:"pizza", ja:"ピザ", icon:"ti-pizza", category:"food"},
+  {en:"hamburgers", ja:"ハンバーガー", icon:"ti-burger", category:"food"},
+  {en:"apples", ja:"りんご", icon:"ti-apple", category:"food"},
+  {en:"tomatoes", ja:"トマト", icon:"ti-plant", category:"food"},
+  {en:"carrots", ja:"にんじん", icon:"ti-carrot", category:"food"},
+  {en:"lemons", ja:"レモン", icon:"ti-lemon", category:"food"},
+  {en:"dogs", ja:"いぬ", icon:"ti-dog", category:"animal"},
+  {en:"cats", ja:"ねこ", icon:"ti-cat", category:"animal"},
+  {en:"music", ja:"おんがく", icon:"ti-music", category:"animal"},
+  {en:"blue", ja:"あお", swatch:"#378ADD", category:"color"},
+  {en:"light blue", ja:"みずいろ", swatch:"#8ECAE6", category:"color"},
+  {en:"red", ja:"あか", swatch:"#E24B4A", category:"color"},
+  {en:"green", ja:"みどり", swatch:"#639922", category:"color"},
+  {en:"light green", ja:"きみどり", swatch:"#A9C23F", category:"color"},
+  {en:"yellow", ja:"きいろ", swatch:"#FAC775", category:"color"},
+  {en:"pink", ja:"ピンク", swatch:"#ED93B1", category:"color"},
+  {en:"purple", ja:"むらさき", swatch:"#7F77DD", category:"color"},
+  {en:"orange", ja:"オレンジ", swatch:"#EF9F27", category:"color"},
+  {en:"black", ja:"くろ", swatch:"#2C2C2A", category:"color"},
+  {en:"white", ja:"しろ", swatch:"#FFFFFF", category:"color"}
+];
+
+var ROOM_KEY = "bingo_student_room";
+var currentRoom = "";
+var gridSize = 3;
+var setupCells = [];   // array of length size*size, each null or item.en
+var boardWords = [];   // confirmed card, same shape as setupCells but full
+var markedFlags = [];  // parallel boolean array
+var lineHit = [];      // parallel boolean array for completed-line highlight
+var calledSeen = [];   // calledWords already processed
+var completedLineCount = 0;
+var pollTimer = null;
+var setupPollTimer = null;
+var dragState = null;
+var selectedTile = null;
+
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function findItem(en){
+  for(var i = 0; i < items.length; i++){ if(items[i].en === en) return items[i]; }
+  return null;
+}
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function iconHtml(it, size){
+  if(!it) return "";
+  return it.swatch
+    ? '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + it.swatch + ';border:1px solid #D3D1C7;"></span>'
+    : '<i class="ti ' + it.icon + '" style="font-size:' + size + 'px;color:#185FA5;"></i>';
+}
+function cellFontSize(){
+  if(gridSize === 3) return { icon: 22, en: 12, ja: 10, cellPx: 92 };
+  if(gridSize === 4) return { icon: 18, en: 10, ja: 9, cellPx: 78 };
+  return { icon: 15, en: 9, ja: 8, cellPx: 62 };
+}
+
+/* ---------- setup screen ---------- */
+function resetSetupCells(){
+  var n = gridSize * gridSize;
+  setupCells = new Array(n).fill(null);
+}
+function renderSetupGrid(){
+  var fs = cellFontSize();
+  var grid = document.getElementById("setup-grid");
+  grid.style.gridTemplateColumns = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.style.gridTemplateRows = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.innerHTML = "";
+  setupCells.forEach(function(en, idx){
+    var cell = document.createElement("div");
+    cell.className = "setup-cell" + (en ? " filled" : "");
+    cell.dataset.idx = idx;
+    if(en){
+      var it = findItem(en);
+      cell.innerHTML = iconHtml(it, fs.icon) +
+        '<div class="cell-en" style="font-size:' + fs.en + 'px;">' + en + '</div>' +
+        '<div class="cell-ja" style="font-size:' + fs.ja + 'px;">' + it.ja + '</div>';
+      cell.onclick = function(){ removeFromCell(idx); };
+    } else {
+      cell.onclick = function(){ placeSelectedTile(idx); };
+    }
+    grid.appendChild(cell);
+  });
+  updateFillCount();
+}
+function updateFillCount(){
+  var filled = setupCells.filter(function(v){ return v; }).length;
+  document.getElementById("fill-count").textContent = filled + " / " + setupCells.length + " まいうめた";
+  document.getElementById("confirm-btn").disabled = filled < setupCells.length;
+}
+function renderPool(){
+  var poolWrap = document.getElementById("pool-wrap");
+  poolWrap.innerHTML = "";
+  var used = setupCells.filter(function(v){ return v; });
+  items.forEach(function(it){
+    if(used.indexOf(it.en) >= 0) return;
+    var tile = document.createElement("div");
+    tile.className = "pool-tile";
+    tile.dataset.en = it.en;
+    tile.innerHTML = iconHtml(it, 14) + '<span>' + it.en + '</span>';
+    tile.onclick = function(){ selectTile(it.en, tile); };
+    tile.addEventListener("pointerdown", function(ev){ startDrag(ev, it.en, tile); });
+    poolWrap.appendChild(tile);
+  });
+}
+function selectTile(en, el){
+  document.querySelectorAll(".pool-tile").forEach(function(t){ t.classList.remove("selected"); });
+  if(selectedTile === en){ selectedTile = null; return; }
+  selectedTile = en;
+  el.classList.add("selected");
+}
+function placeSelectedTile(idx){
+  if(!selectedTile) return;
+  if(setupCells[idx]) return;
+  setupCells[idx] = selectedTile;
+  selectedTile = null;
+  renderSetupGrid();
+  renderPool();
+}
+function removeFromCell(idx){
+  setupCells[idx] = null;
+  renderSetupGrid();
+  renderPool();
+}
+function randomFill(){
+  var pool = items.map(function(it){ return it.en; });
+  for(var i = pool.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  var n = gridSize * gridSize;
+  setupCells = pool.slice(0, n);
+  renderSetupGrid();
+  renderPool();
+}
+window.randomFill = randomFill;
+window.confirmCard = confirmCard;
+window.backToSetup = backToSetup;
+window.speak = speak;
+window.closeBingoOverlay = closeBingoOverlay;
+
+/* drag and drop (pointer events, touch-friendly) */
+function startDrag(ev, en, sourceEl){
+  ev.preventDefault();
+  var ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  ghost.textContent = en;
+  document.body.appendChild(ghost);
+  positionGhost(ghost, ev.clientX, ev.clientY);
+  sourceEl.classList.add("dragging");
+  dragState = { en: en, ghost: ghost, sourceEl: sourceEl };
+  document.addEventListener("pointermove", onDragMove);
+  document.addEventListener("pointerup", onDragEnd);
+}
+function positionGhost(ghost, x, y){
+  ghost.style.left = (x - ghost.offsetWidth / 2) + "px";
+  ghost.style.top = (y - ghost.offsetHeight / 2 - 40) + "px";
+}
+function onDragMove(ev){
+  if(!dragState) return;
+  positionGhost(dragState.ghost, ev.clientX, ev.clientY);
+}
+function onDragEnd(ev){
+  if(!dragState) return;
+  document.removeEventListener("pointermove", onDragMove);
+  document.removeEventListener("pointerup", onDragEnd);
+  dragState.ghost.style.display = "none";
+  var target = document.elementFromPoint(ev.clientX, ev.clientY);
+  dragState.ghost.remove();
+  dragState.sourceEl.classList.remove("dragging");
+  var cell = target ? target.closest(".setup-cell") : null;
+  if(cell && !cell.classList.contains("filled")){
+    var idx = Number(cell.dataset.idx);
+    setupCells[idx] = dragState.en;
+    renderSetupGrid();
+    renderPool();
+  }
+  dragState = null;
+}
+
+function confirmCard(){
+  var n = gridSize * gridSize;
+  if(setupCells.filter(function(v){ return v; }).length < n) return;
+  boardWords = setupCells.slice();
+  markedFlags = new Array(n).fill(false);
+  lineHit = new Array(n).fill(false);
+  calledSeen = [];
+  completedLineCount = 0;
+  var lcBadge = document.getElementById("line-count-badge");
+  if(lcBadge){ lcBadge.style.display = "block"; lcBadge.textContent = "🎯 0本"; }
+  document.getElementById("screen-setup").classList.remove("active");
+  document.getElementById("screen-game").classList.add("active");
+  if(setupPollTimer){ clearTimeout(setupPollTimer); setupPollTimer = null; }
+  renderBoard();
+  pollGame();
+}
+function backToSetup(){
+  if(pollTimer){ clearTimeout(pollTimer); pollTimer = null; }
+  var lcBadge2 = document.getElementById("line-count-badge");
+  if(lcBadge2) lcBadge2.style.display = "none";
+  document.getElementById("screen-game").classList.remove("active");
+  document.getElementById("screen-setup").classList.add("active");
+  resetSetupCells();
+  renderSetupGrid();
+  renderPool();
+  pollSetupSize();
+}
+
+/* ---------- game screen ---------- */
+function renderBoard(){
+  var fs = cellFontSize();
+  var grid = document.getElementById("board-grid");
+  grid.style.gridTemplateColumns = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.style.gridTemplateRows = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.innerHTML = "";
+  boardWords.forEach(function(en, idx){
+    var it = findItem(en);
+    var cell = document.createElement("div");
+    var cls = "board-cell";
+    if(markedFlags[idx]) cls += " marked";
+    if(lineHit[idx]) cls += " line";
+    cell.className = cls;
+    cell.innerHTML = iconHtml(it, fs.icon) +
+      '<div class="cell-en" style="font-size:' + fs.en + 'px;">' + en + '</div>' +
+      '<div class="cell-ja" style="font-size:' + fs.ja + 'px;">' + (it ? it.ja : "") + '</div>';
+    grid.appendChild(cell);
+  });
+}
+function renderHistoryStrip(calledWords){
+  var strip = document.getElementById("history-strip");
+  strip.innerHTML = calledWords.slice().reverse().map(function(w){
+    return '<span class="history-chip">' + w + '</span>';
+  }).join("");
+}
+function checkLines(){
+  var n = gridSize;
+  var newlyCompleted = false;
+  var totalCompleted = 0;
+  function markLine(idxs){
+    var allMarked = idxs.every(function(i){ return markedFlags[i]; });
+    if(allMarked){
+      totalCompleted++;
+      idxs.forEach(function(i){ if(!lineHit[i]) newlyCompleted = true; lineHit[i] = true; });
+    }
+  }
+  for(var r = 0; r < n; r++){
+    var row = []; for(var c = 0; c < n; c++) row.push(r * n + c);
+    markLine(row);
+  }
+  for(var c2 = 0; c2 < n; c2++){
+    var col = []; for(var r2 = 0; r2 < n; r2++) col.push(r2 * n + c2);
+    markLine(col);
+  }
+  var diag1 = []; for(var d = 0; d < n; d++) diag1.push(d * n + d);
+  markLine(diag1);
+  var diag2 = []; for(var d2 = 0; d2 < n; d2++) diag2.push(d2 * n + (n - 1 - d2));
+  markLine(diag2);
+  completedLineCount = totalCompleted;
+  updateLineCountBadge();
+  return newlyCompleted;
+}
+function updateLineCountBadge(){
+  var badge = document.getElementById("line-count-badge");
+  if(badge) badge.textContent = "🎯 " + completedLineCount + "本";
+}
+function showBingoOverlay(){
+  document.getElementById("bingo-overlay").classList.add("show");
+}
+function closeBingoOverlay(){
+  document.getElementById("bingo-overlay").classList.remove("show");
+}
+function pollGame(){
+  fetch("/api/bingo/state?room=" + encodeURIComponent(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var called = d.calledWords || [];
+      var newWords = called.slice(calledSeen.length);
+      calledSeen = called.slice();
+      renderHistoryStrip(called);
+      if(called.length > 0){
+        var last = called[called.length - 1];
+        var it = findItem(last);
+        document.getElementById("latest-en").innerHTML = last +
+          ' <button class="speak-btn" onclick="speak(\'' + last + '\')">🔊</button>';
+        document.getElementById("latest-ja").textContent = it ? it.ja : "";
+      }
+      var changed = false;
+      newWords.forEach(function(w){
+        var idx = boardWords.indexOf(w);
+        if(idx >= 0 && !markedFlags[idx]){ markedFlags[idx] = true; changed = true; }
+      });
+      if(newWords.length){
+        speak(newWords[newWords.length - 1]);
+      }
+      if(changed){
+        renderBoard();
+        var completed = checkLines();
+        renderBoard();
+        if(completed) showBingoOverlay();
+      }
+    })
+    .catch(function(){})
+    .finally(function(){ pollTimer = setTimeout(pollGame, 2500); });
+}
+
+/* setup-screen live size polling (in case teacher changes grid size while student is arranging) */
+function pollSetupSize(){
+  fetch("/api/bingo/state?room=" + encodeURIComponent(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var newSize = d.size || 3;
+      if(newSize !== gridSize){
+        gridSize = newSize;
+        document.getElementById("size-label").textContent = "（" + gridSize + "×" + gridSize + "）";
+        resetSetupCells();
+        renderSetupGrid();
+        renderPool();
+      } else {
+        document.getElementById("size-label").textContent = "（" + gridSize + "×" + gridSize + "）";
+      }
+    })
+    .catch(function(){})
+    .finally(function(){ setupPollTimer = setTimeout(pollSetupSize, 3000); });
+}
+
+/* ---------- room ---------- */
+function startWithRoom(room){
+  currentRoom = room;
+  localStorage.setItem(ROOM_KEY, room);
+  var url = new URL(location.href);
+  url.searchParams.set("room", room);
+  history.replaceState(null, "", url.toString());
+  document.getElementById("room-tag").textContent = "教室コード: " + room;
+  document.getElementById("room-overlay").style.display = "none";
+  resetSetupCells();
+  renderSetupGrid();
+  renderPool();
+  pollSetupSize();
+}
+document.getElementById("room-code-btn").onclick = function(){
+  var v = document.getElementById("room-code-input").value.trim();
+  if(!v){ alert("教室コードを入力してください"); return; }
+  startWithRoom(v);
+};
+
+(function boot(){
+  var urlRoom = getRoomFromUrl();
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  if(urlRoom){
+    startWithRoom(urlRoom);
+  } else if(savedRoom){
+    startWithRoom(savedRoom);
+  } else {
+    document.getElementById("room-overlay").style.display = "flex";
+  }
+})();
+</script>
+</body>
+</html>

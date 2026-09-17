@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ビンゴ ランキング - Do you like ...? ゲーム</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #1B1A2E; color: #FFFFFF; margin: 0; padding: 40px;
+  }
+  .title { font-size: 42px; font-weight: 700; text-align: center; margin-bottom: 30px; letter-spacing: 1px; }
+  .board { display: flex; flex-direction: column; gap: 14px; max-width: 1000px; margin: 0 auto; }
+  .row {
+    display: flex; align-items: center; gap: 22px; background: #26254A;
+    border-radius: 20px; padding: 16px 28px;
+  }
+  .row.top1 { background: linear-gradient(90deg, #4A3F1E, #26254A); border: 2px solid #F6C453; }
+  .row.flash { animation: flash 0.9s ease-out; }
+  @keyframes flash { 0% { background: #F6C453; } 100% { background: #26254A; } }
+  .rank { font-size: 34px; font-weight: 700; width: 76px; text-align: center; color: #F6C453; }
+  .avatar { width: 104px; height: 78px; border-radius: 10px; object-fit: cover; border: 3px solid #F6C453; flex: 0 0 auto; }
+  .avatar-blank {
+    width: 104px; height: 78px; border-radius: 10px; background: #3D3B6B; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; font-size: 26px; color: #B7B4E0;
+  }
+  .meta { flex: 1; }
+  .status { font-size: 15px; color: #F6C453; font-weight: 700; }
+  .score { font-size: 36px; font-weight: 700; color: #F6C453; white-space: nowrap; }
+  .score .unit { font-size: 16px; font-weight: 500; }
+  .empty { text-align: center; font-size: 22px; color: #B7B4E0; margin-top: 80px; }
+  .room-tag { text-align: center; font-size: 16px; color: #B7B4E0; margin-top: -14px; margin-bottom: 24px; }
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(10,10,20,0.75);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #26254A; border-radius: 20px; padding: 28px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  .room-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; color: #FFFFFF; }
+  .room-sub { font-size: 14px; color: #B7B4E0; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 18px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: none; background: #F6C453; color: #26254A; font-weight: 700; font-size: 16px; }
+  .mode-row { display: flex; gap: 12px; justify-content: center; margin-bottom: 26px; }
+  .mode-btn {
+    padding: 10px 22px; border-radius: 999px; border: 2px solid #3D3B6B; background: #26254A;
+    color: #B7B4E0; font-weight: 700; font-size: 16px; cursor: pointer;
+  }
+  .mode-btn.active { border-color: #F6C453; color: #F6C453; background: #3D3B6B; }
+</style>
+</head>
+<body>
+  <div id="room-overlay" class="room-overlay">
+    <div class="room-card">
+      <div class="room-title">教室コードを入力してください</div>
+      <div class="room-sub">先生・生徒に配ったURLと同じコードを入れてください（例: 3-1）</div>
+      <input type="text" id="room-code-input" class="room-input" placeholder="れい: 3-1">
+      <button id="room-code-btn" class="room-start-btn">はじめる</button>
+    </div>
+  </div>
+  <div class="title">🎯 ビンゴ ランキング</div>
+  <div class="room-tag" id="room-tag"></div>
+  <div class="mode-row">
+    <button class="mode-btn" id="mode-btn-bingo" onclick="setMode('bingo')">🏆 はやくビンゴ順</button>
+    <button class="mode-btn" id="mode-btn-lines" onclick="setMode('lines')">🎯 ライン数順</button>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="empty" id="empty" style="display:none;">まだ誰も参加していません</div>
+
+<script>
+var prevLineCounts = {};
+var ROOM_KEY = "bingo_tv_room";
+var currentRoom = "";
+var pollTimer = null;
+var MODE_KEY = "bingo_tv_mode";
+var currentMode = localStorage.getItem(MODE_KEY) || "bingo";
+var lastStudents = [];
+
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function startWithRoom(room){
+  currentRoom = room;
+  localStorage.setItem(ROOM_KEY, room);
+  var url = new URL(location.href);
+  url.searchParams.set("room", room);
+  history.replaceState(null, "", url.toString());
+  document.getElementById("room-tag").textContent = "教室コード: " + room;
+  document.getElementById("room-overlay").style.display = "none";
+  if(pollTimer) clearTimeout(pollTimer);
+  poll();
+}
+document.getElementById("room-code-btn").onclick = function(){
+  var v = document.getElementById("room-code-input").value.trim();
+  if(!v) return;
+  startWithRoom(v);
+};
+
+function updateModeButtons(){
+  document.getElementById("mode-btn-bingo").classList.toggle("active", currentMode === "bingo");
+  document.getElementById("mode-btn-lines").classList.toggle("active", currentMode === "lines");
+}
+function setMode(mode){
+  currentMode = mode;
+  localStorage.setItem(MODE_KEY, mode);
+  updateModeButtons();
+  renderCurrent();
+}
+window.setMode = setMode;
+function sortStudents(students, mode){
+  var list = students.slice();
+  if(mode === "lines"){
+    list.sort(function(a, b){
+      if((b.lineCount || 0) !== (a.lineCount || 0)) return (b.lineCount || 0) - (a.lineCount || 0);
+      if(a.bingoAt && b.bingoAt) return a.bingoAt - b.bingoAt;
+      if(a.bingoAt && !b.bingoAt) return -1;
+      if(!a.bingoAt && b.bingoAt) return 1;
+      return (a.registeredAt || 0) - (b.registeredAt || 0);
+    });
+  } else {
+    list.sort(function(a, b){
+      if(a.bingoAt && b.bingoAt) return a.bingoAt - b.bingoAt;
+      if(a.bingoAt && !b.bingoAt) return -1;
+      if(!a.bingoAt && b.bingoAt) return 1;
+      if((b.lineCount || 0) !== (a.lineCount || 0)) return (b.lineCount || 0) - (a.lineCount || 0);
+      return (a.registeredAt || 0) - (b.registeredAt || 0);
+    });
+  }
+  list.forEach(function(s, idx){ s.rank = idx + 1; });
+  return list;
+}
+function renderCurrent(){
+  render(sortStudents(lastStudents, currentMode));
+}
+function render(students){
+  var board = document.getElementById("board");
+  document.getElementById("empty").style.display = students.length ? "none" : "block";
+  board.innerHTML = "";
+  students.forEach(function(s, idx){
+    var rankLabel = idx < 3 ? ["🥇","🥈","🥉"][idx] : ("#" + s.rank);
+    var row = document.createElement("div");
+    var cls = "row" + (idx === 0 ? " top1" : "");
+    if(prevLineCounts[s.id] !== undefined && s.lineCount > prevLineCounts[s.id]) cls += " flash";
+    row.className = cls;
+    row.innerHTML =
+      '<div class="rank">' + rankLabel + '</div>' +
+      (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
+      '<div class="meta">' +
+        '<div class="status">' + (s.bingoAt ? "🎉 BINGO!" : "") + '</div>' +
+      '</div>' +
+      '<div class="score">' + (s.lineCount || 0) + '<span class="unit"> 本</span></div>';
+    board.appendChild(row);
+    prevLineCounts[s.id] = s.lineCount || 0;
+  });
+}
+
+function poll(){
+  fetch("/api/bingo/state?room=" + encodeURIComponent(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      lastStudents = d.students || [];
+      renderCurrent();
+    })
+    .catch(function(){})
+    .finally(function(){ pollTimer = setTimeout(poll, 2000); });
+}
+
+(function boot(){
+  updateModeButtons();
+  var urlRoom = getRoomFromUrl();
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  if(urlRoom){
+    startWithRoom(urlRoom);
+  } else if(savedRoom){
+    startWithRoom(savedRoom);
+  } else {
+    document.getElementById("room-overlay").style.display = "flex";
+  }
+})();
+</script>
+</body>
+</html>

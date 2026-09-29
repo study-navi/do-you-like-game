@@ -148,6 +148,38 @@ function publicBingoList(room){
   return list;
 }
 
+
+/* ===== What do you like? ゲーム（Unit5）用データ ===== */
+const WHAT_STUDENTS_FILE = path.join(__dirname, 'what_students.json');
+const WHAT_ROOMS_FILE = path.join(__dirname, 'what_rooms.json');
+let whatStudents = {};
+let whatRooms = {};
+try{ whatStudents = JSON.parse(fs.readFileSync(WHAT_STUDENTS_FILE, 'utf8')); }catch(e){ whatStudents = {}; }
+try{ whatRooms = JSON.parse(fs.readFileSync(WHAT_ROOMS_FILE, 'utf8')); }catch(e){ whatRooms = {}; }
+function saveWhatStudents(){
+  try{ fs.writeFileSync(WHAT_STUDENTS_FILE, JSON.stringify(whatStudents)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function saveWhatRooms(){
+  try{ fs.writeFileSync(WHAT_ROOMS_FILE, JSON.stringify(whatRooms)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function publicWhatList(room){
+  const list = Object.keys(whatStudents).filter(function(id){
+    return normalizeRoom(whatStudents[id].room) === room;
+  }).map(function(id){
+    const s = whatStudents[id];
+    return {
+      id: id, photo: s.photo, score: s.score, streak: s.streak, best: s.best,
+      used: s.used, total: s.total, status: s.status,
+      updatedAt: s.updatedAt, registeredAt: s.registeredAt
+    };
+  }).sort(function(a, b){
+    if(b.score !== a.score) return b.score - a.score;
+    return a.registeredAt - b.registeredAt;
+  });
+  list.forEach(function(s, idx){ s.rank = idx + 1; });
+  return list;
+}
+
 function sendJson(res, status, obj){
   const body = JSON.stringify(obj);
   res.writeHead(status, {
@@ -426,6 +458,87 @@ const server = http.createServer(function(req, res){
       s.updatedAt = Date.now();
       saveBingoStudents();
       sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/what'){
+    serveFile(res, path.join(PUBLIC_DIR, 'what.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/what-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'what-teacher.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/what-tv'){
+    serveFile(res, path.join(PUBLIC_DIR, 'what-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/what/state'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    sendJson(res, 200, { students: publicWhatList(room), room: room, finished: !!(whatRooms[room] && whatRooms[room].finished) });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/what/register'){
+    readJsonBody(req, function(body){
+      if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
+      const room = normalizeRoom(body.room);
+      const id = crypto.randomBytes(4).toString('hex');
+      whatStudents[id] = {
+        id: id, room: room,
+        photo: typeof body.photo === 'string' ? body.photo : null,
+        score: 0, streak: 0, best: 0, used: 0,
+        total: typeof body.total === 'number' ? body.total : 0,
+        status: 'とうろくしました',
+        updatedAt: Date.now(), registeredAt: Date.now()
+      };
+      saveWhatStudents();
+      sendJson(res, 200, { id: id, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/what/event'){
+    readJsonBody(req, function(body){
+      if(!body || !body.id || !whatStudents[body.id]){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      const s = whatStudents[body.id];
+      ['score', 'streak', 'best', 'used', 'total'].forEach(function(k){
+        if(typeof body[k] === 'number') s[k] = body[k];
+      });
+      if(typeof body.status === 'string') s.status = body.status;
+      s.updatedAt = Date.now();
+      saveWhatStudents();
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/what/reset'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      Object.keys(whatStudents).forEach(function(id){
+        if(normalizeRoom(whatStudents[id].room) === room) delete whatStudents[id];
+      });
+      delete whatRooms[room];
+      saveWhatStudents();
+      saveWhatRooms();
+      sendJson(res, 200, { ok: true, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && (url === '/api/what/finish' || url === '/api/what/resume')){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const finished = url === '/api/what/finish';
+      whatRooms[room] = finished ? { finished: true, finishedAt: Date.now() } : { finished: false };
+      saveWhatRooms();
+      sendJson(res, 200, { ok: true, room: room, finished: finished });
     });
     return;
   }

@@ -470,6 +470,10 @@ const server = http.createServer(function(req, res){
     serveFile(res, path.join(PUBLIC_DIR, 'what-teacher.html'), 'text/html; charset=utf-8');
     return;
   }
+  if(req.method === 'GET' && url === '/qrcode.js'){
+    serveFile(res, path.join(PUBLIC_DIR, 'qrcode.js'), 'application/javascript; charset=utf-8');
+    return;
+  }
   if(req.method === 'GET' && url === '/what-tv'){
     serveFile(res, path.join(PUBLIC_DIR, 'what-tv.html'), 'text/html; charset=utf-8');
     return;

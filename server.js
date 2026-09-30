@@ -488,9 +488,15 @@ const server = http.createServer(function(req, res){
       if(typeof body.replaceId === 'string' && whatStudents[body.replaceId] && normalizeRoom(whatStudents[body.replaceId].room) === room){
         delete whatStudents[body.replaceId];
       }
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      if(deviceId){
+        Object.keys(whatStudents).forEach(function(k){
+          if(whatStudents[k].deviceId === deviceId && normalizeRoom(whatStudents[k].room) === room) delete whatStudents[k];
+        });
+      }
       const id = crypto.randomBytes(4).toString('hex');
       whatStudents[id] = {
-        id: id, room: room,
+        id: id, room: room, deviceId: deviceId,
         role: body.role === 'teacher' ? 'teacher' : 'student',
         no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
@@ -518,6 +524,19 @@ const server = http.createServer(function(req, res){
       if(typeof body.status === 'string') s.status = body.status;
       s.updatedAt = Date.now();
       saveWhatStudents();
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/what/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && whatStudents[id] && normalizeRoom(whatStudents[id].room) === room){
+        delete whatStudents[id];
+        saveWhatStudents();
+      }
       sendJson(res, 200, { ok: true });
     });
     return;

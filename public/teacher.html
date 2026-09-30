@@ -28,6 +28,27 @@
   .finish-btn.finished {
     border-color: #1D9E75; color: #0F6E56; background: #E1F5EE;
   }
+  .roster { background: #FFFFFF; border-radius: 16px; padding: 14px 18px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+  .roster-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+  .roster-top input { width: 70px; padding: 6px 8px; border-radius: 8px; border: 1px solid #D3D1C7; font-size: 15px; text-align: center; }
+  .roster-count { font-weight: 700; font-size: 16px; }
+  .roster-missing { color: #993C1D; font-weight: 600; }
+  .roster-ok { color: #0F6E56; font-weight: 600; }
+  .roster-warn { color: #854F0B; font-size: 13px; }
+  .no-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .no-chip { min-width: 38px; padding: 6px 4px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 700; background: #EDEBE3; color: #B4B2A9; }
+  .no-chip.in { background: #E1F5EE; color: #0F6E56; }
+  .no-chip.dup { background: #FAEEDA; color: #854F0B; }
+  .no-chip { cursor: pointer; user-select: none; border: 1px solid transparent; }
+  .no-chip.absent { background: #FFFFFF; color: #993C1D; border: 1px dashed #D85A30; text-decoration: line-through; }
+  .no-chip small { display: block; font-size: 9px; font-weight: 600; text-decoration: none; }
+  .roster-hint { font-size: 12px; color: #888780; margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .roster-hint button { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .no-badge.teacher { background: #7F77DD; }
+  .rm-btn { position: absolute; bottom: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E9B9A8; background: #FFFFFF; color: #993C1D; font-size: 13px; line-height: 1; cursor: pointer; opacity: 0.55; }
+  .rm-btn:hover { opacity: 1; background: #FAECE7; }
+  .card.teacher-card { border: 2px solid #CECBF6; }
+  .no-badge { position: absolute; top: 8px; right: 10px; background: #185FA5; color: #FFFFFF; font-size: 14px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
   .empty-msg { text-align: center; color: #888780; padding: 60px 20px; font-size: 16px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
   .card {
@@ -50,6 +71,27 @@
   .updated { font-size: 10px; color: #B4B2A9; margin-top: 6px; }
   .room-label { font-size: 14px; font-weight: 400; color: #5F5E5A; margin-left: 10px; }
   .room-change { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .t-gc { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 12px; }
+  .t-gc button { padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF; font-size: 16px; font-weight: 700; color: #2C2C2A; cursor: pointer; }
+  .t-gc button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+  .t-gc-name { text-align: left; font-size: 13px; color: #5F5E5A; font-weight: 600; margin-bottom: 6px; }
+  .room-preview { font-size: 14px; color: #185FA5; font-weight: 600; margin-bottom: 12px; min-height: 20px; }
+  .qr-card { max-width: 420px; }
+  .qr-tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+  .qr-tabs button { font-size: 13px; padding: 6px 14px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .qr-tabs button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .qr-box { display: flex; justify-content: center; margin: 6px 0 10px; }
+  .qr-box svg { width: 260px; height: 260px; }
+  .qr-url { font-size: 12px; color: #5F5E5A; word-break: break-all; background: #F1EFE8; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+  .qr-actions { display: flex; gap: 8px; justify-content: center; }
+  .qr-actions button { font-size: 13px; padding: 8px 14px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #2C2C2A; cursor: pointer; }
+  @media print {
+    body * { visibility: hidden; }
+    #qr-overlay, #qr-overlay * { visibility: visible; }
+    #qr-overlay { position: absolute; inset: 0; background: #FFFFFF; }
+    .qr-tabs, .qr-actions { display: none !important; }
+    .qr-card { box-shadow: none; }
+  }
   .room-overlay {
     position: fixed; inset: 0; background: rgba(44,44,42,0.55);
     display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
@@ -60,25 +102,59 @@
   .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
   .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 600; font-size: 15px; }
 </style>
+<script src="/qrcode.js"></script>
 </head>
 <body>
 <div id="room-overlay" class="room-overlay">
   <div class="room-card">
-    <div class="room-title">教室コードを入力してください</div>
-    <div class="room-sub">生徒に配ったURLと同じコードを入れてください（例: 3-1）</div>
-    <input type="text" id="room-code-input" class="room-input" placeholder="れい: 3-1">
+    <div class="room-title">クラスをえらんでください</div>
+    <div class="room-sub">学校コードは、ほかの学校とデータが混ざらないようにするためのものです（半角英数字・空欄でもOK）</div>
+    <input type="text" id="school-input" class="room-input" placeholder="学校コード（例: hiiragi）" autocomplete="off">
+    <div class="t-gc-name">学年</div>
+    <div id="t-grade" class="t-gc"></div>
+    <div class="t-gc-name">組</div>
+    <div id="t-class" class="t-gc"></div>
+    <div id="room-preview" class="room-preview"></div>
     <button id="room-code-btn" class="room-start-btn">はじめる</button>
+  </div>
+</div>
+<div id="qr-overlay" class="room-overlay" style="display:none;">
+  <div class="room-card qr-card">
+    <div class="room-title">生徒用QRコード</div>
+    <div class="qr-tabs">
+      <button id="qr-tab-common" type="button">全クラス共通</button>
+      <button id="qr-tab-class" type="button">このクラス専用</button>
+    </div>
+    <div id="qr-desc" class="room-sub"></div>
+    <div id="qr-box" class="qr-box"></div>
+    <div id="qr-url" class="qr-url"></div>
+    <div class="qr-actions">
+      <button id="qr-copy" type="button">URLをコピー</button>
+      <button id="qr-print" type="button">印刷</button>
+      <button id="qr-close" type="button">とじる</button>
+    </div>
   </div>
 </div>
 <div class="wrap">
   <div class="top">
-    <div class="title">📊 クラスの状況（先生用）<span id="room-label" class="room-label"></span></div>
+    <div class="title">📊 Do you like ...? ゲーム（先生用）<span id="room-label" class="room-label"></span></div>
     <div class="actions">
       <span id="conn-status" class="conn-status">接続中...</span>
-      <button id="room-change-btn" class="room-change">教室コードを変える</button>
+      <button id="room-change-btn" class="room-change">クラスを変える</button>
+      <button id="url-btn" class="room-change">🔳 生徒用QRコード</button>
+      <button id="tv-btn" class="room-change">📺 TV画面を開く</button>
       <button id="finish-btn" class="finish-btn">🏁 終了する</button>
       <button id="reset-btn" class="reset-btn">全員のスコアをリセット</button>
     </div>
+  </div>
+  <div class="roster">
+    <div class="roster-top">
+      <label>クラスの人数 <input type="number" id="class-size" min="1" max="99" placeholder="例: 30"> 人</label>
+      <span id="roster-count" class="roster-count"></span>
+      <span id="roster-msg"></span>
+    </div>
+    <div id="no-grid" class="no-grid"></div>
+    <div class="roster-hint">番号をタップすると「欠席」にできます（もう一度タップで もどす）<button id="absent-clear">欠席をすべて解除</button></div>
   </div>
   <div id="empty-msg" class="empty-msg" style="display:none;">まだ誰も登録していません。生徒にゲーム画面を開いてもらってください。</div>
   <div id="grid" class="grid"></div>
@@ -88,6 +164,81 @@ var ROOM_KEY = "doyoulike_teacher_room";
 var currentRoom = "";
 var pollTimer = null;
 var isFinished = false;
+var CLASS_SIZE_KEY = "doyoulike_class_size";
+var lastStudents = [];
+
+function absentKey(){ return "doyoulike_absent_" + currentRoom; }
+function getAbsent(){
+  try{ return JSON.parse(localStorage.getItem(absentKey()) || "[]"); }catch(e){ return []; }
+}
+function setAbsent(list){
+  try{ localStorage.setItem(absentKey(), JSON.stringify(list)); }catch(e){}
+}
+function toggleAbsent(n){
+  var list = getAbsent();
+  var i = list.indexOf(n);
+  if(i >= 0) list.splice(i, 1); else list.push(n);
+  setAbsent(list);
+  renderRoster(lastStudents);
+}
+function clearAbsent(){ setAbsent([]); }
+
+function renderRoster(students){
+  lastStudents = students;
+  var size = parseInt(document.getElementById("class-size").value, 10) || 0;
+  var counts = {};
+  var noNumber = 0, teachers = 0;
+  students.forEach(function(s){
+    if(s.role === "teacher") teachers++;
+    else if(s.no) counts[s.no] = (counts[s.no] || 0) + 1;
+    else noNumber++;
+  });
+  var absent = getAbsent();
+  var grid = document.getElementById("no-grid");
+  var msg = document.getElementById("roster-msg");
+  grid.innerHTML = "";
+  var teacherText = teachers ? ' <span class="roster-warn">／ 先生 ' + teachers + '人</span>' : '';
+  if(!size){
+    document.getElementById("roster-count").textContent = "ログイン " + (students.length - teachers) + "人";
+    msg.innerHTML = '<span class="roster-warn">クラスの人数を入れると、まだログインしていない番号が わかります</span>' + teacherText;
+    return;
+  }
+  var missing = [], dups = [], loggedIn = 0, absentCount = 0;
+  for(var n = 1; n <= size; n++){
+    var c = counts[n] || 0;
+    var isAbsent = !c && absent.indexOf(n) >= 0;
+    if(c) loggedIn++;
+    else if(isAbsent) absentCount++;
+    else missing.push(n);
+    if(c > 1) dups.push(n);
+    var chip = document.createElement("div");
+    chip.className = "no-chip" + (c > 1 ? " dup" : (c ? " in" : (isAbsent ? " absent" : "")));
+    chip.innerHTML = n + (isAbsent ? "<small>欠席</small>" : "");
+    chip.title = c ? "ログイン済み" : (isAbsent ? "欠席（タップで もどす）" : "タップで 欠席にする");
+    (function(num, logged){
+      chip.onclick = function(){ if(!logged) toggleAbsent(num); };
+    })(n, !!c);
+    grid.appendChild(chip);
+  }
+  var expected = size - absentCount;
+  document.getElementById("roster-count").textContent = "ログイン " + loggedIn + " / " + expected + "人" + (absentCount ? "（欠席 " + absentCount + "人）" : "");
+  var html = missing.length
+    ? '<span class="roster-missing">まだ: ' + missing.map(function(n){ return n + "番"; }).join("、") + '</span>'
+    : '<span class="roster-ok">✅ 全員ログインしました</span>';
+  if(dups.length) html += ' <span class="roster-warn">／ 番号がかぶっています: ' + dups.map(function(n){ return n + "番"; }).join("、") + '</span>';
+  if(noNumber) html += ' <span class="roster-warn">／ 番号なし ' + noNumber + '人</span>';
+  html += teacherText;
+  msg.innerHTML = html;
+}
+document.getElementById("absent-clear").onclick = function(){
+  clearAbsent();
+  renderRoster(lastStudents);
+};
+document.getElementById("class-size").addEventListener("input", function(){
+  try{ localStorage.setItem(CLASS_SIZE_KEY, this.value); }catch(e){}
+  renderRoster(lastStudents);
+});
+try{ document.getElementById("class-size").value = localStorage.getItem(CLASS_SIZE_KEY) || ""; }catch(e){}
 
 function getRoomFromUrl(){
   var m = location.search.match(/[?&]room=([^&]+)/);
@@ -106,18 +257,108 @@ function startWithRoom(room){
   poll();
 }
 
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+var SCHOOL_KEY = "doyoulike_school";
+var tGrade = 0, tClass = 0;
+function parseRoom(room){
+  var m = String(room || "").match(/^(?:([a-z0-9]+)-)?([1-6])-([1-8])$/);
+  return m ? { school: m[1] || "", g: parseInt(m[2], 10), c: parseInt(m[3], 10) } : null;
+}
+function currentSchool(){ return sanitizeSchool(document.getElementById("school-input").value); }
+function renderTGC(){
+  function build(id, max, onPick){
+    var box = document.getElementById(id);
+    if(!box.children.length){
+      for(var n = 1; n <= max; n++){
+        (function(num){
+          var b = document.createElement("button");
+          b.type = "button";
+          b.textContent = num;
+          b.onclick = function(){ onPick(num); renderTGC(); };
+          box.appendChild(b);
+        })(n);
+      }
+    }
+    return box;
+  }
+  var g = build("t-grade", 6, function(n){ tGrade = n; });
+  var c = build("t-class", 8, function(n){ tClass = n; });
+  Array.prototype.forEach.call(g.children, function(b){ b.className = parseInt(b.textContent, 10) === tGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(c.children, function(b){ b.className = parseInt(b.textContent, 10) === tClass ? "sel" : ""; });
+  document.getElementById("room-preview").textContent = (tGrade && tClass)
+    ? tGrade + "年" + tClass + "組（教室コード: " + makeRoom(currentSchool(), tGrade, tClass) + "）"
+    : "学年と組をえらんでください";
+}
 function showRoomOverlay(prefill){
-  document.getElementById("room-code-input").value = prefill || "";
+  var p = parseRoom(prefill);
+  var school = p ? p.school : "";
+  if(!p){ try{ school = localStorage.getItem(SCHOOL_KEY) || ""; }catch(e){} }
+  document.getElementById("school-input").value = school;
+  tGrade = p ? p.g : 0;
+  tClass = p ? p.c : 0;
+  renderTGC();
   document.getElementById("room-overlay").style.display = "flex";
 }
-
+document.getElementById("school-input").oninput = renderTGC;
 document.getElementById("room-code-btn").onclick = function(){
-  var v = document.getElementById("room-code-input").value.trim();
-  if(!v){ alert("教室コードを入力してください"); return; }
-  startWithRoom(v);
+  if(!tGrade || !tClass){ alert("学年と組をえらんでください"); return; }
+  var school = currentSchool();
+  try{ localStorage.setItem(SCHOOL_KEY, school); }catch(e){}
+  startWithRoom(makeRoom(school, tGrade, tClass));
 };
 document.getElementById("room-change-btn").onclick = function(){
   showRoomOverlay(currentRoom);
+};
+document.getElementById("tv-btn").onclick = function(){
+  window.open("/tv?room=" + encodeURIComponent(currentRoom), "_blank");
+};
+var qrMode = "common";
+function qrUrl(){
+  var p = parseRoom(currentRoom);
+  var school = p ? p.school : "";
+  return qrMode === "common"
+    ? location.origin + "/" + (school ? "?school=" + school : "")
+    : location.origin + "/?room=" + encodeURIComponent(currentRoom);
+}
+function renderQR(){
+  var p = parseRoom(currentRoom);
+  var school = p ? p.school : "";
+  var url = qrUrl();
+  document.getElementById("qr-tab-common").className = qrMode === "common" ? "sel" : "";
+  document.getElementById("qr-tab-class").className = qrMode === "class" ? "sel" : "";
+  document.getElementById("qr-desc").textContent = qrMode === "common"
+    ? "全クラス共通のプリント用です。生徒は学年・組・番号をえらびます。" + (school ? "（学校コード「" + school + "」入り）" : "（学校コードなし）")
+    : (p ? p.g + "年" + p.c + "組" : currentRoom) + " 専用です。生徒は学年・組をえらばずに入れます（番号をえらぶだけ）。TVに映して読み取らせるときに便利です。";
+  var box = document.getElementById("qr-box");
+  if(typeof qrcode !== "function"){
+    box.textContent = "QRコードを作れませんでした（ページを読みこみ直してください）";
+  } else {
+    var qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2 });
+  }
+  document.getElementById("qr-url").textContent = url;
+  document.getElementById("qr-copy").textContent = "URLをコピー";
+}
+document.getElementById("url-btn").onclick = function(){
+  qrMode = "common";
+  renderQR();
+  document.getElementById("qr-overlay").style.display = "flex";
+};
+document.getElementById("qr-tab-common").onclick = function(){ qrMode = "common"; renderQR(); };
+document.getElementById("qr-tab-class").onclick = function(){ qrMode = "class"; renderQR(); };
+document.getElementById("qr-close").onclick = function(){ document.getElementById("qr-overlay").style.display = "none"; };
+document.getElementById("qr-print").onclick = function(){ window.print(); };
+document.getElementById("qr-copy").onclick = function(){
+  var url = qrUrl();
+  var btn = this;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ btn.textContent = "コピーしました"; }, function(){ prompt("このURLをコピーしてください", url); });
+  } else {
+    prompt("このURLをコピーしてください", url);
+  }
 };
 
 function fmtTime(ts){
@@ -127,7 +368,21 @@ function fmtTime(ts){
   if(m < 60) return m + "分前";
   return Math.floor(m / 60) + "時間前";
 }
+var photoCache = {};
+function photoSrc(s){
+  if(!s.photo) return null;
+  var c = photoCache[s.id];
+  if(c && c !== "loading") return c;
+  if(!c){
+    photoCache[s.id] = "loading";
+    fetch(s.photo).then(function(r){ if(!r.ok) throw new Error("x"); return r.blob(); })
+      .then(function(b){ photoCache[s.id] = URL.createObjectURL(b); })
+      .catch(function(){ delete photoCache[s.id]; });
+  }
+  return null;
+}
 function render(students){
+  renderRoster(students);
   var grid = document.getElementById("grid");
   document.getElementById("empty-msg").style.display = students.length ? "none" : "block";
   grid.innerHTML = "";
@@ -135,10 +390,12 @@ function render(students){
     var rankLabel = idx < 3 ? ["🥇","🥈","🥉"][idx] : ("#" + s.rank);
     var pct = s.total ? Math.round(s.used / s.total * 100) : 0;
     var card = document.createElement("div");
-    card.className = "card";
+    card.className = "card" + (s.role === "teacher" ? " teacher-card" : "");
     card.innerHTML =
       '<div class="rank">' + rankLabel + '</div>' +
-      (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
+      '<button class="rm-btn" data-id="' + s.id + '" title="この表示を消す">×</button>' +
+      (s.role === "teacher" ? '<div class="no-badge teacher">先生</div>' : (s.no ? '<div class="no-badge">' + s.no + '番</div>' : '')) +
+      (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="score">' + s.score + '<span class="unit">pt</span></div>' +
       '<div class="streak">🔥 ' + s.streak + '（さいこう ' + s.best + '）</div>' +
       '<div class="status">' + (s.status || "") + '</div>' +
@@ -159,7 +416,7 @@ function updateFinishBtn(){
   }
 }
 function poll(){
-  fetch("/api/state?room=" + encodeURIComponent(currentRoom))
+  fetch("/api/dyl/state?room=" + encodeURIComponent(currentRoom))
     .then(function(r){ return r.json(); })
     .then(function(d){
       var el = document.getElementById("conn-status");
@@ -180,7 +437,8 @@ function poll(){
 }
 document.getElementById("reset-btn").onclick = function(){
   if(!confirm("この教室（" + currentRoom + "）の全員のスコア・登録情報をリセットします。よろしいですか？")) return;
-  fetch("/api/reset", {
+  clearAbsent();
+  fetch("/api/dyl/reset", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ room: currentRoom })
@@ -188,20 +446,31 @@ document.getElementById("reset-btn").onclick = function(){
 };
 document.getElementById("finish-btn").onclick = function(){
   if(isFinished){
-    fetch("/api/resume", {
+    fetch("/api/dyl/resume", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ room: currentRoom })
     }).then(poll);
   } else {
     if(!confirm("この教室（" + currentRoom + "）のゲームを終了します。生徒の画面に順位が表示されます。よろしいですか？")) return;
-    fetch("/api/finish", {
+    fetch("/api/dyl/finish", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ room: currentRoom })
     }).then(poll);
   }
 };
+
+document.getElementById("grid").addEventListener("click", function(e){
+  var btn = e.target.closest ? e.target.closest(".rm-btn") : null;
+  if(!btn) return;
+  if(!confirm("この表示を消しますか？\n（まちがえて2つ出ているときなどに使います。その端末は登録画面にもどります）")) return;
+  fetch("/api/dyl/remove", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom, id: btn.getAttribute("data-id") })
+  }).catch(function(){});
+});
 
 (function boot(){
   var urlRoom = getRoomFromUrl();

@@ -180,6 +180,30 @@
     border: 1px solid #D3D1C7; color: #5F5E5A; background: #FFFFFF;
   }
   .reg-error { color: #993C1D; font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .no-flex { display: flex; gap: 8px; }
+  .teacher-toggle {
+    flex: 0 0 auto; padding: 0 14px; border-radius: 10px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; font-size: 14px; font-weight: 600;
+  }
+  .teacher-toggle.on { background: #EEEDFE; border-color: #7F77DD; color: #534AB7; }
+  .register-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .no-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
+  .no-pick button {
+    padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 17px; font-weight: 700; color: #2C2C2A; transition: transform 0.1s;
+  }
+  .no-pick button:active { transform: scale(0.92); }
+  .no-pick button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .no-pick.off { opacity: 0.3; pointer-events: none; }
+  #teacher-btn { width: 100%; padding: 10px 14px; }
+  .gc-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .gc-name { flex: 0 0 34px; font-size: 13px; color: #5F5E5A; font-weight: 600; }
+  .gc-pick { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .gc-pick button {
+    padding: 8px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 16px; font-weight: 700; color: #2C2C2A;
+  }
+  .gc-pick button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
   .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
 </style>
 </head>
@@ -189,11 +213,19 @@
   <div id="register-overlay" class="register-overlay">
     <div class="register-card">
       <div class="register-title">📷 なまえカードを うつしてね</div>
-      <div class="register-sub">紙に なまえを かいて、しゃしんを とってください</div>
+      <div class="register-sub">ネームカードに なまえを かいて、しゃしんを とってください</div>
       <div id="room-badge" style="font-size:13px;color:#185FA5;background:#E6F1FB;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
-      <div id="room-row" style="margin-bottom:16px;display:none;text-align:left;">
-        <label style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">きょうしつコード（せんせいに きいてね）</label>
-        <input type="text" id="room-input" placeholder="れい: 3-1" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:15px;box-sizing:border-box;text-align:center;">
+      <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
+        <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
+        <input type="hidden" id="room-input" value="">
+        <div class="gc-line"><span class="gc-name">ねん</span><div id="grade-pick" class="gc-pick"></div></div>
+        <div class="gc-line"><span class="gc-name">くみ</span><div id="class-pick" class="gc-pick"></div></div>
+      </div>
+      <div id="no-row" style="margin-bottom:14px;text-align:left;">
+        <label id="no-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">しゅっせきばんごうを えらんでね</label>
+        <input type="hidden" id="no-input" value="">
+        <div id="no-pick" class="no-pick"></div>
+        <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
       </div>
       <div class="reg-frame" id="reg-frame">
         <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
@@ -349,6 +381,63 @@ var STORAGE_KEY = "doyoulike_game_v1";
 var STUDENT_ID_KEY = "doyoulike_student_id";
 var STUDENT_PHOTO_KEY = "doyoulike_student_photo";
 var STUDENT_ROOM_KEY = "doyoulike_student_room";
+var STUDENT_NO_KEY = "doyoulike_student_no";
+var PREV_ID_KEY = "doyoulike_prev_id";
+var DEVICE_KEY = "doyoulike_device";
+var registering = false;
+function getDeviceId(){
+  var d = "";
+  try{ d = localStorage.getItem(DEVICE_KEY) || ""; }catch(e){}
+  if(!d){
+    d = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try{ localStorage.setItem(DEVICE_KEY, d); }catch(e){}
+  }
+  return d;
+}
+var STUDENT_ROLE_KEY = "doyoulike_student_role";
+var isTeacher = false;
+function setTeacherMode(on){
+  isTeacher = !!on;
+  var input = document.getElementById("no-input");
+  var btn = document.getElementById("teacher-btn");
+  input.disabled = isTeacher;
+  input.placeholder = isTeacher ? "先生として さんか" : "れい: 12";
+  if(isTeacher) input.value = "";
+  btn.className = "teacher-toggle" + (isTeacher ? " on" : "");
+  btn.textContent = isTeacher ? "✓ 先生" : "👩‍🏫 先生";
+  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごうを えらんでね";
+  renderNoPick();
+}
+var MAX_NO = 35;
+function renderNoPick(){
+  var box = document.getElementById("no-pick");
+  var input = document.getElementById("no-input");
+  if(!box.children.length){
+    for(var n = 1; n <= MAX_NO; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){
+          input.value = String(num);
+          document.getElementById("reg-error").textContent = "";
+          renderNoPick();
+        };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  var cur = parseInt(input.value, 10);
+  Array.prototype.forEach.call(box.children, function(b){
+    b.className = (!isTeacher && parseInt(b.textContent, 10) === cur) ? "sel" : "";
+  });
+  box.className = "no-pick" + (isTeacher ? " off" : "");
+  if(!isTeacher && cur >= 1){
+    document.getElementById("no-label").textContent = "しゅっせきばんごう: " + cur + "ばん";
+  }
+}
+function toggleTeacher(){ setTeacherMode(!isTeacher); }
+var API = "/api/dyl";
 var myRoom = "";
 var finishPollTimer = null;
 var isGameFinished = false;
@@ -376,6 +465,36 @@ function getRoomForRegister(){
   var input = document.getElementById("room-input");
   return input ? input.value : "";
 }
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+function getSchoolFromUrl(){
+  var m = location.search.match(/[?&]school=([^&]+)/);
+  return m ? sanitizeSchool(decodeURIComponent(m[1])) : "";
+}
+var GC_KEY = "doyoulike_gc";
+var selGrade = 0, selClass = 0;
+function renderGC(){
+  var gBox = document.getElementById("grade-pick");
+  var cBox = document.getElementById("class-pick");
+  function build(box, max, onPick){
+    if(box.children.length) return;
+    for(var n = 1; n <= max; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){ onPick(num); document.getElementById("reg-error").textContent = ""; renderGC(); };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  build(gBox, 6, function(n){ selGrade = n; });
+  build(cBox, 8, function(n){ selClass = n; });
+  Array.prototype.forEach.call(gBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(cBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selClass ? "sel" : ""; });
+  document.getElementById("room-input").value = (selGrade && selClass) ? makeRoom(getSchoolFromUrl(), selGrade, selClass) : "";
+  document.getElementById("gc-label").textContent = (selGrade && selClass) ? (selGrade + "ねん " + selClass + "くみ") : "なんねん なんくみ？";
+}
 
 /* ---------- storage ---------- */
 function loadState(){
@@ -402,7 +521,7 @@ function saveState(){
 function syncEvent(payload){
   if(!studentId) return;
   payload.id = studentId;
-  fetch("/api/event", {
+  fetch(API + "/event", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload)
@@ -419,7 +538,7 @@ function onPhotoSelected(event){
   reader.onload = function(e){
     var img = new Image();
     img.onload = function(){
-      var targetW = 320, targetH = 240; // 横長(4:3)にトリミング
+      var targetW = 320, targetH = 240;
       var canvas = document.createElement("canvas");
       canvas.width = targetW; canvas.height = targetH;
       var ctx = canvas.getContext("2d");
@@ -433,7 +552,6 @@ function onPhotoSelected(event){
       }
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
       capturedPhoto = canvas.toDataURL("image/jpeg", 0.75);
-
       document.getElementById("reg-preview").src = capturedPhoto;
       document.getElementById("reg-preview").style.display = "block";
       document.getElementById("reg-placeholder").style.display = "none";
@@ -463,11 +581,24 @@ function retakePhoto(){
 function confirmPhoto(){
   if(!capturedPhoto) return;
   var err = document.getElementById("reg-error");
+  if(!getRoomFromUrl() && !(selGrade && selClass)){
+    err.textContent = "なんねん なんくみ か えらんでね";
+    return;
+  }
+  var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
+  if(!isTeacher && !(no >= 1 && no <= 99)){
+    err.textContent = "しゅっせきばんごうを えらんでね";
+    document.getElementById("no-input").focus();
+    return;
+  }
+  if(registering) return;
+  registering = true;
+  document.getElementById("reg-confirm-btn").disabled = true;
   err.textContent = "とうろく中...";
-  fetch("/api/register", {
+  fetch(API + "/register", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ photo: capturedPhoto, total: items.length, room: getRoomForRegister() })
+    body: JSON.stringify({ photo: capturedPhoto, total: items.length, room: getRoomForRegister(), no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
   }).then(function(r){ return r.json(); })
     .then(function(d){
       if(!d.id) throw new Error("no id");
@@ -476,9 +607,18 @@ function confirmPhoto(){
       localStorage.setItem(STUDENT_ROOM_KEY, d.room || getRoomForRegister());
       studentId = d.id;
       myRoom = d.room || getRoomForRegister();
+      localStorage.removeItem(PREV_ID_KEY);
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
+      if(selGrade && selClass) localStorage.setItem(GC_KEY, selGrade + "-" + selClass);
+      localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
       finishRegister();
+      syncEvent({ score: score, streak: streak, best: best, used: usedSet.size, total: items.length, status: "とうろくしました" });
     })
     .catch(function(){
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
       err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
     });
 }
@@ -489,7 +629,7 @@ function skipRegister(){
 function finishRegister(){
   document.getElementById("register-overlay").style.display = "none";
   var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
-  if(photo){
+  if(photo && studentId){
     var av = document.getElementById("my-avatar");
     av.src = photo;
     av.style.display = "inline-block";
@@ -506,9 +646,14 @@ function startFinishPoll(){
 }
 function checkFinishState(){
   if(!studentId) return;
-  fetch("/api/state?room=" + encodeURIComponent(myRoom))
+  fetch(API + "/state?room=" + encodeURIComponent(myRoom) + "&me=" + encodeURIComponent(studentId))
     .then(function(r){ return r.json(); })
     .then(function(d){
+      if(!d.exists){
+        forgetRegistration();
+        location.reload();
+        return;
+      }
       isGameFinished = !!d.finished;
       if(isGameFinished){
         showFinishOverlay(d.students || []);
@@ -533,8 +678,39 @@ function showFinishOverlay(students){
 function hideFinishOverlay(){
   document.getElementById("finish-overlay").style.display = "none";
 }
+/* ---------- saved photo / registration check ---------- */
+function forgetRegistration(){
+  localStorage.removeItem(STUDENT_ID_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+  studentId = null;
+}
+function resumeRegistered(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(photo){
+    var av = document.getElementById("my-avatar");
+    av.src = photo;
+    av.style.display = "inline-block";
+  }
+  document.getElementById("register-overlay").style.display = "none";
+  initGame();
+  startFinishPoll();
+}
+function prefillSavedPhoto(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(!photo) return;
+  capturedPhoto = photo;
+  document.getElementById("reg-preview").src = photo;
+  document.getElementById("reg-preview").style.display = "block";
+  document.getElementById("reg-placeholder").style.display = "none";
+  document.getElementById("reg-capture-btn").style.display = "none";
+  document.getElementById("reg-confirm-btn").style.display = "block";
+  document.getElementById("reg-retake-btn").style.display = "block";
+  document.querySelector(".register-sub").textContent = "まえの しゃしんで よければ「これで OK」を おしてね";
+}
 function reRegister(){
   if(!confirm("なまえカードを とりなおしますか？")) return;
+  var oldId = localStorage.getItem(STUDENT_ID_KEY);
+  if(oldId) localStorage.setItem(PREV_ID_KEY, oldId);
   localStorage.removeItem(STUDENT_ID_KEY);
   localStorage.removeItem(STUDENT_PHOTO_KEY);
   location.reload();
@@ -780,6 +956,11 @@ function initGame(){
 }
 
 (function boot(){
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
   var urlRoom = getRoomFromUrl();
   if(urlRoom){
     var badge = document.getElementById("room-badge");
@@ -787,19 +968,26 @@ function initGame(){
     badge.style.display = "inline-block";
   } else {
     document.getElementById("room-row").style.display = "block";
+    renderGC();
   }
   studentId = localStorage.getItem(STUDENT_ID_KEY);
   if(studentId){
     myRoom = localStorage.getItem(STUDENT_ROOM_KEY) || getRoomFromUrl();
-    var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
-    if(photo){
-      var av = document.getElementById("my-avatar");
-      av.src = photo;
-      av.style.display = "inline-block";
-    }
-    document.getElementById("register-overlay").style.display = "none";
-    initGame();
-    startFinishPoll();
+    fetch(API + "/state?room=" + encodeURIComponent(myRoom) + "&me=" + encodeURIComponent(studentId))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var found = !!d.exists;
+        var sameRoom = !urlRoom || String(urlRoom).trim().toLowerCase() === d.room;
+        if(found && sameRoom){
+          resumeRegistered();
+        } else {
+          forgetRegistration();
+          prefillSavedPhoto();
+        }
+      })
+      .catch(function(){ resumeRegistered(); });
+  } else {
+    prefillSavedPhoto();
   }
 })();
 </script>

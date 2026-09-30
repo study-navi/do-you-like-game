@@ -196,6 +196,14 @@
   .no-pick button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
   .no-pick.off { opacity: 0.3; pointer-events: none; }
   #teacher-btn { width: 100%; padding: 10px 14px; }
+  .gc-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .gc-name { flex: 0 0 34px; font-size: 13px; color: #5F5E5A; font-weight: 600; }
+  .gc-pick { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .gc-pick button {
+    padding: 8px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 16px; font-weight: 700; color: #2C2C2A;
+  }
+  .gc-pick button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
   .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
   /* ---- What do you like? 追加分 ---- */
   .emoji { font-size: 34px; line-height: 1; }
@@ -229,9 +237,11 @@
       <div class="register-title">📷 なまえカードを うつしてね</div>
       <div class="register-sub">紙に なまえを かいて、しゃしんを とってください</div>
       <div id="room-badge" style="font-size:13px;color:#185FA5;background:#E6F1FB;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
-      <div id="room-row" style="margin-bottom:16px;display:none;text-align:left;">
-        <label style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">きょうしつコード（せんせいに きいてね）</label>
-        <input type="text" id="room-input" placeholder="れい: 3-1" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:15px;box-sizing:border-box;text-align:center;">
+      <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
+        <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
+        <input type="hidden" id="room-input" value="">
+        <div class="gc-line"><span class="gc-name">ねん</span><div id="grade-pick" class="gc-pick"></div></div>
+        <div class="gc-line"><span class="gc-name">くみ</span><div id="class-pick" class="gc-pick"></div></div>
       </div>
       <div id="no-row" style="margin-bottom:14px;text-align:left;">
         <label id="no-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">しゅっせきばんごうを えらんでね</label>
@@ -490,6 +500,36 @@ function getRoomForRegister(){
   var input = document.getElementById("room-input");
   return input ? input.value : "";
 }
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+function getSchoolFromUrl(){
+  var m = location.search.match(/[?&]school=([^&]+)/);
+  return m ? sanitizeSchool(decodeURIComponent(m[1])) : "";
+}
+var GC_KEY = "whatdoyoulike_gc";
+var selGrade = 0, selClass = 0;
+function renderGC(){
+  var gBox = document.getElementById("grade-pick");
+  var cBox = document.getElementById("class-pick");
+  function build(box, max, onPick){
+    if(box.children.length) return;
+    for(var n = 1; n <= max; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){ onPick(num); document.getElementById("reg-error").textContent = ""; renderGC(); };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  build(gBox, 6, function(n){ selGrade = n; });
+  build(cBox, 8, function(n){ selClass = n; });
+  Array.prototype.forEach.call(gBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(cBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selClass ? "sel" : ""; });
+  document.getElementById("room-input").value = (selGrade && selClass) ? makeRoom(getSchoolFromUrl(), selGrade, selClass) : "";
+  document.getElementById("gc-label").textContent = (selGrade && selClass) ? (selGrade + "ねん " + selClass + "くみ") : "なんねん なんくみ？";
+}
 
 /* ---------- storage ---------- */
 function loadState(){
@@ -577,6 +617,10 @@ function retakePhoto(){
 function confirmPhoto(){
   if(!capturedPhoto) return;
   var err = document.getElementById("reg-error");
+  if(!getRoomFromUrl() && !(selGrade && selClass)){
+    err.textContent = "なんねん なんくみ か えらんでね";
+    return;
+  }
   var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
   if(!isTeacher && !(no >= 1 && no <= 99)){
     err.textContent = "しゅっせきばんごうを えらんでね";
@@ -598,6 +642,7 @@ function confirmPhoto(){
       myRoom = d.room || getRoomForRegister();
       localStorage.removeItem(PREV_ID_KEY);
       localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
+      if(selGrade && selClass) localStorage.setItem(GC_KEY, selGrade + "-" + selClass);
       localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
       finishRegister();
       syncEvent({ score: score, streak: streak, best: best, used: asked, total: GOAL, status: "とうろくしました" });
@@ -923,6 +968,9 @@ function initGame(){
 
 (function boot(){
   document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
   setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
   var urlRoom = getRoomFromUrl();
   if(urlRoom){
@@ -931,6 +979,7 @@ function initGame(){
     badge.style.display = "inline-block";
   } else {
     document.getElementById("room-row").style.display = "block";
+    renderGC();
   }
   studentId = localStorage.getItem(STUDENT_ID_KEY);
   if(studentId){

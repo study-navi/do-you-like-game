@@ -69,6 +69,11 @@
   .updated { font-size: 10px; color: #B4B2A9; margin-top: 6px; }
   .room-label { font-size: 14px; font-weight: 400; color: #5F5E5A; margin-left: 10px; }
   .room-change { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .t-gc { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 12px; }
+  .t-gc button { padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF; font-size: 16px; font-weight: 700; color: #2C2C2A; cursor: pointer; }
+  .t-gc button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+  .t-gc-name { text-align: left; font-size: 13px; color: #5F5E5A; font-weight: 600; margin-bottom: 6px; }
+  .room-preview { font-size: 14px; color: #185FA5; font-weight: 600; margin-bottom: 12px; min-height: 20px; }
   .room-overlay {
     position: fixed; inset: 0; background: rgba(44,44,42,0.55);
     display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
@@ -83,9 +88,14 @@
 <body>
 <div id="room-overlay" class="room-overlay">
   <div class="room-card">
-    <div class="room-title">教室コードを入力してください</div>
-    <div class="room-sub">生徒に配ったURLと同じコードを入れてください（例: 3-1）</div>
-    <input type="text" id="room-code-input" class="room-input" placeholder="れい: 3-1">
+    <div class="room-title">クラスをえらんでください</div>
+    <div class="room-sub">学校コードは、ほかの学校とデータが混ざらないようにするためのものです（半角英数字・空欄でもOK）</div>
+    <input type="text" id="school-input" class="room-input" placeholder="学校コード（例: hiiragi）" autocomplete="off">
+    <div class="t-gc-name">学年</div>
+    <div id="t-grade" class="t-gc"></div>
+    <div class="t-gc-name">組</div>
+    <div id="t-class" class="t-gc"></div>
+    <div id="room-preview" class="room-preview"></div>
     <button id="room-code-btn" class="room-start-btn">はじめる</button>
   </div>
 </div>
@@ -94,7 +104,9 @@
     <div class="title">📊 What do you like? ゲーム（先生用）<span id="room-label" class="room-label"></span></div>
     <div class="actions">
       <span id="conn-status" class="conn-status">接続中...</span>
-      <button id="room-change-btn" class="room-change">教室コードを変える</button>
+      <button id="room-change-btn" class="room-change">クラスを変える</button>
+      <button id="url-btn" class="room-change">🔗 生徒用URL</button>
+      <button id="tv-btn" class="room-change">📺 TV画面を開く</button>
       <button id="finish-btn" class="finish-btn">🏁 終了する</button>
       <button id="reset-btn" class="reset-btn">全員のスコアをリセット</button>
     </div>
@@ -209,18 +221,67 @@ function startWithRoom(room){
   poll();
 }
 
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+var SCHOOL_KEY = "whatdoyoulike_school";
+var tGrade = 0, tClass = 0;
+function parseRoom(room){
+  var m = String(room || "").match(/^(?:([a-z0-9]+)-)?([1-6])-([1-8])$/);
+  return m ? { school: m[1] || "", g: parseInt(m[2], 10), c: parseInt(m[3], 10) } : null;
+}
+function currentSchool(){ return sanitizeSchool(document.getElementById("school-input").value); }
+function renderTGC(){
+  function build(id, max, onPick){
+    var box = document.getElementById(id);
+    if(!box.children.length){
+      for(var n = 1; n <= max; n++){
+        (function(num){
+          var b = document.createElement("button");
+          b.type = "button";
+          b.textContent = num;
+          b.onclick = function(){ onPick(num); renderTGC(); };
+          box.appendChild(b);
+        })(n);
+      }
+    }
+    return box;
+  }
+  var g = build("t-grade", 6, function(n){ tGrade = n; });
+  var c = build("t-class", 8, function(n){ tClass = n; });
+  Array.prototype.forEach.call(g.children, function(b){ b.className = parseInt(b.textContent, 10) === tGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(c.children, function(b){ b.className = parseInt(b.textContent, 10) === tClass ? "sel" : ""; });
+  document.getElementById("room-preview").textContent = (tGrade && tClass)
+    ? tGrade + "年" + tClass + "組（教室コード: " + makeRoom(currentSchool(), tGrade, tClass) + "）"
+    : "学年と組をえらんでください";
+}
 function showRoomOverlay(prefill){
-  document.getElementById("room-code-input").value = prefill || "";
+  var p = parseRoom(prefill);
+  var school = p ? p.school : "";
+  if(!p){ try{ school = localStorage.getItem(SCHOOL_KEY) || ""; }catch(e){} }
+  document.getElementById("school-input").value = school;
+  tGrade = p ? p.g : 0;
+  tClass = p ? p.c : 0;
+  renderTGC();
   document.getElementById("room-overlay").style.display = "flex";
 }
-
+document.getElementById("school-input").oninput = renderTGC;
 document.getElementById("room-code-btn").onclick = function(){
-  var v = document.getElementById("room-code-input").value.trim();
-  if(!v){ alert("教室コードを入力してください"); return; }
-  startWithRoom(v);
+  if(!tGrade || !tClass){ alert("学年と組をえらんでください"); return; }
+  var school = currentSchool();
+  try{ localStorage.setItem(SCHOOL_KEY, school); }catch(e){}
+  startWithRoom(makeRoom(school, tGrade, tClass));
 };
 document.getElementById("room-change-btn").onclick = function(){
   showRoomOverlay(currentRoom);
+};
+document.getElementById("tv-btn").onclick = function(){
+  window.open("/what-tv?room=" + encodeURIComponent(currentRoom), "_blank");
+};
+document.getElementById("url-btn").onclick = function(){
+  var p = parseRoom(currentRoom);
+  var school = p ? p.school : "";
+  var url = location.origin + "/what" + (school ? "?school=" + school : "");
+  prompt("全クラス共通のプリント・QRコードには このURLを使えます（コピーしてください）", url);
 };
 
 function fmtTime(ts){

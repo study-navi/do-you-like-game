@@ -168,7 +168,7 @@ function publicWhatList(room){
   }).map(function(id){
     const s = whatStudents[id];
     return {
-      id: id, no: s.no || null, photo: s.photo, score: s.score, streak: s.streak, best: s.best,
+      id: id, no: s.no || null, role: s.role || "student", photo: s.photo, score: s.score, streak: s.streak, best: s.best,
       used: s.used, total: s.total, status: s.status,
       updatedAt: s.updatedAt, registeredAt: s.registeredAt
     };
@@ -491,7 +491,8 @@ const server = http.createServer(function(req, res){
       const id = crypto.randomBytes(4).toString('hex');
       whatStudents[id] = {
         id: id, room: room,
-        no: (typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
+        role: body.role === 'teacher' ? 'teacher' : 'student',
+        no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
         score: 0, streak: 0, best: 0, used: 0,
         total: typeof body.total === 'number' ? body.total : 0,

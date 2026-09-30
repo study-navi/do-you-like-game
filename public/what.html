@@ -431,6 +431,17 @@ var STUDENT_PHOTO_KEY = "whatdoyoulike_student_photo";
 var STUDENT_ROOM_KEY = "whatdoyoulike_student_room";
 var STUDENT_NO_KEY = "whatdoyoulike_student_no";
 var PREV_ID_KEY = "whatdoyoulike_prev_id";
+var DEVICE_KEY = "whatdoyoulike_device";
+var registering = false;
+function getDeviceId(){
+  var d = "";
+  try{ d = localStorage.getItem(DEVICE_KEY) || ""; }catch(e){}
+  if(!d){
+    d = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try{ localStorage.setItem(DEVICE_KEY, d); }catch(e){}
+  }
+  return d;
+}
 var STUDENT_ROLE_KEY = "whatdoyoulike_student_role";
 var isTeacher = false;
 function setTeacherMode(on){
@@ -627,11 +638,14 @@ function confirmPhoto(){
     document.getElementById("no-input").focus();
     return;
   }
+  if(registering) return;
+  registering = true;
+  document.getElementById("reg-confirm-btn").disabled = true;
   err.textContent = "とうろく中...";
   fetch(API + "/register", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ photo: capturedPhoto, total: GOAL, room: getRoomForRegister(), no: no, role: isTeacher ? "teacher" : "student", replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
+    body: JSON.stringify({ photo: capturedPhoto, total: GOAL, room: getRoomForRegister(), no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
   }).then(function(r){ return r.json(); })
     .then(function(d){
       if(!d.id) throw new Error("no id");
@@ -641,6 +655,8 @@ function confirmPhoto(){
       studentId = d.id;
       myRoom = d.room || getRoomForRegister();
       localStorage.removeItem(PREV_ID_KEY);
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
       localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
       if(selGrade && selClass) localStorage.setItem(GC_KEY, selGrade + "-" + selClass);
       localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
@@ -648,6 +664,8 @@ function confirmPhoto(){
       syncEvent({ score: score, streak: streak, best: best, used: asked, total: GOAL, status: "とうろくしました" });
     })
     .catch(function(){
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
       err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
     });
 }

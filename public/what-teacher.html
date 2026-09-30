@@ -45,6 +45,8 @@
   .roster-hint { font-size: 12px; color: #888780; margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .roster-hint button { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
   .no-badge.teacher { background: #7F77DD; }
+  .rm-btn { position: absolute; bottom: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E9B9A8; background: #FFFFFF; color: #993C1D; font-size: 13px; line-height: 1; cursor: pointer; opacity: 0.55; }
+  .rm-btn:hover { opacity: 1; background: #FAECE7; }
   .card.teacher-card { border: 2px solid #CECBF6; }
   .no-badge { position: absolute; top: 8px; right: 10px; background: #185FA5; color: #FFFFFF; font-size: 14px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
   .empty-msg { text-align: center; color: #888780; padding: 60px 20px; font-size: 16px; }
@@ -303,6 +305,7 @@ function render(students){
     card.className = "card" + (s.role === "teacher" ? " teacher-card" : "");
     card.innerHTML =
       '<div class="rank">' + rankLabel + '</div>' +
+      '<button class="rm-btn" data-id="' + s.id + '" title="この表示を消す">×</button>' +
       (s.role === "teacher" ? '<div class="no-badge teacher">先生</div>' : (s.no ? '<div class="no-badge">' + s.no + '番</div>' : '')) +
       (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="score">' + s.score + '<span class="unit">pt</span></div>' +
@@ -369,6 +372,17 @@ document.getElementById("finish-btn").onclick = function(){
     }).then(poll);
   }
 };
+
+document.getElementById("grid").addEventListener("click", function(e){
+  var btn = e.target.closest ? e.target.closest(".rm-btn") : null;
+  if(!btn) return;
+  if(!confirm("この表示を消しますか？\n（まちがえて2つ出ているときなどに使います。その端末は登録画面にもどります）")) return;
+  fetch("/api/what/remove", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom, id: btn.getAttribute("data-id") })
+  }).catch(function(){});
+});
 
 (function boot(){
   var urlRoom = getRoomFromUrl();

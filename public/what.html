@@ -186,6 +186,16 @@
     background: #FFFFFF; color: #5F5E5A; font-size: 14px; font-weight: 600;
   }
   .teacher-toggle.on { background: #EEEDFE; border-color: #7F77DD; color: #534AB7; }
+  .register-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .no-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
+  .no-pick button {
+    padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 17px; font-weight: 700; color: #2C2C2A; transition: transform 0.1s;
+  }
+  .no-pick button:active { transform: scale(0.92); }
+  .no-pick button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .no-pick.off { opacity: 0.3; pointer-events: none; }
+  #teacher-btn { width: 100%; padding: 10px 14px; }
   .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
   /* ---- What do you like? 追加分 ---- */
   .emoji { font-size: 34px; line-height: 1; }
@@ -223,12 +233,11 @@
         <label style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">きょうしつコード（せんせいに きいてね）</label>
         <input type="text" id="room-input" placeholder="れい: 3-1" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:15px;box-sizing:border-box;text-align:center;">
       </div>
-      <div id="no-row" style="margin-bottom:16px;text-align:left;">
-        <label id="no-label" style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">しゅっせきばんごう</label>
-        <div class="no-flex">
-          <input type="number" id="no-input" inputmode="numeric" min="1" max="99" placeholder="れい: 12" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:18px;box-sizing:border-box;text-align:center;">
-          <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
-        </div>
+      <div id="no-row" style="margin-bottom:14px;text-align:left;">
+        <label id="no-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">しゅっせきばんごうを えらんでね</label>
+        <input type="hidden" id="no-input" value="">
+        <div id="no-pick" class="no-pick"></div>
+        <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
       </div>
       <div class="reg-frame" id="reg-frame">
         <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
@@ -423,7 +432,36 @@ function setTeacherMode(on){
   if(isTeacher) input.value = "";
   btn.className = "teacher-toggle" + (isTeacher ? " on" : "");
   btn.textContent = isTeacher ? "✓ 先生" : "👩‍🏫 先生";
-  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごう";
+  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごうを えらんでね";
+  renderNoPick();
+}
+var MAX_NO = 35;
+function renderNoPick(){
+  var box = document.getElementById("no-pick");
+  var input = document.getElementById("no-input");
+  if(!box.children.length){
+    for(var n = 1; n <= MAX_NO; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){
+          input.value = String(num);
+          document.getElementById("reg-error").textContent = "";
+          renderNoPick();
+        };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  var cur = parseInt(input.value, 10);
+  Array.prototype.forEach.call(box.children, function(b){
+    b.className = (!isTeacher && parseInt(b.textContent, 10) === cur) ? "sel" : "";
+  });
+  box.className = "no-pick" + (isTeacher ? " off" : "");
+  if(!isTeacher && cur >= 1){
+    document.getElementById("no-label").textContent = "しゅっせきばんごう: " + cur + "ばん";
+  }
 }
 function toggleTeacher(){ setTeacherMode(!isTeacher); }
 var API = "/api/what";
@@ -541,7 +579,7 @@ function confirmPhoto(){
   var err = document.getElementById("reg-error");
   var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
   if(!isTeacher && !(no >= 1 && no <= 99)){
-    err.textContent = "しゅっせきばんごうを いれてね";
+    err.textContent = "しゅっせきばんごうを えらんでね";
     document.getElementById("no-input").focus();
     return;
   }

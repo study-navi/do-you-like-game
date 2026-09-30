@@ -130,7 +130,9 @@ function publicBingoList(room){
     const s = bingoStudents[id];
     return {
       id: id,
-      photo: s.photo,
+      no: s.no || null,
+      role: s.role || "student",
+      photo: s.photo ? "/api/bingo/photo?id=" + id : null,
       lineCount: s.lineCount || 0,
       bingoAt: s.bingoAt || null,
       registeredAt: s.registeredAt,
@@ -169,6 +171,37 @@ function publicWhatList(room){
     const s = whatStudents[id];
     return {
       id: id, no: s.no || null, role: s.role || "student", photo: s.photo ? "/api/what/photo?id=" + id : null, score: s.score, streak: s.streak, best: s.best,
+      used: s.used, total: s.total, status: s.status,
+      updatedAt: s.updatedAt, registeredAt: s.registeredAt
+    };
+  }).sort(function(a, b){
+    if(b.score !== a.score) return b.score - a.score;
+    return a.registeredAt - b.registeredAt;
+  });
+  list.forEach(function(s, idx){ s.rank = idx + 1; });
+  return list;
+}
+
+/* ===== Do you like ...? ゲーム（新方式）用データ ===== */
+const DYL_STUDENTS_FILE = path.join(__dirname, 'dyl_students.json');
+const DYL_ROOMS_FILE = path.join(__dirname, 'dyl_rooms.json');
+let dylStudents = {};
+let dylRooms = {};
+try{ dylStudents = JSON.parse(fs.readFileSync(DYL_STUDENTS_FILE, 'utf8')); }catch(e){ dylStudents = {}; }
+try{ dylRooms = JSON.parse(fs.readFileSync(DYL_ROOMS_FILE, 'utf8')); }catch(e){ dylRooms = {}; }
+function saveDylStudents(){
+  try{ fs.writeFileSync(DYL_STUDENTS_FILE, JSON.stringify(dylStudents)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function saveDylRooms(){
+  try{ fs.writeFileSync(DYL_ROOMS_FILE, JSON.stringify(dylRooms)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function publicDylList(room){
+  const list = Object.keys(dylStudents).filter(function(id){
+    return normalizeRoom(dylStudents[id].room) === room;
+  }).map(function(id){
+    const s = dylStudents[id];
+    return {
+      id: id, no: s.no || null, role: s.role || "student", photo: s.photo ? "/api/dyl/photo?id=" + id : null, score: s.score, streak: s.streak, best: s.best,
       used: s.used, total: s.total, status: s.status,
       updatedAt: s.updatedAt, registeredAt: s.registeredAt
     };
@@ -370,6 +403,38 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  if(req.method === 'GET' && url === '/api/bingo/photo'){
+    const st = bingoStudents[getQueryParam(queryString, 'id')];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, { 'Content-Type': m[1], 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=604800, immutable', 'Access-Control-Allow-Origin': '*' });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/bingo/state' && getQueryParam(queryString, 'me')){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const b = getBingoRoom(room);
+    const exists = !!(bingoStudents[me] && normalizeRoom(bingoStudents[me].room) === room);
+    sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, exists: exists });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/bingo/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && bingoStudents[id] && normalizeRoom(bingoStudents[id].room) === room){
+        delete bingoStudents[id];
+        saveBingoStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
   if(req.method === 'GET' && url === '/api/bingo/state'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const b = getBingoRoom(room);
@@ -425,10 +490,22 @@ const server = http.createServer(function(req, res){
     readJsonBody(req, function(body){
       if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
       const room = normalizeRoom(body.room);
+      if(typeof body.replaceId === 'string' && bingoStudents[body.replaceId] && normalizeRoom(bingoStudents[body.replaceId].room) === room){
+        delete bingoStudents[body.replaceId];
+      }
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      if(deviceId){
+        Object.keys(bingoStudents).forEach(function(k){
+          if(bingoStudents[k].deviceId === deviceId && normalizeRoom(bingoStudents[k].room) === room) delete bingoStudents[k];
+        });
+      }
       const id = crypto.randomBytes(4).toString('hex');
       bingoStudents[id] = {
         id: id,
         room: room,
+        deviceId: deviceId,
+        role: body.role === 'teacher' ? 'teacher' : 'student',
+        no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
         lineCount: 0,
         bingoAt: null,
@@ -591,6 +668,123 @@ const server = http.createServer(function(req, res){
       const finished = url === '/api/what/finish';
       whatRooms[room] = finished ? { finished: true, finishedAt: Date.now() } : { finished: false };
       saveWhatRooms();
+      sendJson(res, 200, { ok: true, room: room, finished: finished });
+    });
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/dyl/photo'){
+    const pid = getQueryParam(queryString, 'id');
+    const st = dylStudents[pid];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, {
+      'Content-Type': m[1],
+      'Content-Length': buf.length,
+      'Cache-Control': 'public, max-age=604800, immutable',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/dyl/state' && getQueryParam(queryString, 'me')){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const finished = !!(dylRooms[room] && dylRooms[room].finished);
+    const exists = !!(dylStudents[me] && normalizeRoom(dylStudents[me].room) === room);
+    sendJson(res, 200, { room: room, finished: finished, exists: exists, students: finished ? publicDylList(room) : [] });
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/dyl/state'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    sendJson(res, 200, { students: publicDylList(room), room: room, finished: !!(dylRooms[room] && dylRooms[room].finished) });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/dyl/register'){
+    readJsonBody(req, function(body){
+      if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
+      const room = normalizeRoom(body.room);
+      if(typeof body.replaceId === 'string' && dylStudents[body.replaceId] && normalizeRoom(dylStudents[body.replaceId].room) === room){
+        delete dylStudents[body.replaceId];
+      }
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      if(deviceId){
+        Object.keys(dylStudents).forEach(function(k){
+          if(dylStudents[k].deviceId === deviceId && normalizeRoom(dylStudents[k].room) === room) delete dylStudents[k];
+        });
+      }
+      const id = crypto.randomBytes(4).toString('hex');
+      dylStudents[id] = {
+        id: id, room: room, deviceId: deviceId,
+        role: body.role === 'teacher' ? 'teacher' : 'student',
+        no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
+        photo: typeof body.photo === 'string' ? body.photo : null,
+        score: 0, streak: 0, best: 0, used: 0,
+        total: typeof body.total === 'number' ? body.total : 0,
+        status: 'とうろくしました',
+        updatedAt: Date.now(), registeredAt: Date.now()
+      };
+      saveDylStudents();
+      sendJson(res, 200, { id: id, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/dyl/event'){
+    readJsonBody(req, function(body){
+      if(!body || !body.id || !dylStudents[body.id]){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      const s = dylStudents[body.id];
+      ['score', 'streak', 'best', 'used', 'total'].forEach(function(k){
+        if(typeof body[k] === 'number') s[k] = body[k];
+      });
+      if(typeof body.status === 'string') s.status = body.status;
+      s.updatedAt = Date.now();
+      saveDylStudents();
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/dyl/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && dylStudents[id] && normalizeRoom(dylStudents[id].room) === room){
+        delete dylStudents[id];
+        saveDylStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/dyl/reset'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      Object.keys(dylStudents).forEach(function(id){
+        if(normalizeRoom(dylStudents[id].room) === room) delete dylStudents[id];
+      });
+      delete dylRooms[room];
+      saveDylStudents();
+      saveDylRooms();
+      sendJson(res, 200, { ok: true, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && (url === '/api/dyl/finish' || url === '/api/dyl/resume')){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const finished = url === '/api/dyl/finish';
+      dylRooms[room] = finished ? { finished: true, finishedAt: Date.now() } : { finished: false };
+      saveDylRooms();
       sendJson(res, 200, { ok: true, room: room, finished: finished });
     });
     return;

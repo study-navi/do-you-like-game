@@ -28,6 +28,18 @@
   .finish-btn.finished {
     border-color: #1D9E75; color: #0F6E56; background: #E1F5EE;
   }
+  .roster { background: #FFFFFF; border-radius: 16px; padding: 14px 18px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+  .roster-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+  .roster-top input { width: 70px; padding: 6px 8px; border-radius: 8px; border: 1px solid #D3D1C7; font-size: 15px; text-align: center; }
+  .roster-count { font-weight: 700; font-size: 16px; }
+  .roster-missing { color: #993C1D; font-weight: 600; }
+  .roster-ok { color: #0F6E56; font-weight: 600; }
+  .roster-warn { color: #854F0B; font-size: 13px; }
+  .no-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .no-chip { min-width: 38px; padding: 6px 4px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 700; background: #EDEBE3; color: #B4B2A9; }
+  .no-chip.in { background: #E1F5EE; color: #0F6E56; }
+  .no-chip.dup { background: #FAEEDA; color: #854F0B; }
+  .no-badge { position: absolute; top: 8px; right: 10px; background: #185FA5; color: #FFFFFF; font-size: 14px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
   .empty-msg { text-align: center; color: #888780; padding: 60px 20px; font-size: 16px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
   .card {
@@ -80,6 +92,14 @@
       <button id="reset-btn" class="reset-btn">全員のスコアをリセット</button>
     </div>
   </div>
+  <div class="roster">
+    <div class="roster-top">
+      <label>クラスの人数 <input type="number" id="class-size" min="1" max="99" placeholder="例: 30"> 人</label>
+      <span id="roster-count" class="roster-count"></span>
+      <span id="roster-msg"></span>
+    </div>
+    <div id="no-grid" class="no-grid"></div>
+  </div>
   <div id="empty-msg" class="empty-msg" style="display:none;">まだ誰も登録していません。生徒にゲーム画面を開いてもらってください。</div>
   <div id="grid" class="grid"></div>
 </div>
@@ -88,6 +108,48 @@ var ROOM_KEY = "whatdoyoulike_teacher_room";
 var currentRoom = "";
 var pollTimer = null;
 var isFinished = false;
+var CLASS_SIZE_KEY = "whatdoyoulike_class_size";
+var lastStudents = [];
+
+function renderRoster(students){
+  lastStudents = students;
+  var size = parseInt(document.getElementById("class-size").value, 10) || 0;
+  var counts = {};
+  var noNumber = 0;
+  students.forEach(function(s){
+    if(s.no) counts[s.no] = (counts[s.no] || 0) + 1; else noNumber++;
+  });
+  var grid = document.getElementById("no-grid");
+  var msg = document.getElementById("roster-msg");
+  grid.innerHTML = "";
+  if(!size){
+    document.getElementById("roster-count").textContent = "ログイン " + students.length + "人";
+    msg.innerHTML = '<span class="roster-warn">クラスの人数を入れると、まだログインしていない番号が わかります</span>';
+    return;
+  }
+  var missing = [], dups = [], loggedIn = 0;
+  for(var n = 1; n <= size; n++){
+    var c = counts[n] || 0;
+    if(c) loggedIn++; else missing.push(n);
+    if(c > 1) dups.push(n);
+    var chip = document.createElement("div");
+    chip.className = "no-chip" + (c > 1 ? " dup" : (c ? " in" : ""));
+    chip.textContent = n;
+    grid.appendChild(chip);
+  }
+  document.getElementById("roster-count").textContent = "ログイン " + loggedIn + " / " + size + "人";
+  var html = missing.length
+    ? '<span class="roster-missing">まだ: ' + missing.map(function(n){ return n + "番"; }).join("、") + '</span>'
+    : '<span class="roster-ok">✅ 全員ログインしました</span>';
+  if(dups.length) html += ' <span class="roster-warn">／ 番号がかぶっています: ' + dups.map(function(n){ return n + "番"; }).join("、") + '</span>';
+  if(noNumber) html += ' <span class="roster-warn">／ 番号なし ' + noNumber + '人</span>';
+  msg.innerHTML = html;
+}
+document.getElementById("class-size").addEventListener("input", function(){
+  try{ localStorage.setItem(CLASS_SIZE_KEY, this.value); }catch(e){}
+  renderRoster(lastStudents);
+});
+try{ document.getElementById("class-size").value = localStorage.getItem(CLASS_SIZE_KEY) || ""; }catch(e){}
 
 function getRoomFromUrl(){
   var m = location.search.match(/[?&]room=([^&]+)/);
@@ -128,6 +190,7 @@ function fmtTime(ts){
   return Math.floor(m / 60) + "時間前";
 }
 function render(students){
+  renderRoster(students);
   var grid = document.getElementById("grid");
   document.getElementById("empty-msg").style.display = students.length ? "none" : "block";
   grid.innerHTML = "";
@@ -138,6 +201,7 @@ function render(students){
     card.className = "card";
     card.innerHTML =
       '<div class="rank">' + rankLabel + '</div>' +
+      (s.no ? '<div class="no-badge">' + s.no + '番</div>' : '') +
       (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="score">' + s.score + '<span class="unit">pt</span></div>' +
       '<div class="streak">🔥 ' + s.streak + '（さいこう ' + s.best + '）</div>' +

@@ -217,6 +217,10 @@
         <label style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">きょうしつコード（せんせいに きいてね）</label>
         <input type="text" id="room-input" placeholder="れい: 3-1" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:15px;box-sizing:border-box;text-align:center;">
       </div>
+      <div id="no-row" style="margin-bottom:16px;text-align:left;">
+        <label style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">しゅっせきばんごう</label>
+        <input type="number" id="no-input" inputmode="numeric" min="1" max="99" placeholder="れい: 12" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:18px;box-sizing:border-box;text-align:center;">
+      </div>
       <div class="reg-frame" id="reg-frame">
         <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
         <img id="reg-preview" style="display:none;">
@@ -397,6 +401,8 @@ var STORAGE_KEY = "whatdoyoulike_game_v1";
 var STUDENT_ID_KEY = "whatdoyoulike_student_id";
 var STUDENT_PHOTO_KEY = "whatdoyoulike_student_photo";
 var STUDENT_ROOM_KEY = "whatdoyoulike_student_room";
+var STUDENT_NO_KEY = "whatdoyoulike_student_no";
+var PREV_ID_KEY = "whatdoyoulike_prev_id";
 var API = "/api/what";
 var myRoom = "";
 var finishPollTimer = null;
@@ -510,11 +516,17 @@ function retakePhoto(){
 function confirmPhoto(){
   if(!capturedPhoto) return;
   var err = document.getElementById("reg-error");
+  var no = parseInt(document.getElementById("no-input").value, 10);
+  if(!(no >= 1 && no <= 99)){
+    err.textContent = "しゅっせきばんごうを いれてね";
+    document.getElementById("no-input").focus();
+    return;
+  }
   err.textContent = "とうろく中...";
   fetch(API + "/register", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ photo: capturedPhoto, total: GOAL, room: getRoomForRegister() })
+    body: JSON.stringify({ photo: capturedPhoto, total: GOAL, room: getRoomForRegister(), no: no, replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
   }).then(function(r){ return r.json(); })
     .then(function(d){
       if(!d.id) throw new Error("no id");
@@ -523,7 +535,10 @@ function confirmPhoto(){
       localStorage.setItem(STUDENT_ROOM_KEY, d.room || getRoomForRegister());
       studentId = d.id;
       myRoom = d.room || getRoomForRegister();
+      localStorage.removeItem(PREV_ID_KEY);
+      localStorage.setItem(STUDENT_NO_KEY, String(no));
       finishRegister();
+      syncEvent({ score: score, streak: streak, best: best, used: asked, total: GOAL, status: "とうろくしました" });
     })
     .catch(function(){
       err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
@@ -582,6 +597,8 @@ function hideFinishOverlay(){
 }
 function reRegister(){
   if(!confirm("なまえカードを とりなおしますか？")) return;
+  var oldId = localStorage.getItem(STUDENT_ID_KEY);
+  if(oldId) localStorage.setItem(PREV_ID_KEY, oldId);
   localStorage.removeItem(STUDENT_ID_KEY);
   localStorage.removeItem(STUDENT_PHOTO_KEY);
   location.reload();
@@ -843,6 +860,7 @@ function initGame(){
 }
 
 (function boot(){
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
   var urlRoom = getRoomFromUrl();
   if(urlRoom){
     var badge = document.getElementById("room-badge");

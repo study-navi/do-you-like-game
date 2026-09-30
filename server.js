@@ -168,7 +168,7 @@ function publicWhatList(room){
   }).map(function(id){
     const s = whatStudents[id];
     return {
-      id: id, no: s.no || null, role: s.role || "student", photo: s.photo, score: s.score, streak: s.streak, best: s.best,
+      id: id, no: s.no || null, role: s.role || "student", photo: s.photo ? "/api/what/photo?id=" + id : null, score: s.score, streak: s.streak, best: s.best,
       used: s.used, total: s.total, status: s.status,
       updatedAt: s.updatedAt, registeredAt: s.registeredAt
     };
@@ -476,6 +476,31 @@ const server = http.createServer(function(req, res){
   }
   if(req.method === 'GET' && url === '/what-tv'){
     serveFile(res, path.join(PUBLIC_DIR, 'what-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/what/photo'){
+    const pid = getQueryParam(queryString, 'id');
+    const st = whatStudents[pid];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, {
+      'Content-Type': m[1],
+      'Content-Length': buf.length,
+      'Cache-Control': 'public, max-age=604800, immutable',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/what/state' && getQueryParam(queryString, 'me')){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const finished = !!(whatRooms[room] && whatRooms[room].finished);
+    const exists = !!(whatStudents[me] && normalizeRoom(whatStudents[me].room) === room);
+    sendJson(res, 200, { room: room, finished: finished, exists: exists, students: finished ? publicWhatList(room) : [] });
     return;
   }
 

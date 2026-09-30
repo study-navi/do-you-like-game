@@ -678,6 +678,11 @@ function checkFinishState(){
   fetch(API + "/state?room=" + encodeURIComponent(myRoom))
     .then(function(r){ return r.json(); })
     .then(function(d){
+      if(!(d.students || []).some(function(x){ return x.id === studentId; })){
+        forgetRegistration();
+        location.reload();
+        return;
+      }
       isGameFinished = !!d.finished;
       if(isGameFinished){
         showFinishOverlay(d.students || []);
@@ -701,6 +706,35 @@ function showFinishOverlay(students){
 }
 function hideFinishOverlay(){
   document.getElementById("finish-overlay").style.display = "none";
+}
+/* ---------- saved photo / registration check ---------- */
+function forgetRegistration(){
+  localStorage.removeItem(STUDENT_ID_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+  studentId = null;
+}
+function resumeRegistered(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(photo){
+    var av = document.getElementById("my-avatar");
+    av.src = photo;
+    av.style.display = "inline-block";
+  }
+  document.getElementById("register-overlay").style.display = "none";
+  initGame();
+  startFinishPoll();
+}
+function prefillSavedPhoto(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(!photo) return;
+  capturedPhoto = photo;
+  document.getElementById("reg-preview").src = photo;
+  document.getElementById("reg-preview").style.display = "block";
+  document.getElementById("reg-placeholder").style.display = "none";
+  document.getElementById("reg-capture-btn").style.display = "none";
+  document.getElementById("reg-confirm-btn").style.display = "block";
+  document.getElementById("reg-retake-btn").style.display = "block";
+  document.querySelector(".register-sub").textContent = "まえの しゃしんで よければ「これで OK」を おしてね";
 }
 function reRegister(){
   if(!confirm("なまえカードを とりなおしますか？")) return;
@@ -984,15 +1018,21 @@ function initGame(){
   studentId = localStorage.getItem(STUDENT_ID_KEY);
   if(studentId){
     myRoom = localStorage.getItem(STUDENT_ROOM_KEY) || getRoomFromUrl();
-    var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
-    if(photo){
-      var av = document.getElementById("my-avatar");
-      av.src = photo;
-      av.style.display = "inline-block";
-    }
-    document.getElementById("register-overlay").style.display = "none";
-    initGame();
-    startFinishPoll();
+    fetch(API + "/state?room=" + encodeURIComponent(myRoom))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var found = (d.students || []).some(function(x){ return x.id === studentId; });
+        var sameRoom = !urlRoom || String(urlRoom).trim().toLowerCase() === d.room;
+        if(found && sameRoom){
+          resumeRegistered();
+        } else {
+          forgetRegistration();
+          prefillSavedPhoto();
+        }
+      })
+      .catch(function(){ resumeRegistered(); });
+  } else {
+    prefillSavedPhoto();
   }
 })();
 </script>

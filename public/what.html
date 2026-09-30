@@ -724,6 +724,14 @@ function wordButton(idx, onclick){
   return b;
 }
 
+function otherButton(onclick){
+  var b = document.createElement("button");
+  b.className = "word-btn other";
+  b.innerHTML = '<span class="emoji">❓</span><span class="w-en">そのほか</span><span class="w-ja">カードに ないもの</span>';
+  b.onclick = onclick;
+  return b;
+}
+
 function pick(i){
   currentTopic = topics[i];
   myPredict = null;
@@ -736,6 +744,7 @@ function pick(i){
   topicItems(currentTopic).forEach(function(idx){
     pg.appendChild(wordButton(idx, function(){ predict(idx); }));
   });
+  pg.appendChild(otherButton(function(){ predict(-1); }));
   show("step2");
   speakQuestion();
   syncEvent({ status: "「What " + currentTopic.q + " do you like?」に ちょうせんちゅう" });
@@ -743,20 +752,16 @@ function pick(i){
 
 function predict(idx){
   myPredict = idx;
-  var p = items[idx];
   document.getElementById("question").innerHTML = qHtml(currentTopic);
-  document.getElementById("prediction-badge").innerHTML =
-    'あなたの よそう: ' + visual(p, 20) + ' <span style="font-weight:600;">I like ' + p.en + '.</span>';
+  document.getElementById("prediction-badge").innerHTML = idx >= 0
+    ? 'あなたの よそう: ' + visual(items[idx], 20) + ' <span style="font-weight:600;">I like ' + items[idx].en + '.</span>'
+    : 'あなたの よそう: ❓ <span style="font-weight:600;">そのほか</span>（カードに ないもの）';
   var ag = document.getElementById("answer-grid");
   ag.innerHTML = "";
   topicItems(currentTopic).forEach(function(i){
     ag.appendChild(wordButton(i, function(){ answer(i); }));
   });
-  var other = document.createElement("button");
-  other.className = "word-btn other";
-  other.innerHTML = '<span class="emoji">❓</span><span class="w-ja" style="font-size:12px;color:#5F5E5A;">このなかに ない</span>';
-  other.onclick = function(){ answer(-1); };
-  ag.appendChild(other);
+  ag.appendChild(otherButton(function(){ answer(-1); }));
   show("step3");
   speakQuestion();
 }

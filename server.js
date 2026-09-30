@@ -168,7 +168,7 @@ function publicWhatList(room){
   }).map(function(id){
     const s = whatStudents[id];
     return {
-      id: id, photo: s.photo, score: s.score, streak: s.streak, best: s.best,
+      id: id, no: s.no || null, photo: s.photo, score: s.score, streak: s.streak, best: s.best,
       used: s.used, total: s.total, status: s.status,
       updatedAt: s.updatedAt, registeredAt: s.registeredAt
     };
@@ -485,9 +485,13 @@ const server = http.createServer(function(req, res){
     readJsonBody(req, function(body){
       if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
       const room = normalizeRoom(body.room);
+      if(typeof body.replaceId === 'string' && whatStudents[body.replaceId] && normalizeRoom(whatStudents[body.replaceId].room) === room){
+        delete whatStudents[body.replaceId];
+      }
       const id = crypto.randomBytes(4).toString('hex');
       whatStudents[id] = {
         id: id, room: room,
+        no: (typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
         score: 0, streak: 0, best: 0, used: 0,
         total: typeof body.total === 'number' ? body.total : 0,

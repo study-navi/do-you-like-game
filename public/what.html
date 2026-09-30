@@ -180,6 +180,12 @@
     border: 1px solid #D3D1C7; color: #5F5E5A; background: #FFFFFF;
   }
   .reg-error { color: #993C1D; font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .no-flex { display: flex; gap: 8px; }
+  .teacher-toggle {
+    flex: 0 0 auto; padding: 0 14px; border-radius: 10px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; font-size: 14px; font-weight: 600;
+  }
+  .teacher-toggle.on { background: #EEEDFE; border-color: #7F77DD; color: #534AB7; }
   .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
   /* ---- What do you like? 追加分 ---- */
   .emoji { font-size: 34px; line-height: 1; }
@@ -218,8 +224,11 @@
         <input type="text" id="room-input" placeholder="れい: 3-1" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:15px;box-sizing:border-box;text-align:center;">
       </div>
       <div id="no-row" style="margin-bottom:16px;text-align:left;">
-        <label style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">しゅっせきばんごう</label>
-        <input type="number" id="no-input" inputmode="numeric" min="1" max="99" placeholder="れい: 12" style="width:100%;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:18px;box-sizing:border-box;text-align:center;">
+        <label id="no-label" style="font-size:13px;color:#5F5E5A;display:block;margin-bottom:6px;">しゅっせきばんごう</label>
+        <div class="no-flex">
+          <input type="number" id="no-input" inputmode="numeric" min="1" max="99" placeholder="れい: 12" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid #D3D1C7;font-size:18px;box-sizing:border-box;text-align:center;">
+          <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
+        </div>
       </div>
       <div class="reg-frame" id="reg-frame">
         <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
@@ -403,6 +412,20 @@ var STUDENT_PHOTO_KEY = "whatdoyoulike_student_photo";
 var STUDENT_ROOM_KEY = "whatdoyoulike_student_room";
 var STUDENT_NO_KEY = "whatdoyoulike_student_no";
 var PREV_ID_KEY = "whatdoyoulike_prev_id";
+var STUDENT_ROLE_KEY = "whatdoyoulike_student_role";
+var isTeacher = false;
+function setTeacherMode(on){
+  isTeacher = !!on;
+  var input = document.getElementById("no-input");
+  var btn = document.getElementById("teacher-btn");
+  input.disabled = isTeacher;
+  input.placeholder = isTeacher ? "先生として さんか" : "れい: 12";
+  if(isTeacher) input.value = "";
+  btn.className = "teacher-toggle" + (isTeacher ? " on" : "");
+  btn.textContent = isTeacher ? "✓ 先生" : "👩‍🏫 先生";
+  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごう";
+}
+function toggleTeacher(){ setTeacherMode(!isTeacher); }
 var API = "/api/what";
 var myRoom = "";
 var finishPollTimer = null;
@@ -516,8 +539,8 @@ function retakePhoto(){
 function confirmPhoto(){
   if(!capturedPhoto) return;
   var err = document.getElementById("reg-error");
-  var no = parseInt(document.getElementById("no-input").value, 10);
-  if(!(no >= 1 && no <= 99)){
+  var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
+  if(!isTeacher && !(no >= 1 && no <= 99)){
     err.textContent = "しゅっせきばんごうを いれてね";
     document.getElementById("no-input").focus();
     return;
@@ -526,7 +549,7 @@ function confirmPhoto(){
   fetch(API + "/register", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ photo: capturedPhoto, total: GOAL, room: getRoomForRegister(), no: no, replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
+    body: JSON.stringify({ photo: capturedPhoto, total: GOAL, room: getRoomForRegister(), no: no, role: isTeacher ? "teacher" : "student", replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
   }).then(function(r){ return r.json(); })
     .then(function(d){
       if(!d.id) throw new Error("no id");
@@ -536,7 +559,8 @@ function confirmPhoto(){
       studentId = d.id;
       myRoom = d.room || getRoomForRegister();
       localStorage.removeItem(PREV_ID_KEY);
-      localStorage.setItem(STUDENT_NO_KEY, String(no));
+      localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
+      localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
       finishRegister();
       syncEvent({ score: score, streak: streak, best: best, used: asked, total: GOAL, status: "とうろくしました" });
     })
@@ -861,6 +885,7 @@ function initGame(){
 
 (function boot(){
   document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
   var urlRoom = getRoomFromUrl();
   if(urlRoom){
     var badge = document.getElementById("room-badge");

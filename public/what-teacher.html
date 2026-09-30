@@ -39,6 +39,13 @@
   .no-chip { min-width: 38px; padding: 6px 4px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 700; background: #EDEBE3; color: #B4B2A9; }
   .no-chip.in { background: #E1F5EE; color: #0F6E56; }
   .no-chip.dup { background: #FAEEDA; color: #854F0B; }
+  .no-chip { cursor: pointer; user-select: none; border: 1px solid transparent; }
+  .no-chip.absent { background: #FFFFFF; color: #993C1D; border: 1px dashed #D85A30; text-decoration: line-through; }
+  .no-chip small { display: block; font-size: 9px; font-weight: 600; text-decoration: none; }
+  .roster-hint { font-size: 12px; color: #888780; margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .roster-hint button { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .no-badge.teacher { background: #7F77DD; }
+  .card.teacher-card { border: 2px solid #CECBF6; }
   .no-badge { position: absolute; top: 8px; right: 10px; background: #185FA5; color: #FFFFFF; font-size: 14px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
   .empty-msg { text-align: center; color: #888780; padding: 60px 20px; font-size: 16px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
@@ -99,6 +106,7 @@
       <span id="roster-msg"></span>
     </div>
     <div id="no-grid" class="no-grid"></div>
+    <div class="roster-hint">番号をタップすると「欠席」にできます（もう一度タップで もどす）<button id="absent-clear">欠席をすべて解除</button></div>
   </div>
   <div id="empty-msg" class="empty-msg" style="display:none;">まだ誰も登録していません。生徒にゲーム画面を開いてもらってください。</div>
   <div id="grid" class="grid"></div>
@@ -111,40 +119,73 @@ var isFinished = false;
 var CLASS_SIZE_KEY = "whatdoyoulike_class_size";
 var lastStudents = [];
 
+function absentKey(){ return "whatdoyoulike_absent_" + currentRoom; }
+function getAbsent(){
+  try{ return JSON.parse(localStorage.getItem(absentKey()) || "[]"); }catch(e){ return []; }
+}
+function setAbsent(list){
+  try{ localStorage.setItem(absentKey(), JSON.stringify(list)); }catch(e){}
+}
+function toggleAbsent(n){
+  var list = getAbsent();
+  var i = list.indexOf(n);
+  if(i >= 0) list.splice(i, 1); else list.push(n);
+  setAbsent(list);
+  renderRoster(lastStudents);
+}
+function clearAbsent(){ setAbsent([]); }
+
 function renderRoster(students){
   lastStudents = students;
   var size = parseInt(document.getElementById("class-size").value, 10) || 0;
   var counts = {};
-  var noNumber = 0;
+  var noNumber = 0, teachers = 0;
   students.forEach(function(s){
-    if(s.no) counts[s.no] = (counts[s.no] || 0) + 1; else noNumber++;
+    if(s.role === "teacher") teachers++;
+    else if(s.no) counts[s.no] = (counts[s.no] || 0) + 1;
+    else noNumber++;
   });
+  var absent = getAbsent();
   var grid = document.getElementById("no-grid");
   var msg = document.getElementById("roster-msg");
   grid.innerHTML = "";
+  var teacherText = teachers ? ' <span class="roster-warn">／ 先生 ' + teachers + '人</span>' : '';
   if(!size){
-    document.getElementById("roster-count").textContent = "ログイン " + students.length + "人";
-    msg.innerHTML = '<span class="roster-warn">クラスの人数を入れると、まだログインしていない番号が わかります</span>';
+    document.getElementById("roster-count").textContent = "ログイン " + (students.length - teachers) + "人";
+    msg.innerHTML = '<span class="roster-warn">クラスの人数を入れると、まだログインしていない番号が わかります</span>' + teacherText;
     return;
   }
-  var missing = [], dups = [], loggedIn = 0;
+  var missing = [], dups = [], loggedIn = 0, absentCount = 0;
   for(var n = 1; n <= size; n++){
     var c = counts[n] || 0;
-    if(c) loggedIn++; else missing.push(n);
+    var isAbsent = !c && absent.indexOf(n) >= 0;
+    if(c) loggedIn++;
+    else if(isAbsent) absentCount++;
+    else missing.push(n);
     if(c > 1) dups.push(n);
     var chip = document.createElement("div");
-    chip.className = "no-chip" + (c > 1 ? " dup" : (c ? " in" : ""));
-    chip.textContent = n;
+    chip.className = "no-chip" + (c > 1 ? " dup" : (c ? " in" : (isAbsent ? " absent" : "")));
+    chip.innerHTML = n + (isAbsent ? "<small>欠席</small>" : "");
+    chip.title = c ? "ログイン済み" : (isAbsent ? "欠席（タップで もどす）" : "タップで 欠席にする");
+    (function(num, logged){
+      chip.onclick = function(){ if(!logged) toggleAbsent(num); };
+    })(n, !!c);
     grid.appendChild(chip);
   }
-  document.getElementById("roster-count").textContent = "ログイン " + loggedIn + " / " + size + "人";
+  var expected = size - absentCount;
+  document.getElementById("roster-count").textContent = "ログイン " + loggedIn + " / " + expected + "人" + (absentCount ? "（欠席 " + absentCount + "人）" : "");
   var html = missing.length
     ? '<span class="roster-missing">まだ: ' + missing.map(function(n){ return n + "番"; }).join("、") + '</span>'
     : '<span class="roster-ok">✅ 全員ログインしました</span>';
   if(dups.length) html += ' <span class="roster-warn">／ 番号がかぶっています: ' + dups.map(function(n){ return n + "番"; }).join("、") + '</span>';
   if(noNumber) html += ' <span class="roster-warn">／ 番号なし ' + noNumber + '人</span>';
+  html += teacherText;
   msg.innerHTML = html;
 }
+document.getElementById("absent-clear").onclick = function(){
+  clearAbsent();
+  renderRoster(lastStudents);
+};
 document.getElementById("class-size").addEventListener("input", function(){
   try{ localStorage.setItem(CLASS_SIZE_KEY, this.value); }catch(e){}
   renderRoster(lastStudents);
@@ -198,10 +239,10 @@ function render(students){
     var rankLabel = idx < 3 ? ["🥇","🥈","🥉"][idx] : ("#" + s.rank);
     var pct = s.total ? Math.round(s.used / s.total * 100) : 0;
     var card = document.createElement("div");
-    card.className = "card";
+    card.className = "card" + (s.role === "teacher" ? " teacher-card" : "");
     card.innerHTML =
       '<div class="rank">' + rankLabel + '</div>' +
-      (s.no ? '<div class="no-badge">' + s.no + '番</div>' : '') +
+      (s.role === "teacher" ? '<div class="no-badge teacher">先生</div>' : (s.no ? '<div class="no-badge">' + s.no + '番</div>' : '')) +
       (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="score">' + s.score + '<span class="unit">pt</span></div>' +
       '<div class="streak">🔥 ' + s.streak + '（さいこう ' + s.best + '）</div>' +
@@ -244,6 +285,7 @@ function poll(){
 }
 document.getElementById("reset-btn").onclick = function(){
   if(!confirm("この教室（" + currentRoom + "）の全員のスコア・登録情報をリセットします。よろしいですか？")) return;
+  clearAbsent();
   fetch("/api/what/reset", {
     method: "POST",
     headers: {"Content-Type": "application/json"},

@@ -76,6 +76,22 @@
   .t-gc button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
   .t-gc-name { text-align: left; font-size: 13px; color: #5F5E5A; font-weight: 600; margin-bottom: 6px; }
   .room-preview { font-size: 14px; color: #185FA5; font-weight: 600; margin-bottom: 12px; min-height: 20px; }
+  .qr-card { max-width: 420px; }
+  .qr-tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+  .qr-tabs button { font-size: 13px; padding: 6px 14px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .qr-tabs button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .qr-box { display: flex; justify-content: center; margin: 6px 0 10px; }
+  .qr-box svg { width: 260px; height: 260px; }
+  .qr-url { font-size: 12px; color: #5F5E5A; word-break: break-all; background: #F1EFE8; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+  .qr-actions { display: flex; gap: 8px; justify-content: center; }
+  .qr-actions button { font-size: 13px; padding: 8px 14px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #2C2C2A; cursor: pointer; }
+  @media print {
+    body * { visibility: hidden; }
+    #qr-overlay, #qr-overlay * { visibility: visible; }
+    #qr-overlay { position: absolute; inset: 0; background: #FFFFFF; }
+    .qr-tabs, .qr-actions { display: none !important; }
+    .qr-card { box-shadow: none; }
+  }
   .room-overlay {
     position: fixed; inset: 0; background: rgba(44,44,42,0.55);
     display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
@@ -86,6 +102,7 @@
   .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
   .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 600; font-size: 15px; }
 </style>
+<script src="/qrcode.js"></script>
 </head>
 <body>
 <div id="room-overlay" class="room-overlay">
@@ -101,13 +118,30 @@
     <button id="room-code-btn" class="room-start-btn">はじめる</button>
   </div>
 </div>
+<div id="qr-overlay" class="room-overlay" style="display:none;">
+  <div class="room-card qr-card">
+    <div class="room-title">生徒用QRコード</div>
+    <div class="qr-tabs">
+      <button id="qr-tab-common" type="button">全クラス共通</button>
+      <button id="qr-tab-class" type="button">このクラス専用</button>
+    </div>
+    <div id="qr-desc" class="room-sub"></div>
+    <div id="qr-box" class="qr-box"></div>
+    <div id="qr-url" class="qr-url"></div>
+    <div class="qr-actions">
+      <button id="qr-copy" type="button">URLをコピー</button>
+      <button id="qr-print" type="button">印刷</button>
+      <button id="qr-close" type="button">とじる</button>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <div class="top">
     <div class="title">📊 What do you like? ゲーム（先生用）<span id="room-label" class="room-label"></span></div>
     <div class="actions">
       <span id="conn-status" class="conn-status">接続中...</span>
       <button id="room-change-btn" class="room-change">クラスを変える</button>
-      <button id="url-btn" class="room-change">🔗 生徒用URL</button>
+      <button id="url-btn" class="room-change">🔳 生徒用QRコード</button>
       <button id="tv-btn" class="room-change">📺 TV画面を開く</button>
       <button id="finish-btn" class="finish-btn">🏁 終了する</button>
       <button id="reset-btn" class="reset-btn">全員のスコアをリセット</button>
@@ -279,11 +313,52 @@ document.getElementById("room-change-btn").onclick = function(){
 document.getElementById("tv-btn").onclick = function(){
   window.open("/what-tv?room=" + encodeURIComponent(currentRoom), "_blank");
 };
-document.getElementById("url-btn").onclick = function(){
+var qrMode = "common";
+function qrUrl(){
   var p = parseRoom(currentRoom);
   var school = p ? p.school : "";
-  var url = location.origin + "/what" + (school ? "?school=" + school : "");
-  prompt("全クラス共通のプリント・QRコードには このURLを使えます（コピーしてください）", url);
+  return qrMode === "common"
+    ? location.origin + "/what" + (school ? "?school=" + school : "")
+    : location.origin + "/what?room=" + encodeURIComponent(currentRoom);
+}
+function renderQR(){
+  var p = parseRoom(currentRoom);
+  var school = p ? p.school : "";
+  var url = qrUrl();
+  document.getElementById("qr-tab-common").className = qrMode === "common" ? "sel" : "";
+  document.getElementById("qr-tab-class").className = qrMode === "class" ? "sel" : "";
+  document.getElementById("qr-desc").textContent = qrMode === "common"
+    ? "全クラス共通のプリント用です。生徒は学年・組・番号をえらびます。" + (school ? "（学校コード「" + school + "」入り）" : "（学校コードなし）")
+    : (p ? p.g + "年" + p.c + "組" : currentRoom) + " 専用です。生徒は学年・組をえらばずに入れます（番号をえらぶだけ）。TVに映して読み取らせるときに便利です。";
+  var box = document.getElementById("qr-box");
+  if(typeof qrcode !== "function"){
+    box.textContent = "QRコードを作れませんでした（ページを読みこみ直してください）";
+  } else {
+    var qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2 });
+  }
+  document.getElementById("qr-url").textContent = url;
+  document.getElementById("qr-copy").textContent = "URLをコピー";
+}
+document.getElementById("url-btn").onclick = function(){
+  qrMode = "common";
+  renderQR();
+  document.getElementById("qr-overlay").style.display = "flex";
+};
+document.getElementById("qr-tab-common").onclick = function(){ qrMode = "common"; renderQR(); };
+document.getElementById("qr-tab-class").onclick = function(){ qrMode = "class"; renderQR(); };
+document.getElementById("qr-close").onclick = function(){ document.getElementById("qr-overlay").style.display = "none"; };
+document.getElementById("qr-print").onclick = function(){ window.print(); };
+document.getElementById("qr-copy").onclick = function(){
+  var url = qrUrl();
+  var btn = this;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ btn.textContent = "コピーしました"; }, function(){ prompt("このURLをコピーしてください", url); });
+  } else {
+    prompt("このURLをコピーしてください", url);
+  }
 };
 
 function fmtTime(ts){

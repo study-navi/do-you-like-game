@@ -89,6 +89,19 @@ document.getElementById("room-code-btn").onclick = function(){
   startWithRoom(v);
 };
 
+var photoCache = {};
+function photoSrc(s){
+  if(!s.photo) return null;
+  var c = photoCache[s.id];
+  if(c && c !== "loading") return c;
+  if(!c){
+    photoCache[s.id] = "loading";
+    fetch(s.photo).then(function(r){ if(!r.ok) throw new Error("x"); return r.blob(); })
+      .then(function(b){ photoCache[s.id] = URL.createObjectURL(b); })
+      .catch(function(){ delete photoCache[s.id]; });
+  }
+  return null;
+}
 function render(students){
   var board = document.getElementById("board");
   document.getElementById("empty").style.display = students.length ? "none" : "block";
@@ -101,7 +114,7 @@ function render(students){
     row.className = cls;
     row.innerHTML =
       '<div class="rank">' + rankLabel + '</div>' +
-      (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
+      (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="meta">' +
         '<div class="status">' + (s.status || "") + '</div>' +
       '</div>' +

@@ -368,6 +368,19 @@ function fmtTime(ts){
   if(m < 60) return m + "分前";
   return Math.floor(m / 60) + "時間前";
 }
+var photoCache = {};
+function photoSrc(s){
+  if(!s.photo) return null;
+  var c = photoCache[s.id];
+  if(c && c !== "loading") return c;
+  if(!c){
+    photoCache[s.id] = "loading";
+    fetch(s.photo).then(function(r){ if(!r.ok) throw new Error("x"); return r.blob(); })
+      .then(function(b){ photoCache[s.id] = URL.createObjectURL(b); })
+      .catch(function(){ delete photoCache[s.id]; });
+  }
+  return null;
+}
 function render(students){
   renderRoster(students);
   var grid = document.getElementById("grid");
@@ -382,7 +395,7 @@ function render(students){
       '<div class="rank">' + rankLabel + '</div>' +
       '<button class="rm-btn" data-id="' + s.id + '" title="この表示を消す">×</button>' +
       (s.role === "teacher" ? '<div class="no-badge teacher">先生</div>' : (s.no ? '<div class="no-badge">' + s.no + '番</div>' : '')) +
-      (s.photo ? '<img class="avatar" src="' + s.photo + '">' : '<div class="avatar-blank">?</div>') +
+      (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="score">' + s.score + '<span class="unit">pt</span></div>' +
       '<div class="streak">🔥 ' + s.streak + '（さいこう ' + s.best + '）</div>' +
       '<div class="status">' + (s.status || "") + '</div>' +

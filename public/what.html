@@ -693,10 +693,10 @@ function startFinishPoll(){
 }
 function checkFinishState(){
   if(!studentId) return;
-  fetch(API + "/state?room=" + encodeURIComponent(myRoom))
+  fetch(API + "/state?room=" + encodeURIComponent(myRoom) + "&me=" + encodeURIComponent(studentId))
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if(!(d.students || []).some(function(x){ return x.id === studentId; })){
+      if(!d.exists){
         forgetRegistration();
         location.reload();
         return;
@@ -1036,10 +1036,10 @@ function initGame(){
   studentId = localStorage.getItem(STUDENT_ID_KEY);
   if(studentId){
     myRoom = localStorage.getItem(STUDENT_ROOM_KEY) || getRoomFromUrl();
-    fetch(API + "/state?room=" + encodeURIComponent(myRoom))
+    fetch(API + "/state?room=" + encodeURIComponent(myRoom) + "&me=" + encodeURIComponent(studentId))
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var found = (d.students || []).some(function(x){ return x.id === studentId; });
+        var found = !!d.exists;
         var sameRoom = !urlRoom || String(urlRoom).trim().toLowerCase() === d.room;
         if(found && sameRoom){
           resumeRegistered();

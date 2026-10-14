@@ -213,6 +213,81 @@ function publicDylList(room){
   return list;
 }
 
+/* ===== 大文字ビンゴ（Unit6 ALPHABET）用データ ===== */
+const ALPHABET_FILE = path.join(__dirname, 'alphabet_rooms.json');
+const ALPHABET_STUDENTS_FILE = path.join(__dirname, 'alphabet_students.json');
+let alphabetRooms = {}; // room名 -> { size: 3, calledWords: [] }
+let alphabetStudents = {}; // id -> { id, room, photo, lineCount, bingoAt, registeredAt, updatedAt }
+function loadAlphabet(){
+  try{
+    const raw = fs.readFileSync(ALPHABET_FILE, 'utf8');
+    alphabetRooms = JSON.parse(raw);
+  }catch(e){
+    alphabetRooms = {};
+  }
+}
+function saveAlphabet(){
+  try{
+    fs.writeFileSync(ALPHABET_FILE, JSON.stringify(alphabetRooms));
+  }catch(e){
+    console.error('保存に失敗しました:', e.message);
+  }
+}
+loadAlphabet();
+
+function loadAlphabetStudents(){
+  try{
+    const raw = fs.readFileSync(ALPHABET_STUDENTS_FILE, 'utf8');
+    alphabetStudents = JSON.parse(raw);
+  }catch(e){
+    alphabetStudents = {};
+  }
+}
+function saveAlphabetStudents(){
+  try{
+    fs.writeFileSync(ALPHABET_STUDENTS_FILE, JSON.stringify(alphabetStudents));
+  }catch(e){
+    console.error('保存に失敗しました:', e.message);
+  }
+}
+loadAlphabetStudents();
+
+function getAlphabetRoom(room){
+  if(!alphabetRooms[room]){
+    alphabetRooms[room] = { size: 3, calledWords: [] };
+  }
+  if(!alphabetRooms[room].size) alphabetRooms[room].size = 3;
+  if(!alphabetRooms[room].calledWords) alphabetRooms[room].calledWords = [];
+  return alphabetRooms[room];
+}
+
+function publicAlphabetList(room){
+  const list = Object.keys(alphabetStudents).filter(function(id){
+    return normalizeRoom(alphabetStudents[id].room) === room;
+  }).map(function(id){
+    const s = alphabetStudents[id];
+    return {
+      id: id,
+      no: s.no || null,
+      role: s.role || "student",
+      photo: s.photo ? "/api/alphabet/photo?id=" + id : null,
+      lineCount: s.lineCount || 0,
+      bingoAt: s.bingoAt || null,
+      registeredAt: s.registeredAt,
+      updatedAt: s.updatedAt
+    };
+  }).sort(function(a, b){
+    // ビンゴ達成ずみの人を、達成が早かった順に先頭へ。まだの人はライン数が多い順。
+    if(a.bingoAt && b.bingoAt) return a.bingoAt - b.bingoAt;
+    if(a.bingoAt && !b.bingoAt) return -1;
+    if(!a.bingoAt && b.bingoAt) return 1;
+    if(b.lineCount !== a.lineCount) return b.lineCount - a.lineCount;
+    return a.registeredAt - b.registeredAt;
+  });
+  list.forEach(function(s, idx){ s.rank = idx + 1; });
+  return list;
+}
+
 function sendJson(res, status, obj){
   const body = JSON.stringify(obj);
   res.writeHead(status, {
@@ -790,6 +865,154 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  if(req.method === 'GET' && url === '/alphabet'){
+    serveFile(res, path.join(PUBLIC_DIR, 'alphabet.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/alphabet-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'alphabet-teacher.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/alphabet-tv'){
+    serveFile(res, path.join(PUBLIC_DIR, 'alphabet-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/alphabet/photo'){
+    const st = alphabetStudents[getQueryParam(queryString, 'id')];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, { 'Content-Type': m[1], 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=604800, immutable', 'Access-Control-Allow-Origin': '*' });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/alphabet/state' && getQueryParam(queryString, 'me')){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const b = getAlphabetRoom(room);
+    const exists = !!(alphabetStudents[me] && normalizeRoom(alphabetStudents[me].room) === room);
+    sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, exists: exists });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/alphabet/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && alphabetStudents[id] && normalizeRoom(alphabetStudents[id].room) === room){
+        delete alphabetStudents[id];
+        saveAlphabetStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/alphabet/state'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const b = getAlphabetRoom(room);
+    sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, students: publicAlphabetList(room) });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/alphabet/size'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const size = (body && [3, 4, 5].indexOf(body.size) >= 0) ? body.size : 3;
+      alphabetRooms[room] = { size: size, calledWords: [] };
+      saveAlphabet();
+      sendJson(res, 200, { ok: true, room: room, size: size });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/alphabet/call'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const pool = (body && Array.isArray(body.pool)) ? body.pool : [];
+      const b = getAlphabetRoom(room);
+      const remaining = pool.filter(function(w){ return b.calledWords.indexOf(w) < 0; });
+      if(remaining.length === 0){
+        sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, done: true });
+        return;
+      }
+      const pick = remaining[Math.floor(Math.random() * remaining.length)];
+      b.calledWords.push(pick);
+      saveAlphabet();
+      sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, word: pick, done: false });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/alphabet/reset'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const b = getAlphabetRoom(room);
+      alphabetRooms[room] = { size: b.size, calledWords: [] };
+      saveAlphabet();
+      Object.keys(alphabetStudents).forEach(function(id){
+        if(normalizeRoom(alphabetStudents[id].room) === room) delete alphabetStudents[id];
+      });
+      saveAlphabetStudents();
+      sendJson(res, 200, { ok: true, room: room, size: alphabetRooms[room].size });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/alphabet/register'){
+    readJsonBody(req, function(body){
+      if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
+      const room = normalizeRoom(body.room);
+      if(typeof body.replaceId === 'string' && alphabetStudents[body.replaceId] && normalizeRoom(alphabetStudents[body.replaceId].room) === room){
+        delete alphabetStudents[body.replaceId];
+      }
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      if(deviceId){
+        Object.keys(alphabetStudents).forEach(function(k){
+          if(alphabetStudents[k].deviceId === deviceId && normalizeRoom(alphabetStudents[k].room) === room) delete alphabetStudents[k];
+        });
+      }
+      const id = crypto.randomBytes(4).toString('hex');
+      alphabetStudents[id] = {
+        id: id,
+        room: room,
+        deviceId: deviceId,
+        role: body.role === 'teacher' ? 'teacher' : 'student',
+        no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
+        photo: typeof body.photo === 'string' ? body.photo : null,
+        lineCount: 0,
+        bingoAt: null,
+        registeredAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      saveAlphabetStudents();
+      sendJson(res, 200, { id: id, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/alphabet/progress'){
+    readJsonBody(req, function(body){
+      if(!body || !body.id || !alphabetStudents[body.id]){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      const s = alphabetStudents[body.id];
+      if(body.reset){
+        s.lineCount = 0;
+        s.bingoAt = null;
+      } else if(typeof body.lineCount === 'number'){
+        s.lineCount = body.lineCount;
+        if(s.lineCount >= 1 && !s.bingoAt) s.bingoAt = Date.now();
+      }
+      s.updatedAt = Date.now();
+      saveAlphabetStudents();
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
   sendJson(res, 404, { error: 'not found' });
 });
 

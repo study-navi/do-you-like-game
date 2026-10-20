@@ -344,7 +344,7 @@
   <div class="bingo-card">
     <div class="bingo-emoji">🎉</div>
     <div class="bingo-text">CLEAR！</div>
-    <div style="font-size:14px;color:#5F5E5A;margin-bottom:14px;">じぶんの イニシャルが そろったよ！</div>
+    <div style="font-size:14px;color:#5F5E5A;margin-bottom:14px;">じぶんの イニシャルが そろったよ！<br>まだの友だちが いるので、こうかんを たのまれたら おうじてね。</div>
     <button class="bingo-close" onclick="closeClear()">とじる</button>
   </div>
 </div>
@@ -486,7 +486,11 @@ function renderPlay(){
   document.getElementById("hand-cards").innerHTML = hand.map(function(c, i){ return cardHtml(c, flags[i] ? "match" : "", ""); }).join("");
   var box = document.getElementById("ask-box");
   var need = neededLetters();
-  if(need.length === 0){
+  if(meState.clearedAt){
+    box.innerHTML = '<div class="ask-line">🎉 クリアずみ！</div>' +
+      '<div class="ask-ans">まだの友だちが いるよ。「Do you have ~?」と きかれたら、カードを こうかんして てつだおう。<br>こうかんしたら「カードを こうかんした」を おしてね。</div>' +
+      (need.length ? '<div class="ask-title" style="margin-top:10px;">いまは そろっていません（クリアの きろくは のこっています）</div>' : '');
+  } else if(need.length === 0){
     box.innerHTML = '<div class="ask-line">🎉 イニシャルが そろったよ！</div>';
   } else {
     var uniq = need.filter(function(c, i){ return need.indexOf(c) === i; });

@@ -163,7 +163,7 @@ function render(students){
       '<div class="meta">' +
         '<div class="status">' + (s.clearedAt ? "🎉 CLEAR!" : (s.hand ? "" : (s.made ? "カードをまっています" : "カードづくり中"))) + '</div>' +
       '</div>' +
-      '<div class="score">' + (s.hand ? (s.matched || 0) + '<span class="unit"> / 2 まい</span>' : '<span class="unit">-</span>') + '</div>';
+      '<div class="score">' + (s.clearedAt ? '<span class="unit">クリアずみ ✓</span>' : s.hand ? (s.matched || 0) + '<span class="unit"> / 2 まい</span>' : '<span class="unit">-</span>') + '</div>';
     board.appendChild(row);
     prevMatched[s.id] = s.matched || 0;
   });

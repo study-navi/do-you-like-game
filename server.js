@@ -1307,11 +1307,8 @@ const server = http.createServer(function(req, res){
       const changed = body.hand[0] !== s.hand[0] || body.hand[1] !== s.hand[1];
       s.hand = body.hand.slice();
       if(changed) s.exchanges = (s.exchanges || 0) + 1;
-      if(initialMatchCount(s.made, s.hand) === 2){
-        if(!s.clearedAt) s.clearedAt = Date.now();
-      } else {
-        s.clearedAt = null;
-      }
+      // いちどクリアしたら記録は残す（クリア後も、まだの友だちのために交換をつづける）
+      if(initialMatchCount(s.made, s.hand) === 2 && !s.clearedAt) s.clearedAt = Date.now();
       s.updatedAt = Date.now();
       saveInitialStudents();
       sendJson(res, 200, { ok: true, me: initialMe(s) });

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>イニシャルカード交換 - ALPHABET</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.46.0/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 16px; touch-action: manipulation;
+  }
+  .app { max-width: 520px; margin: 0 auto; }
+  .title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 2px; }
+  .room-tag { text-align: center; font-size: 12px; color: #888780; margin-bottom: 16px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* setup screen */
+  .setup-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .setup-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 12px; }
+  .random-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #185FA5; color: #FFFFFF; cursor: pointer; margin-bottom: 4px;
+  }
+  .or-sep { text-align: center; font-size: 12px; color: #B4B2A9; margin: 10px 0; }
+  .setup-grid-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .setup-grid { display: grid; gap: 6px; }
+  .setup-cell {
+    background: #F1EFE8; border: 2px dashed #D3D1C7; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; padding: 4px; overflow: hidden;
+  }
+  .setup-cell.filled { border-style: solid; border-color: #A9C23F; background: #F3F8E4; }
+  .setup-cell .cell-en { font-weight: 700; }
+  .setup-cell .cell-ja { color: #888780; }
+  .fill-count { text-align: center; font-size: 13px; color: #5F5E5A; margin-bottom: 10px; }
+  .pool-title { font-size: 13px; font-weight: 600; color: #5F5E5A; margin-bottom: 8px; }
+  .pool-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; min-height: 44px; }
+  .pool-tile {
+    background: #EEEDFE; border-radius: 12px; padding: 6px 12px; font-size: 18px; font-weight: 700; min-width: 44px; justify-content: center;
+    color: #534AB7; cursor: grab; display: flex; align-items: center; gap: 6px; touch-action: none;
+  }
+  .pool-tile.selected { outline: 3px solid #534AB7; }
+  .pool-tile.dragging { opacity: 0.35; }
+  .drag-ghost {
+    position: fixed; z-index: 999; pointer-events: none; background: #534AB7; color: #FFFFFF;
+    border-radius: 12px; padding: 8px 14px; font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+  .confirm-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #A9C23F; color: #FFFFFF; cursor: pointer; margin-top: 6px;
+  }
+  .confirm-btn:disabled { background: #D3D1C7; cursor: default; }
+  .size-note { text-align: center; font-size: 12px; color: #B4B2A9; margin-bottom: 10px; }
+
+  /* game screen */
+  .word-banner {
+    background: #FFFFFF; border-radius: 18px; padding: 16px; text-align: center; margin-bottom: 14px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  }
+  .word-banner .label { font-size: 11px; color: #B4B2A9; margin-bottom: 4px; }
+  .word-banner .en { font-size: 64px; line-height: 1.1; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .word-banner .ja { font-size: 13px; color: #888780; margin-top: 2px; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 30px; height: 30px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .board-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .board-grid { display: grid; gap: 6px; }
+  .board-cell {
+    background: #FFFFFF; border: 2px solid #E6E4DA; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 4px; overflow: hidden; position: relative;
+  }
+  .board-cell.marked { background: #E1F5EE; border-color: #1D9E75; }
+  .board-cell.marked::after {
+    content: "✓"; position: absolute; top: 2px; right: 5px; color: #0F6E56; font-weight: 700; font-size: 13px;
+  }
+  .board-cell.line { background: #FDF3D8; border-color: #F0B429; }
+  .board-cell .cell-en { font-weight: 700; }
+  .board-cell .cell-ja { color: #888780; }
+  .history-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
+  .history-chip {
+    flex: 0 0 auto; background: #F1EFE8; border-radius: 999px; padding: 5px 12px; font-size: 12px; color: #5F5E5A;
+  }
+  .redo-btn {
+    width: 100%; padding: 10px; font-size: 13px; border-radius: 999px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; cursor: pointer;
+  }
+
+  .bingo-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  }
+  .bingo-overlay.show { display: flex; }
+  .bingo-card { background: #FFFFFF; border-radius: 22px; padding: 30px 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .bingo-emoji { font-size: 50px; margin-bottom: 8px; }
+  .bingo-text { font-size: 26px; font-weight: 700; color: #185FA5; margin-bottom: 16px; }
+  .bingo-close { padding: 10px 26px; border-radius: 999px; border: none; background: #185FA5; color: #FFFFFF; font-weight: 600; cursor: pointer; }
+
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .room-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  .room-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .line-count-badge {
+    position: fixed; top: 12px; right: 12px; background: #185FA5; color: #FFFFFF;
+    padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 14px; z-index: 60;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .register-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55); display: none;
+    align-items: center; justify-content: center; padding: 16px; z-index: 110;
+  }
+  .register-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .register-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .register-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .reg-frame {
+    width: 140px; height: 140px; border-radius: 50%; background: #F1EFE8; border: 3px dashed #D3D1C7;
+    margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 40px;
+  }
+  .reg-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .reg-btn-primary, .reg-btn-secondary {
+    padding: 12px 20px; border-radius: 999px; border: none; font-weight: 700; font-size: 14px;
+    cursor: pointer; margin-bottom: 10px; width: 100%;
+  }
+  .reg-btn-primary { background: #185FA5; color: #FFFFFF; }
+  .reg-btn-secondary { background: #EEEDFE; color: #534AB7; }
+  .reg-skip-btn {
+    display: block; width: 100%; padding: 8px; border: none; background: none; color: #B4B2A9;
+    font-size: 12px; text-decoration: underline; cursor: pointer; margin-top: 6px;
+  }
+  /* ---- registration overlay ---- */
+  .register-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .register-card {
+    background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 420px;
+    text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  }
+  .register-title { font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .register-sub { font-size: 13px; color: #888780; margin-bottom: 14px; }
+  .reg-frame {
+    width: 100%; aspect-ratio: 4 / 3; background: #F1EFE8; border-radius: 16px;
+    overflow: hidden; margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .reg-frame video, .reg-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .register-actions { display: flex; flex-direction: column; gap: 10px; }
+  .reg-btn-primary {
+    padding: 14px; font-size: 16px; border-radius: 999px; font-weight: 600;
+    border: 2px solid #7F77DD; color: #534AB7; background: #EEEDFE;
+  }
+  .reg-btn-confirm {
+    padding: 14px; font-size: 16px; border-radius: 999px; font-weight: 600;
+    border: 2px solid #1D9E75; color: #0F6E56; background: #E1F5EE;
+  }
+  .reg-btn-secondary {
+    padding: 10px; font-size: 14px; border-radius: 999px; font-weight: 500;
+    border: 1px solid #D3D1C7; color: #5F5E5A; background: #FFFFFF;
+  }
+  .reg-error { color: #993C1D; font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .no-flex { display: flex; gap: 8px; }
+  .teacher-toggle {
+    flex: 0 0 auto; padding: 0 14px; border-radius: 10px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; font-size: 14px; font-weight: 600;
+  }
+  .teacher-toggle.on { background: #EEEDFE; border-color: #7F77DD; color: #534AB7; }
+  .register-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .no-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
+  .no-pick button {
+    padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 17px; font-weight: 700; color: #2C2C2A; transition: transform 0.1s;
+  }
+  .no-pick button:active { transform: scale(0.92); }
+  .no-pick button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .no-pick.off { opacity: 0.3; pointer-events: none; }
+  #teacher-btn { width: 100%; padding: 10px 14px; }
+  .gc-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .gc-name { flex: 0 0 34px; font-size: 13px; color: #5F5E5A; font-weight: 600; }
+  .gc-pick { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .gc-pick button {
+    padding: 8px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 16px; font-weight: 700; color: #2C2C2A;
+  }
+  .gc-pick button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+  .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
+
+  /* ---- initial card game ---- */
+  .step-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .step-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 4px; }
+  .step-example { font-size: 12px; color: #888780; text-align: center; margin-bottom: 14px; }
+  .slot-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 14px; }
+  .slot-wrap { text-align: center; }
+  .slot-label { font-size: 12px; color: #5F5E5A; margin-bottom: 6px; font-weight: 600; }
+  .icard {
+    width: 92px; height: 112px; border-radius: 6px; background: #FFF3B0; border: 2px solid #F0D94F;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.12); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 58px; font-weight: 700; color: #2C2C2A; position: relative; line-height: 1;
+  }
+  .icard small { font-size: 11px; font-weight: 600; color: #888780; margin-top: 6px; }
+  .icard.empty { background: #FFFFFF; border: 2px dashed #D3D1C7; box-shadow: none; color: #D3D1C7; }
+  .icard.active { border-color: #185FA5; border-style: solid; box-shadow: 0 0 0 3px #B5D4F4; }
+  .icard.match { background: #E1F5EE; border-color: #1D9E75; }
+  .icard.match::after { content: "✓"; position: absolute; top: 3px; right: 7px; color: #0F6E56; font-size: 16px; }
+  .icard.pick { border-color: #D85A30; box-shadow: 0 0 0 3px #F5C4B3; }
+  .icard.mine { background: #EEEDFE; border-color: #AFA9EC; }
+  .keypad { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 14px; }
+  .keypad button {
+    padding: 10px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 20px; font-weight: 700; color: #2C2C2A; cursor: pointer;
+  }
+  .keypad button:active { transform: scale(0.92); }
+  .keypad button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .main-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #185FA5; color: #FFFFFF; cursor: pointer;
+  }
+  .main-btn:disabled { background: #D3D1C7; cursor: default; }
+  .sub-btn {
+    width: 100%; padding: 10px; font-size: 13px; border-radius: 999px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; cursor: pointer; margin-top: 10px;
+  }
+  .wait-msg { text-align: center; font-size: 16px; font-weight: 600; color: #534AB7; margin: 6px 0 4px; }
+  .wait-sub { text-align: center; font-size: 12px; color: #888780; }
+  .section-title { font-size: 13px; color: #5F5E5A; font-weight: 700; margin: 4px 0 8px; text-align: center; }
+  .card-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 16px; }
+  .ask-box { background: #F7F6F1; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: center; }
+  .ask-title { font-size: 12px; color: #888780; margin-bottom: 6px; }
+  .ask-line { font-size: 22px; font-weight: 700; color: #185FA5; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0; }
+  .ask-ans { font-size: 12px; color: #5F5E5A; margin-top: 6px; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 30px; height: 30px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .xchg-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 150; padding: 16px;
+  }
+  .xchg-overlay.show { display: flex; }
+  .xchg-card { background: #FFFFFF; border-radius: 22px; padding: 22px 18px; width: 100%; max-width: 420px; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .xchg-q { font-size: 15px; font-weight: 700; text-align: center; margin: 4px 0 10px; }
+  .xchg-preview { text-align: center; font-size: 18px; font-weight: 700; color: #993C1D; min-height: 26px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+  <div id="register-overlay" class="register-overlay">
+    <div class="register-card">
+      <div class="register-title">📷 なまえカードを うつしてね</div>
+      <div class="register-sub">ネームカードに なまえを かいて、しゃしんを とってください</div>
+      <div id="room-badge" style="font-size:13px;color:#185FA5;background:#E6F1FB;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
+      <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
+        <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
+        <input type="hidden" id="room-input" value="">
+        <div class="gc-line"><span class="gc-name">ねん</span><div id="grade-pick" class="gc-pick"></div></div>
+        <div class="gc-line"><span class="gc-name">くみ</span><div id="class-pick" class="gc-pick"></div></div>
+      </div>
+      <div id="no-row" style="margin-bottom:14px;text-align:left;">
+        <label id="no-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">しゅっせきばんごうを えらんでね</label>
+        <input type="hidden" id="no-input" value="">
+        <div id="no-pick" class="no-pick"></div>
+        <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
+      </div>
+      <div class="reg-frame" id="reg-frame">
+        <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
+        <img id="reg-preview" style="display:none;">
+      </div>
+      <input type="file" id="reg-file-input" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoSelected(event)">
+      <div class="register-actions">
+        <button id="reg-capture-btn" class="reg-btn-primary" onclick="document.getElementById('reg-file-input').click()">
+          <i class="ti ti-camera" style="vertical-align:-3px;margin-right:6px;"></i>しゃしんを とる
+        </button>
+        <button id="reg-confirm-btn" class="reg-btn-confirm" style="display:none;" onclick="confirmPhoto()">これで OK</button>
+        <button id="reg-retake-btn" class="reg-btn-secondary" style="display:none;" onclick="retakePhoto()">とりなおす</button>
+      </div>
+      <div class="reg-error" id="reg-error"></div>
+    </div>
+  </div>
+
+
+
+
+<div class="app">
+  <div class="title">🔠 イニシャルカード こうかん</div>
+  <div class="room-tag" id="room-tag"></div>
+
+  <div id="screen-make" class="screen active">
+    <div class="step-card">
+      <div class="step-hint">① きみの イニシャルカードを つくろう！</div>
+      <div class="step-example">みょうじと なまえの かしら文字（ローマ字）　れい: 山田 太郎 → Y と T</div>
+      <div class="slot-row">
+        <div class="slot-wrap"><div class="slot-label">みょうじ</div><div class="icard empty" id="slot-0" onclick="pickSlot(0)">?</div></div>
+        <div class="slot-wrap"><div class="slot-label">なまえ</div><div class="icard empty" id="slot-1" onclick="pickSlot(1)">?</div></div>
+      </div>
+      <div class="keypad" id="keypad"></div>
+      <button class="main-btn" id="make-btn" onclick="confirmMake()" disabled>これでOK！</button>
+      <button class="sub-btn" id="make-cancel-btn" style="display:none;" onclick="cancelMake()">もどる</button>
+    </div>
+  </div>
+
+  <div id="screen-wait" class="screen">
+    <div class="step-card">
+      <div class="step-hint">きみの イニシャルカード</div>
+      <div class="card-row" id="wait-cards"></div>
+      <div class="wait-msg" id="wait-msg">先生が カードを あつめて くばるまで まっててね</div>
+      <div class="wait-sub">くばられたら じどうで ゲームが はじまります</div>
+      <button class="sub-btn" id="remake-btn" onclick="startRemake()">🔄 カードを つくりなおす</button>
+    </div>
+  </div>
+
+  <div id="screen-play" class="screen">
+    <div class="step-card">
+      <div class="section-title">きみの イニシャル（これを 2まい あつめよう）</div>
+      <div class="card-row" id="target-cards"></div>
+      <div class="section-title">いま もっている カード</div>
+      <div class="card-row" id="hand-cards"></div>
+      <div class="ask-box" id="ask-box"></div>
+      <button class="main-btn" onclick="openXchg()">🔁 カードを こうかんした</button>
+    </div>
+  </div>
+</div>
+
+<div id="xchg-overlay" class="xchg-overlay">
+  <div class="xchg-card">
+    <div class="xchg-q">① どっちの カードを わたした？</div>
+    <div class="card-row" id="xchg-hand"></div>
+    <div class="xchg-q">② どの カードを もらった？</div>
+    <div class="keypad" id="xchg-keypad"></div>
+    <div class="xchg-preview" id="xchg-preview"></div>
+    <button class="main-btn" id="xchg-ok" onclick="applyXchg()" disabled>これで OK</button>
+    <button class="sub-btn" onclick="closeXchg()">やめる</button>
+  </div>
+</div>
+
+<div id="bingo-overlay" class="bingo-overlay">
+  <div class="bingo-card">
+    <div class="bingo-emoji">🎉</div>
+    <div class="bingo-text">CLEAR！</div>
+    <div style="font-size:14px;color:#5F5E5A;margin-bottom:14px;">じぶんの イニシャルが そろったよ！</div>
+    <button class="bingo-close" onclick="closeClear()">とじる</button>
+  </div>
+</div>
+
+<script>
+var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+var LETTER_NAMES = {A:'ay', B:'bee', C:'see', D:'dee', E:'ee', F:'eff', G:'jee', H:'aitch', I:'eye', J:'jay', K:'kay', L:'el', M:'em', N:'en', O:'oh', P:'pee', Q:'cue', R:'are', S:'ess', T:'tee', U:'you', V:'vee', W:'double you', X:'ex', Y:'why', Z:'zee'};
+
+var ROOM_KEY = "initial_student_room";
+var currentRoom = "";
+var STUDENT_ID_KEY = "initial_student_id";
+var STUDENT_PHOTO_KEY = "initial_student_photo";
+var studentId = localStorage.getItem(STUDENT_ID_KEY) || null;
+var pollTimer = null;
+
+var meState = null;      // サーバーから受け取った自分の状態 { made, hand, matched, clearedAt }
+var editing = false;     // カードを つくりなおし中
+var makeSlots = [null, null];
+var activeSlot = 0;
+var clearShown = false;
+var lastShownKey = "";
+var xchgGive = -1, xchgGet = null;
+
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text.length === 1 ? (LETTER_NAMES[text] || text) : text);
+    u.lang = "en-US";
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function showScreen(name){
+  ["make", "wait", "play"].forEach(function(n){
+    document.getElementById("screen-" + n).classList.toggle("active", n === name);
+  });
+}
+function cardHtml(letter, cls, extra){
+  return '<div class="icard ' + (cls || "") + '"' + (extra || "") + '>' + letter + '</div>';
+}
+
+/* ---------- ① イニシャルカードを つくる ---------- */
+function renderKeypad(){
+  var pad = document.getElementById("keypad");
+  if(!pad.children.length){
+    LETTERS.forEach(function(L){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = L;
+      b.onclick = function(){ pickLetter(L); };
+      pad.appendChild(b);
+    });
+  }
+  renderSlots();
+}
+function renderSlots(){
+  for(var i = 0; i < 2; i++){
+    var el = document.getElementById("slot-" + i);
+    el.textContent = makeSlots[i] || "?";
+    el.className = "icard" + (makeSlots[i] ? "" : " empty") + (activeSlot === i ? " active" : "");
+  }
+  document.getElementById("make-btn").disabled = !(makeSlots[0] && makeSlots[1]);
+}
+function pickSlot(i){
+  activeSlot = i;
+  makeSlots[i] = null;
+  renderSlots();
+}
+function pickLetter(L){
+  makeSlots[activeSlot] = L;
+  speak(L);
+  if(activeSlot === 0 && !makeSlots[1]) activeSlot = 1;
+  else if(activeSlot === 1 && !makeSlots[0]) activeSlot = 0;
+  renderSlots();
+}
+function confirmMake(){
+  if(!(makeSlots[0] && makeSlots[1]) || !studentId) return;
+  var btn = document.getElementById("make-btn");
+  btn.disabled = true;
+  fetch("/api/initial/make", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId, cards: [makeSlots[0], makeSlots[1]] })
+  }).then(function(r){ return r.json().then(function(d){ return { status: r.status, d: d }; }); })
+    .then(function(res){
+      if(res.status === 409){
+        alert("もう カードが くばられているので、つくりなおせません。");
+        editing = false;
+      } else if(res.d && res.d.me){
+        meState = res.d.me;
+        editing = false;
+      }
+      renderByState();
+    })
+    .catch(function(){ btn.disabled = false; alert("先生のサーバーに つなげませんでした。"); });
+}
+function startRemake(){
+  editing = true;
+  makeSlots = [null, null];
+  activeSlot = 0;
+  document.getElementById("make-cancel-btn").style.display = "block";
+  renderSlots();
+  showScreen("make");
+}
+function cancelMake(){
+  editing = false;
+  renderByState();
+}
+
+/* ---------- ③ ゲーム ---------- */
+function neededLetters(){
+  if(!meState || !meState.made || !meState.hand) return [];
+  var rest = meState.hand.slice();
+  var need = [];
+  meState.made.forEach(function(c){
+    var i = rest.indexOf(c);
+    if(i >= 0) rest.splice(i, 1); else need.push(c);
+  });
+  return need;
+}
+function matchedFlags(made, hand){
+  // hand の各カードが「自分のイニシャルとして そろっているか」
+  var rest = made.slice();
+  return hand.map(function(c){
+    var i = rest.indexOf(c);
+    if(i >= 0){ rest.splice(i, 1); return true; }
+    return false;
+  });
+}
+function renderPlay(){
+  var made = meState.made, hand = meState.hand;
+  document.getElementById("target-cards").innerHTML = made.map(function(c){ return cardHtml(c, "mine", ""); }).join("");
+  var flags = matchedFlags(made, hand);
+  document.getElementById("hand-cards").innerHTML = hand.map(function(c, i){ return cardHtml(c, flags[i] ? "match" : "", ""); }).join("");
+  var box = document.getElementById("ask-box");
+  var need = neededLetters();
+  if(need.length === 0){
+    box.innerHTML = '<div class="ask-line">🎉 イニシャルが そろったよ！</div>';
+  } else {
+    var uniq = need.filter(function(c, i){ return need.indexOf(c) === i; });
+    box.innerHTML = '<div class="ask-title">ともだちに きいてみよう</div>' +
+      uniq.map(function(c){
+        return '<div class="ask-line">Do you have ' + c + '? <button class="speak-btn" onclick="speak(\'Do you have ' + LETTER_NAMES[c] + '?\')">🔊</button></div>';
+      }).join("") +
+      '<div class="ask-ans">Yes, I do. / No, I don\'t.　ほしいカードが なくても、あいてが こうかんしたいときは かならず こうかん しよう</div>';
+  }
+}
+function renderWait(){
+  document.getElementById("wait-cards").innerHTML = meState.made.map(function(c){ return cardHtml(c, "mine", ""); }).join("");
+  document.getElementById("remake-btn").style.display = "block";
+}
+function renderByState(){
+  if(!meState) return;
+  if(editing){ showScreen("make"); return; }
+  if(!meState.made){
+    document.getElementById("make-cancel-btn").style.display = "none";
+    showScreen("make");
+    renderSlots();
+    return;
+  }
+  if(!meState.hand){
+    renderWait();
+    showScreen("wait");
+    return;
+  }
+  var key = meState.made.join("") + "|" + meState.hand.join("") + "|" + (meState.clearedAt ? "c" : "");
+  if(key !== lastShownKey){
+    lastShownKey = key;
+    renderPlay();
+  }
+  showScreen("play");
+  if(meState.clearedAt && !clearShown){
+    clearShown = true;
+    document.getElementById("bingo-overlay").classList.add("show");
+  }
+  if(!meState.clearedAt) clearShown = false;
+}
+function closeClear(){ document.getElementById("bingo-overlay").classList.remove("show"); }
+
+/* ---------- ② 交換する ---------- */
+function openXchg(){
+  if(!meState || !meState.hand) return;
+  xchgGive = -1; xchgGet = null;
+  renderXchg();
+  document.getElementById("xchg-overlay").classList.add("show");
+}
+function closeXchg(){ document.getElementById("xchg-overlay").classList.remove("show"); }
+function renderXchg(){
+  var hand = meState.hand;
+  var box = document.getElementById("xchg-hand");
+  box.innerHTML = "";
+  hand.forEach(function(c, i){
+    var d = document.createElement("div");
+    d.className = "icard" + (xchgGive === i ? " pick" : "");
+    d.textContent = c;
+    d.onclick = function(){ xchgGive = i; renderXchg(); };
+    box.appendChild(d);
+  });
+  var pad = document.getElementById("xchg-keypad");
+  pad.innerHTML = "";
+  LETTERS.forEach(function(L){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = L;
+    if(xchgGet === L) b.className = "sel";
+    b.onclick = function(){ xchgGet = L; speak(L); renderXchg(); };
+    pad.appendChild(b);
+  });
+  var pv = document.getElementById("xchg-preview");
+  pv.textContent = (xchgGive >= 0 && xchgGet) ? hand[xchgGive] + " → " + xchgGet : "";
+  document.getElementById("xchg-ok").disabled = !(xchgGive >= 0 && xchgGet);
+}
+function applyXchg(){
+  if(!(xchgGive >= 0 && xchgGet) || !meState || !meState.hand) return;
+  var nh = meState.hand.slice();
+  nh[xchgGive] = xchgGet;
+  var btn = document.getElementById("xchg-ok");
+  btn.disabled = true;
+  fetch("/api/initial/hand", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId, hand: nh })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.me){ meState = d.me; }
+      closeXchg();
+      renderByState();
+    })
+    .catch(function(){ btn.disabled = false; alert("先生のサーバーに つなげませんでした。"); });
+}
+
+/* ---------- ポーリング ---------- */
+function pollGame(){
+  if(pollTimer) clearTimeout(pollTimer);
+  fetch("/api/initial/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
+      if(d.me){
+        var xchgOpen = document.getElementById("xchg-overlay").classList.contains("show");
+        var handChanged = meState && meState.hand && d.me.hand && (meState.hand.join("") !== d.me.hand.join(""));
+        meState = d.me;
+        if(xchgOpen && handChanged){ closeXchg(); }
+        renderByState();
+      }
+    })
+    .catch(function(){})
+    .finally(function(){ pollTimer = setTimeout(pollGame, 2500); });
+}
+
+/* ---------- registration ---------- */
+var capturedPhoto = null;
+var STUDENT_NO_KEY = "initial_student_no";
+var PREV_ID_KEY = "initial_prev_id";
+var DEVICE_KEY = "initial_device";
+var registering = false;
+function getDeviceId(){
+  var d = "";
+  try{ d = localStorage.getItem(DEVICE_KEY) || ""; }catch(e){}
+  if(!d){
+    d = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try{ localStorage.setItem(DEVICE_KEY, d); }catch(e){}
+  }
+  return d;
+}
+var STUDENT_ROLE_KEY = "initial_student_role";
+var isTeacher = false;
+function setTeacherMode(on){
+  isTeacher = !!on;
+  var input = document.getElementById("no-input");
+  var btn = document.getElementById("teacher-btn");
+  input.disabled = isTeacher;
+  input.placeholder = isTeacher ? "先生として さんか" : "れい: 12";
+  if(isTeacher) input.value = "";
+  btn.className = "teacher-toggle" + (isTeacher ? " on" : "");
+  btn.textContent = isTeacher ? "✓ 先生" : "👩‍🏫 先生";
+  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごうを えらんでね";
+  renderNoPick();
+}
+var MAX_NO = 35;
+function renderNoPick(){
+  var box = document.getElementById("no-pick");
+  var input = document.getElementById("no-input");
+  if(!box.children.length){
+    for(var n = 1; n <= MAX_NO; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){
+          input.value = String(num);
+          document.getElementById("reg-error").textContent = "";
+          renderNoPick();
+        };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  var cur = parseInt(input.value, 10);
+  Array.prototype.forEach.call(box.children, function(b){
+    b.className = (!isTeacher && parseInt(b.textContent, 10) === cur) ? "sel" : "";
+  });
+  box.className = "no-pick" + (isTeacher ? " off" : "");
+  if(!isTeacher && cur >= 1){
+    document.getElementById("no-label").textContent = "しゅっせきばんごう: " + cur + "ばん";
+  }
+}
+function toggleTeacher(){ setTeacherMode(!isTeacher); }
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+function getSchoolFromUrl(){
+  var m = location.search.match(/[?&]school=([^&]+)/);
+  return m ? sanitizeSchool(decodeURIComponent(m[1])) : "";
+}
+var GC_KEY = "initial_gc";
+var selGrade = 0, selClass = 0;
+function renderGC(){
+  var gBox = document.getElementById("grade-pick");
+  var cBox = document.getElementById("class-pick");
+  function build(box, max, onPick){
+    if(box.children.length) return;
+    for(var n = 1; n <= max; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){ onPick(num); document.getElementById("reg-error").textContent = ""; renderGC(); };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  build(gBox, 6, function(n){ selGrade = n; });
+  build(cBox, 8, function(n){ selClass = n; });
+  Array.prototype.forEach.call(gBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(cBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selClass ? "sel" : ""; });
+  document.getElementById("room-input").value = (selGrade && selClass) ? makeRoom(getSchoolFromUrl(), selGrade, selClass) : "";
+  document.getElementById("gc-label").textContent = (selGrade && selClass) ? (selGrade + "ねん " + selClass + "くみ") : "なんねん なんくみ？";
+}
+
+function onPhotoSelected(event){
+  var file = event.target.files && event.target.files[0];
+  if(!file) return;
+  var err = document.getElementById("reg-error");
+  err.textContent = "";
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var targetW = 320, targetH = 240;
+      var canvas = document.createElement("canvas");
+      canvas.width = targetW; canvas.height = targetH;
+      var ctx = canvas.getContext("2d");
+      var iw = img.width, ih = img.height;
+      var imgAspect = iw / ih, targetAspect = targetW / targetH;
+      var sx, sy, sw, sh;
+      if(imgAspect > targetAspect){
+        sh = ih; sw = ih * targetAspect; sx = (iw - sw) / 2; sy = 0;
+      } else {
+        sw = iw; sh = iw / targetAspect; sx = 0; sy = (ih - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      capturedPhoto = canvas.toDataURL("image/jpeg", 0.75);
+      document.getElementById("reg-preview").src = capturedPhoto;
+      document.getElementById("reg-preview").style.display = "block";
+      document.getElementById("reg-placeholder").style.display = "none";
+      document.getElementById("reg-capture-btn").style.display = "none";
+      document.getElementById("reg-confirm-btn").style.display = "block";
+      document.getElementById("reg-retake-btn").style.display = "block";
+    };
+    img.onerror = function(){
+      err.textContent = "しゃしんを よみこめませんでした。もう一度 おためしください。";
+    };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){
+    err.textContent = "しゃしんを よみこめませんでした。もう一度 おためしください。";
+  };
+  reader.readAsDataURL(file);
+}
+function retakePhoto(){
+  capturedPhoto = null;
+  document.getElementById("reg-file-input").value = "";
+  document.getElementById("reg-preview").style.display = "none";
+  document.getElementById("reg-placeholder").style.display = "block";
+  document.getElementById("reg-capture-btn").style.display = "block";
+  document.getElementById("reg-confirm-btn").style.display = "none";
+  document.getElementById("reg-retake-btn").style.display = "none";
+}
+function prefillSavedPhoto(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(!photo) return;
+  capturedPhoto = photo;
+  document.getElementById("reg-preview").src = photo;
+  document.getElementById("reg-preview").style.display = "block";
+  document.getElementById("reg-placeholder").style.display = "none";
+  document.getElementById("reg-capture-btn").style.display = "none";
+  document.getElementById("reg-confirm-btn").style.display = "block";
+  document.getElementById("reg-retake-btn").style.display = "block";
+  document.querySelector(".register-sub").textContent = "まえの しゃしんで よければ「これで OK」を おしてね";
+}
+function getRoomForRegister(){
+  var u = getRoomFromUrl();
+  if(u) return u;
+  return document.getElementById("room-input").value;
+}
+function proceedToSetupScreen(){
+  renderKeypad();
+  pollGame();
+}
+function enterGame(room){
+  currentRoom = String(room || "").trim().toLowerCase();
+  localStorage.setItem(ROOM_KEY, currentRoom);
+  document.getElementById("room-tag").textContent = "教室コード: " + currentRoom;
+  document.getElementById("register-overlay").style.display = "none";
+  proceedToSetupScreen();
+}
+function forgetRegistration(){
+  localStorage.removeItem(STUDENT_ID_KEY);
+  studentId = null;
+}
+function needRoom(err){
+  if(!getRoomFromUrl() && !(selGrade && selClass)){
+    err.textContent = "なんねん なんくみ か えらんでね";
+    return true;
+  }
+  return false;
+}
+function confirmPhoto(){
+  if(!capturedPhoto) return;
+  var err = document.getElementById("reg-error");
+  if(needRoom(err)) return;
+  var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
+  if(!isTeacher && !(no >= 1 && no <= 99)){
+    err.textContent = "しゅっせきばんごうを えらんでね";
+    return;
+  }
+  if(registering) return;
+  registering = true;
+  document.getElementById("reg-confirm-btn").disabled = true;
+  err.textContent = "とうろく中...";
+  var room = getRoomForRegister();
+  fetch("/api/initial/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d || !d.id) throw new Error("no id");
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      studentId = d.id;
+      localStorage.setItem(STUDENT_ID_KEY, studentId);
+      localStorage.setItem(STUDENT_PHOTO_KEY, capturedPhoto);
+      localStorage.removeItem(PREV_ID_KEY);
+      localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
+      localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
+      if(selGrade && selClass) localStorage.setItem(GC_KEY, selGrade + "-" + selClass);
+      enterGame(d.room || room);
+    })
+    .catch(function(){
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
+    });
+}
+(function boot(){
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
+  var urlRoom = getRoomFromUrl();
+  if(urlRoom){
+    var badge = document.getElementById("room-badge");
+    badge.textContent = "きょうしつコード: " + urlRoom;
+    badge.style.display = "inline-block";
+  } else {
+    document.getElementById("room-row").style.display = "block";
+    renderGC();
+  }
+  var savedId = localStorage.getItem(STUDENT_ID_KEY);
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  studentId = null;
+  if(savedId && savedRoom && (!urlRoom || String(urlRoom).trim().toLowerCase() === savedRoom)){
+    fetch("/api/initial/state?room=" + encodeURIComponent(savedRoom) + "&me=" + encodeURIComponent(savedId))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.exists){ studentId = savedId; enterGame(savedRoom); }
+        else { forgetRegistration(); prefillSavedPhoto(); }
+      })
+      .catch(function(){ prefillSavedPhoto(); });
+  } else {
+    prefillSavedPhoto();
+  }
+})();
+</script>
+</body>
+</html>

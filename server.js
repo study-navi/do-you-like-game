@@ -288,6 +288,134 @@ function publicAlphabetList(room){
   return list;
 }
 
+
+/* ============================================================
+ * イニシャルカード交換ゲーム（Let's Try! 1 Unit6 ALPHABET）
+ *   /initial（生徒用）/initial-teacher（先生用）/initial-tv（TV用）
+ *   room -> { phase: 'making' | 'playing', dealtAt }
+ *   生徒 -> { made:[苗字,名前のイニシャル], hand:[2枚], dealt:[配布時の2枚], ... }
+ * ============================================================ */
+const INITIAL_ROOMS_FILE = path.join(__dirname, 'initial_rooms.json');
+const INITIAL_STUDENTS_FILE = path.join(__dirname, 'initial_students.json');
+let initialRooms = {};
+let initialStudents = {};
+function loadInitial(){
+  try{ initialRooms = JSON.parse(fs.readFileSync(INITIAL_ROOMS_FILE, 'utf8')); }catch(e){ initialRooms = {}; }
+  try{ initialStudents = JSON.parse(fs.readFileSync(INITIAL_STUDENTS_FILE, 'utf8')); }catch(e){ initialStudents = {}; }
+}
+function saveInitialRooms(){
+  try{ fs.writeFileSync(INITIAL_ROOMS_FILE, JSON.stringify(initialRooms)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function saveInitialStudents(){
+  try{ fs.writeFileSync(INITIAL_STUDENTS_FILE, JSON.stringify(initialStudents)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+loadInitial();
+
+function getInitialRoom(room){
+  if(!initialRooms[room]) initialRooms[room] = { phase: 'making', dealtAt: null };
+  if(initialRooms[room].phase !== 'playing') initialRooms[room].phase = 'making';
+  return initialRooms[room];
+}
+function isInitialLetter(v){ return typeof v === 'string' && /^[A-Z]$/.test(v); }
+function isInitialPair(a){ return Array.isArray(a) && a.length === 2 && isInitialLetter(a[0]) && isInitialLetter(a[1]); }
+// 自分のイニシャルのうち、手元にそろっている枚数（0〜2）
+function initialMatchCount(made, hand){
+  if(!isInitialPair(made) || !isInitialPair(hand)) return 0;
+  const rest = hand.slice();
+  let n = 0;
+  made.forEach(function(c){
+    const i = rest.indexOf(c);
+    if(i >= 0){ n++; rest.splice(i, 1); }
+  });
+  return n;
+}
+function initialMe(st){
+  return {
+    made: isInitialPair(st.made) ? st.made : null,
+    hand: isInitialPair(st.hand) ? st.hand : null,
+    matched: initialMatchCount(st.made, st.hand),
+    clearedAt: st.clearedAt || null
+  };
+}
+function publicInitialList(room){
+  const list = Object.keys(initialStudents).filter(function(id){
+    return normalizeRoom(initialStudents[id].room) === room;
+  }).map(function(id){
+    const s = initialStudents[id];
+    return {
+      id: id,
+      no: s.no || null,
+      role: s.role || 'student',
+      photo: s.photo ? '/api/initial/photo?id=' + id : null,
+      made: isInitialPair(s.made) ? s.made : null,
+      hand: isInitialPair(s.hand) ? s.hand : null,
+      matched: initialMatchCount(s.made, s.hand),
+      exchanges: s.exchanges || 0,
+      clearedAt: s.clearedAt || null,
+      registeredAt: s.registeredAt,
+      updatedAt: s.updatedAt
+    };
+  }).sort(function(a, b){
+    // クリアずみを早い順に先頭へ。まだの人はそろった枚数が多い順。
+    if(a.clearedAt && b.clearedAt) return a.clearedAt - b.clearedAt;
+    if(a.clearedAt && !b.clearedAt) return -1;
+    if(!a.clearedAt && b.clearedAt) return 1;
+    if(b.matched !== a.matched) return b.matched - a.matched;
+    return a.registeredAt - b.registeredAt;
+  });
+  list.forEach(function(s, idx){ s.rank = idx + 1; });
+  return list;
+}
+// 全員のカードを集めてシャッフルし、2枚ずつ配りなおす。最初から自分のイニシャルがそろう人が出ないようにする（できる範囲で）。
+function dealInitialCards(room){
+  const ids = Object.keys(initialStudents).filter(function(id){
+    const s = initialStudents[id];
+    return normalizeRoom(s.room) === room && isInitialPair(s.made);
+  });
+  if(ids.length < 2) return { ok: false, count: ids.length };
+  const pool = [];
+  ids.forEach(function(id){ pool.push(initialStudents[id].made[0], initialStudents[id].made[1]); });
+  function shuffle(a){
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  let best = null, bestCleared = Infinity;
+  for(let t = 0; t < 300; t++){
+    const p = shuffle(pool.slice());
+    let cleared = 0;
+    ids.forEach(function(id, k){
+      if(initialMatchCount(initialStudents[id].made, [p[k * 2], p[k * 2 + 1]]) === 2) cleared++;
+    });
+    if(cleared < bestCleared){ best = p; bestCleared = cleared; }
+    if(cleared === 0) break;
+  }
+  const now = Date.now();
+  ids.forEach(function(id, k){
+    const s = initialStudents[id];
+    s.hand = [best[k * 2], best[k * 2 + 1]];
+    s.dealt = s.hand.slice();
+    s.exchanges = 0;
+    s.clearedAt = initialMatchCount(s.made, s.hand) === 2 ? now : null;
+    s.updatedAt = now;
+  });
+  // カードを作っていない人（あとから来た人など）は、配りなおされるまで待つ
+  Object.keys(initialStudents).forEach(function(id){
+    const s = initialStudents[id];
+    if(normalizeRoom(s.room) === room && ids.indexOf(id) < 0){
+      s.hand = null; s.dealt = null; s.exchanges = 0; s.clearedAt = null;
+    }
+  });
+  const r = getInitialRoom(room);
+  r.phase = 'playing';
+  r.dealtAt = now;
+  saveInitialRooms();
+  saveInitialStudents();
+  return { ok: true, count: ids.length };
+}
+
 function sendJson(res, status, obj){
   const body = JSON.stringify(obj);
   res.writeHead(status, {
@@ -1013,6 +1141,184 @@ const server = http.createServer(function(req, res){
     });
     return;
   }
+
+  /* ---------- イニシャルカード交換ゲーム ---------- */
+  if(req.method === 'GET' && url === '/initial'){
+    serveFile(res, path.join(PUBLIC_DIR, 'initial.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/initial-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'initial-teacher.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/initial-tv'){
+    serveFile(res, path.join(PUBLIC_DIR, 'initial-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/initial/photo'){
+    const st = initialStudents[getQueryParam(queryString, 'id')];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, { 'Content-Type': m[1], 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=604800, immutable', 'Access-Control-Allow-Origin': '*' });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/initial/state' && getQueryParam(queryString, 'me')){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const r = getInitialRoom(room);
+    const st = initialStudents[me];
+    const exists = !!(st && normalizeRoom(st.room) === room);
+    sendJson(res, 200, { room: room, phase: r.phase, dealtAt: r.dealtAt, exists: exists, me: exists ? initialMe(st) : null });
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/initial/state'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const r = getInitialRoom(room);
+    const list = publicInitialList(room);
+    sendJson(res, 200, {
+      room: room, phase: r.phase, dealtAt: r.dealtAt, students: list,
+      madeCount: list.filter(function(s){ return !!s.made; }).length,
+      clearedCount: list.filter(function(s){ return !!s.clearedAt; }).length
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/initial/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && initialStudents[id] && normalizeRoom(initialStudents[id].room) === room){
+        delete initialStudents[id];
+        saveInitialStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/initial/reset'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      initialRooms[room] = { phase: 'making', dealtAt: null };
+      saveInitialRooms();
+      Object.keys(initialStudents).forEach(function(id){
+        if(normalizeRoom(initialStudents[id].room) === room) delete initialStudents[id];
+      });
+      saveInitialStudents();
+      sendJson(res, 200, { ok: true, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/initial/register'){
+    readJsonBody(req, function(body){
+      if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
+      const room = normalizeRoom(body.room);
+      if(typeof body.replaceId === 'string' && initialStudents[body.replaceId] && normalizeRoom(initialStudents[body.replaceId].room) === room){
+        delete initialStudents[body.replaceId];
+      }
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      if(deviceId){
+        Object.keys(initialStudents).forEach(function(k){
+          if(initialStudents[k].deviceId === deviceId && normalizeRoom(initialStudents[k].room) === room) delete initialStudents[k];
+        });
+      }
+      const id = crypto.randomBytes(4).toString('hex');
+      initialStudents[id] = {
+        id: id,
+        room: room,
+        deviceId: deviceId,
+        role: body.role === 'teacher' ? 'teacher' : 'student',
+        no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
+        photo: typeof body.photo === 'string' ? body.photo : null,
+        made: null,
+        hand: null,
+        dealt: null,
+        exchanges: 0,
+        clearedAt: null,
+        registeredAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      saveInitialStudents();
+      sendJson(res, 200, { id: id, room: room });
+    });
+    return;
+  }
+
+  // イニシャルカードを作る（苗字・名前の頭文字）。配られたあとは変えられません。
+  if(req.method === 'POST' && url === '/api/initial/make'){
+    readJsonBody(req, function(body){
+      if(!body || !body.id || !initialStudents[body.id]){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      if(!isInitialPair(body.cards)){
+        sendJson(res, 400, { error: 'invalid cards' });
+        return;
+      }
+      const s = initialStudents[body.id];
+      if(isInitialPair(s.hand)){
+        sendJson(res, 409, { error: 'already dealt' });
+        return;
+      }
+      s.made = body.cards.slice();
+      s.updatedAt = Date.now();
+      saveInitialStudents();
+      sendJson(res, 200, { ok: true, me: initialMe(s) });
+    });
+    return;
+  }
+
+  // 先生：カードを回収して、2枚ずつ配りなおす
+  if(req.method === 'POST' && url === '/api/initial/deal'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const result = dealInitialCards(room);
+      if(!result.ok){
+        sendJson(res, 200, { ok: false, error: 'need2', count: result.count });
+        return;
+      }
+      sendJson(res, 200, { ok: true, count: result.count });
+    });
+    return;
+  }
+
+  // 生徒：カードを交換したあとの手札を送る
+  if(req.method === 'POST' && url === '/api/initial/hand'){
+    readJsonBody(req, function(body){
+      if(!body || !body.id || !initialStudents[body.id]){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      const s = initialStudents[body.id];
+      if(!isInitialPair(s.made) || !isInitialPair(s.hand)){
+        sendJson(res, 409, { error: 'not dealt' });
+        return;
+      }
+      if(!isInitialPair(body.hand)){
+        sendJson(res, 400, { error: 'invalid hand' });
+        return;
+      }
+      const changed = body.hand[0] !== s.hand[0] || body.hand[1] !== s.hand[1];
+      s.hand = body.hand.slice();
+      if(changed) s.exchanges = (s.exchanges || 0) + 1;
+      if(initialMatchCount(s.made, s.hand) === 2){
+        if(!s.clearedAt) s.clearedAt = Date.now();
+      } else {
+        s.clearedAt = null;
+      }
+      s.updatedAt = Date.now();
+      saveInitialStudents();
+      sendJson(res, 200, { ok: true, me: initialMe(s) });
+    });
+    return;
+  }
+
   sendJson(res, 404, { error: 'not found' });
 });
 

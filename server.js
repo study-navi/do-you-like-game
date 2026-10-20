@@ -382,15 +382,52 @@ function dealInitialCards(room){
     }
     return a;
   }
-  let best = null, bestCleared = Infinity;
-  for(let t = 0; t < 300; t++){
+  // 配られたカードが、その人自身のイニシャルと同じ文字になる「もったいない」位置の数
+  function ownCount(p){
+    let c = 0;
+    for(let k = 0; k < ids.length; k++){
+      const m = initialStudents[ids[k]].made;
+      if(m.indexOf(p[k * 2]) >= 0) c++;
+      if(m.indexOf(p[k * 2 + 1]) >= 0) c++;
+    }
+    return c;
+  }
+  function isOwn(p, pos){
+    return initialStudents[ids[pos >> 1]].made.indexOf(p[pos]) >= 0;
+  }
+  // できるだけ、2枚とも自分のイニシャルではないカードを配る（ランダム配置から、ぶつかった位置を入れかえて直す）
+  let best = null, bestCost = Infinity;
+  for(let t = 0; t < 20 && bestCost > 0; t++){
     const p = shuffle(pool.slice());
-    let cleared = 0;
+    let cost = ownCount(p);
+    for(let it = 0; it < 3000 && cost > 0; it++){
+      const bad = [];
+      for(let pos = 0; pos < p.length; pos++){ if(isOwn(p, pos)) bad.push(pos); }
+      if(bad.length === 0) break;
+      const a = bad[Math.floor(Math.random() * bad.length)];
+      const b = Math.floor(Math.random() * p.length);
+      if(a === b) continue;
+      const before = (isOwn(p, a) ? 1 : 0) + (isOwn(p, b) ? 1 : 0);
+      const tmp = p[a]; p[a] = p[b]; p[b] = tmp;
+      const after = (isOwn(p, a) ? 1 : 0) + (isOwn(p, b) ? 1 : 0);
+      if(after <= before){ cost += after - before; } else { const t2 = p[a]; p[a] = p[b]; p[b] = t2; }
+    }
+    if(cost < bestCost){ best = p.slice(); bestCost = cost; }
+  }
+  // 万一、最初からクリアになる人が出てしまう場合は、ランダムで引きなおして減らす
+  function clearedCount(p){
+    let c = 0;
     ids.forEach(function(id, k){
-      if(initialMatchCount(initialStudents[id].made, [p[k * 2], p[k * 2 + 1]]) === 2) cleared++;
+      if(initialMatchCount(initialStudents[id].made, [p[k * 2], p[k * 2 + 1]]) === 2) c++;
     });
-    if(cleared < bestCleared){ best = p; bestCleared = cleared; }
-    if(cleared === 0) break;
+    return c;
+  }
+  if(clearedCount(best) > 0){
+    for(let t = 0; t < 300; t++){
+      const p = shuffle(pool.slice());
+      if(clearedCount(p) < clearedCount(best)){ best = p; }
+      if(clearedCount(best) === 0) break;
+    }
   }
   const now = Date.now();
   ids.forEach(function(id, k){

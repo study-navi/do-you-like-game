@@ -201,14 +201,14 @@
       ① 生徒がイニシャルカード（苗字・名前の頭文字）を2枚つくる<br>
       ② 下のボタンで、全員のカードを回収して2枚ずつ配りなおす<br>
       ③ 生徒は「Do you have A?」と友だちにたずねて、自分のイニシャルを集める<br>
-      ④ 自分のイニシャル2枚がそろったらクリア！
+      ④ そろったら1周クリア！じどうで、つぎの周（ともだちのイニシャルを あつめる）にすすみます<br>⑤ クリアした生徒も、友だちに交換をたのまれたら応じます
     </div>
     <button class="next-btn" id="deal-btn" onclick="dealCards()">カードを回収して配りなおす</button>
     <div class="progress-text" id="progress-text"></div>
   </div>
 
   <div class="card">
-    <div class="history-title">ランキング（はやくクリア順・そろった枚数）</div>
+    <div class="history-title">ランキング（周回数・はやさ順）</div>
     <div id="ranking-list"><span class="ranking-empty">まだ登録した生徒がいません</span></div>
   </div>
 
@@ -327,11 +327,11 @@ function renderRanking(students){
     var photoHtml = ph
       ? '<img class="ranking-photo" src="' + ph + '">'
       : '<span class="ranking-photo ranking-photo-placeholder">🙂</span>';
-    var clearBadge = s.clearedAt ? '<span class="ranking-bingo-badge">🎉 CLEAR</span>' : "";
+    var clearBadge = s.lapCount ? '<span class="ranking-bingo-badge">🎉 ' + s.lapCount + '周クリア</span>' : "";
     var cards = s.made ? '<span class="ranking-cards">' + s.made[0] + '・' + s.made[1] + '</span>' : '';
     var status;
     if(s.hand){
-      status = '<span class="ranking-hand">いま: <b>' + s.hand[0] + '・' + s.hand[1] + '</b>（' + s.matched + '/2）</span>';
+      status = '<span class="ranking-hand">いま: <b>' + s.hand[0] + '・' + s.hand[1] + '</b>　目標: ' + (s.target ? s.target[0] + '・' + s.target[1] : '') + (s.targetFrom && !s.targetFrom.self ? '（' + (s.targetFrom.role === "teacher" ? "先生" : (s.targetFrom.no ? s.targetFrom.no + "番" : "")) + '）' : '') + '（' + s.matched + '/2）</span>';
     } else if(s.made){
       status = '<span class="ranking-wait">カードを まっています</span>';
     } else {
@@ -360,7 +360,9 @@ function applyState(d){
   if(currentPhase === "playing"){
     main.textContent = "ゲーム中";
     main.className = "phase-main playing";
-    sub.textContent = "クリア " + (d.clearedCount || 0) + " / " + total + " 人";
+    var lapsTotal = 0;
+    students.forEach(function(x){ lapsTotal += (x.lapCount || 0); });
+    sub.textContent = "1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
     btn.textContent = "もういちど配りなおす（手札がリセットされます）";
   } else {
     main.textContent = "カードづくり中";

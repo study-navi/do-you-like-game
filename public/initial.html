@@ -230,6 +230,9 @@
   }
   .wait-msg { text-align: center; font-size: 16px; font-weight: 600; color: #534AB7; margin: 6px 0 4px; }
   .wait-sub { text-align: center; font-size: 12px; color: #888780; }
+  .target-from { text-align: center; margin-bottom: 8px; }
+  .target-from img { width: 96px; height: 72px; object-fit: contain; border-radius: 6px; background: #F1EFE8; border: 1px solid #E6E4DA; }
+  .lap-badge { display: inline-block; background: #FDF3D8; color: #854F0B; border-radius: 999px; padding: 2px 12px; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
   .section-title { font-size: 13px; color: #5F5E5A; font-weight: 700; margin: 4px 0 8px; text-align: center; }
   .card-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 16px; }
   .ask-box { background: #F7F6F1; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: center; }
@@ -318,7 +321,8 @@
 
   <div id="screen-play" class="screen">
     <div class="step-card">
-      <div class="section-title">きみの イニシャル（これを 2まい あつめよう）</div>
+      <div class="section-title" id="target-title">きみの イニシャル（これを 2まい あつめよう）</div>
+      <div class="target-from" id="target-from"></div>
       <div class="card-row" id="target-cards"></div>
       <div class="section-title">いま もっている カード</div>
       <div class="card-row" id="hand-cards"></div>
@@ -343,8 +347,8 @@
 <div id="bingo-overlay" class="bingo-overlay">
   <div class="bingo-card">
     <div class="bingo-emoji">🎉</div>
-    <div class="bingo-text">CLEAR！</div>
-    <div style="font-size:14px;color:#5F5E5A;margin-bottom:14px;">じぶんの イニシャルが そろったよ！<br>まだの友だちが いるので、こうかんを たのまれたら おうじてね。</div>
+    <div class="bingo-text" id="lap-text">CLEAR！</div>
+    <div id="lap-next" style="font-size:14px;color:#5F5E5A;margin-bottom:14px;"></div>
     <button class="bingo-close" onclick="closeClear()">とじる</button>
   </div>
 </div>
@@ -364,7 +368,7 @@ var meState = null;      // サーバーから受け取った自分の状態 { m
 var editing = false;     // カードを つくりなおし中
 var makeSlots = [null, null];
 var activeSlot = 0;
-var clearShown = false;
+var lapSeen = null;
 var lastShownKey = "";
 var xchgGive = -1, xchgGet = null;
 
@@ -460,11 +464,12 @@ function cancelMake(){
 }
 
 /* ---------- ③ ゲーム ---------- */
+function currentTarget(){ return meState && (meState.target || meState.made); }
 function neededLetters(){
-  if(!meState || !meState.made || !meState.hand) return [];
+  if(!meState || !currentTarget() || !meState.hand) return [];
   var rest = meState.hand.slice();
   var need = [];
-  meState.made.forEach(function(c){
+  currentTarget().forEach(function(c){
     var i = rest.indexOf(c);
     if(i >= 0) rest.splice(i, 1); else need.push(c);
   });
@@ -479,19 +484,26 @@ function matchedFlags(made, hand){
     return false;
   });
 }
+function targetLabel(){
+  var lap = (meState.laps || 0) + 1;
+  var from = meState.targetFrom || {};
+  if(from.self) return lap === 1 ? "きみの イニシャル（これを 2まい あつめよう）" : lap + "周め：きみの イニシャルを もういちど あつめよう";
+  var who = from.role === "teacher" ? "先生" : (from.no ? from.no + "ばんの 友だち" : "ともだち");
+  return lap + "周め：" + who + "の イニシャルを あつめよう";
+}
 function renderPlay(){
-  var made = meState.made, hand = meState.hand;
-  document.getElementById("target-cards").innerHTML = made.map(function(c){ return cardHtml(c, "mine", ""); }).join("");
-  var flags = matchedFlags(made, hand);
+  var target = currentTarget(), hand = meState.hand;
+  var lap = (meState.laps || 0) + 1;
+  document.getElementById("target-title").innerHTML = (lap > 1 ? '<span class="lap-badge">' + lap + ' 周め</span><br>' : "") + targetLabel();
+  var from = meState.targetFrom || {};
+  document.getElementById("target-from").innerHTML = (!from.self && from.photo) ? '<img src="' + from.photo + '" alt="">' : "";
+  document.getElementById("target-cards").innerHTML = target.map(function(c){ return cardHtml(c, "mine", ""); }).join("");
+  var flags = matchedFlags(target, hand);
   document.getElementById("hand-cards").innerHTML = hand.map(function(c, i){ return cardHtml(c, flags[i] ? "match" : "", ""); }).join("");
   var box = document.getElementById("ask-box");
   var need = neededLetters();
-  if(meState.clearedAt){
-    box.innerHTML = '<div class="ask-line">🎉 クリアずみ！</div>' +
-      '<div class="ask-ans">まだの友だちが いるよ。「Do you have ~?」と きかれたら、カードを こうかんして てつだおう。<br>こうかんしたら「カードを こうかんした」を おしてね。</div>' +
-      (need.length ? '<div class="ask-title" style="margin-top:10px;">いまは そろっていません（クリアの きろくは のこっています）</div>' : '');
-  } else if(need.length === 0){
-    box.innerHTML = '<div class="ask-line">🎉 イニシャルが そろったよ！</div>';
+  if(need.length === 0){
+    box.innerHTML = '<div class="ask-line">🎉 そろったよ！</div>';
   } else {
     var uniq = need.filter(function(c, i){ return need.indexOf(c) === i; });
     box.innerHTML = '<div class="ask-title">ともだちに きいてみよう</div>' +
@@ -519,17 +531,27 @@ function renderByState(){
     showScreen("wait");
     return;
   }
-  var key = meState.made.join("") + "|" + meState.hand.join("") + "|" + (meState.clearedAt ? "c" : "");
+  var key = (meState.target || meState.made).join("") + "|" + meState.hand.join("") + "|" + (meState.laps || 0);
   if(key !== lastShownKey){
     lastShownKey = key;
     renderPlay();
   }
   showScreen("play");
-  if(meState.clearedAt && !clearShown){
-    clearShown = true;
-    document.getElementById("bingo-overlay").classList.add("show");
+  var laps = meState.laps || 0;
+  if(lapSeen === null || laps < lapSeen){
+    lapSeen = laps;
+  } else if(laps > lapSeen){
+    lapSeen = laps;
+    showLapOverlay();
   }
-  if(!meState.clearedAt) clearShown = false;
+}
+function showLapOverlay(){
+  var laps = meState.laps || 0;
+  document.getElementById("lap-text").textContent = laps + "周クリア！";
+  var from = meState.targetFrom || {};
+  var who = from.self ? "きみの イニシャル" : (from.role === "teacher" ? "先生" : (from.no ? from.no + "ばんの 友だち" : "ともだち")) + "の イニシャル";
+  document.getElementById("lap-next").innerHTML = "つぎは「" + who + "」を あつめよう！<br>ほかの友だちに こうかんを たのまれたら、おうじてね。";
+  document.getElementById("bingo-overlay").classList.add("show");
 }
 function closeClear(){ document.getElementById("bingo-overlay").classList.remove("show"); }
 

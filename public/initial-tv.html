@@ -62,8 +62,8 @@
   <div class="room-tag" id="room-tag"></div>
   <div class="phase-tag" id="phase-tag"></div>
   <div class="mode-row">
-    <button class="mode-btn" id="mode-btn-clear" onclick="setMode('clear')">🏆 はやくクリア順</button>
-    <button class="mode-btn" id="mode-btn-cards" onclick="setMode('cards')">🃏 そろった枚数順</button>
+    <button class="mode-btn" id="mode-btn-clear" onclick="setMode('clear')">🏆 最初のクリア順</button>
+    <button class="mode-btn" id="mode-btn-cards" onclick="setMode('laps')">🔁 周回数順</button>
   </div>
   <div class="board" id="board"></div>
   <div class="empty" id="empty" style="display:none;">まだ誰も参加していません</div>
@@ -100,7 +100,7 @@ document.getElementById("room-code-btn").onclick = function(){
 
 function updateModeButtons(){
   document.getElementById("mode-btn-clear").classList.toggle("active", currentMode === "clear");
-  document.getElementById("mode-btn-cards").classList.toggle("active", currentMode === "cards");
+  document.getElementById("mode-btn-cards").classList.toggle("active", currentMode === "laps");
 }
 function setMode(mode){
   currentMode = mode;
@@ -111,15 +111,16 @@ function setMode(mode){
 window.setMode = setMode;
 function sortStudents(students, mode){
   var list = students.slice();
-  if(mode === "cards"){
+  if(mode === "laps"){
+    // 周回数が多い順。同じなら、早くその周回数に届いた順。
     list.sort(function(a, b){
+      if((b.lapCount || 0) !== (a.lapCount || 0)) return (b.lapCount || 0) - (a.lapCount || 0);
+      if(a.lapCount && b.lapCount) return a.lastLapAt - b.lastLapAt;
       if((b.matched || 0) !== (a.matched || 0)) return (b.matched || 0) - (a.matched || 0);
-      if(a.clearedAt && b.clearedAt) return a.clearedAt - b.clearedAt;
-      if(a.clearedAt && !b.clearedAt) return -1;
-      if(!a.clearedAt && b.clearedAt) return 1;
       return (a.registeredAt || 0) - (b.registeredAt || 0);
     });
   } else {
+    // 最初のクリアが早かった順
     list.sort(function(a, b){
       if(a.clearedAt && b.clearedAt) return a.clearedAt - b.clearedAt;
       if(a.clearedAt && !b.clearedAt) return -1;
@@ -155,17 +156,18 @@ function render(students){
     var rankLabel = idx < 3 ? ["🥇","🥈","🥉"][idx] : ("#" + s.rank);
     var row = document.createElement("div");
     var cls = "row" + (idx === 0 ? " top1" : "");
-    if(prevMatched[s.id] !== undefined && (s.matched || 0) > prevMatched[s.id]) cls += " flash";
+    var progress = (s.lapCount || 0) * 10 + (s.matched || 0);
+    if(prevMatched[s.id] !== undefined && progress > prevMatched[s.id]) cls += " flash";
     row.className = cls;
     row.innerHTML =
       '<div class="rank">' + rankLabel + '</div>' +
       (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="meta">' +
-        '<div class="status">' + (s.clearedAt ? "🎉 CLEAR!" : (s.hand ? "" : (s.made ? "カードをまっています" : "カードづくり中"))) + '</div>' +
+        '<div class="status">' + (s.lapCount ? "🎉 " + s.lapCount + "周クリア！" + (s.hand ? "　いま " + (s.matched || 0) + " / 2" : "") : (s.hand ? "" : (s.made ? "カードをまっています" : "カードづくり中"))) + '</div>' +
       '</div>' +
-      '<div class="score">' + (s.clearedAt ? '<span class="unit">クリアずみ ✓</span>' : s.hand ? (s.matched || 0) + '<span class="unit"> / 2 まい</span>' : '<span class="unit">-</span>') + '</div>';
+      '<div class="score">' + (s.lapCount ? s.lapCount + '<span class="unit"> 周</span>' : s.hand ? (s.matched || 0) + '<span class="unit"> / 2 まい</span>' : '<span class="unit">-</span>') + '</div>';
     board.appendChild(row);
-    prevMatched[s.id] = s.matched || 0;
+    prevMatched[s.id] = progress;
   });
 }
 
@@ -173,7 +175,9 @@ function renderPhase(d){
   var el = document.getElementById("phase-tag");
   var total = (d.students || []).length;
   if(d.phase === "playing"){
-    el.textContent = "ゲーム中！　クリア " + (d.clearedCount || 0) + " / " + total + " 人";
+    var lapsTotal = 0;
+    (d.students || []).forEach(function(x){ lapsTotal += (x.lapCount || 0); });
+    el.textContent = "ゲーム中！　1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
   } else {
     el.textContent = "イニシャルカードを つくろう！　できた人 " + (d.madeCount || 0) + " / " + total + " 人";
   }

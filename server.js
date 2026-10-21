@@ -329,37 +329,88 @@ function initialMatchCount(made, hand){
   });
   return n;
 }
+// いま集めている目標のカード（1周め=自分のイニシャル、2周め以降=ともだちのイニシャル）
+function initialTarget(st){ return isInitialPair(st.target) ? st.target : st.made; }
+function initialLapCount(st){ return Array.isArray(st.laps) ? st.laps.length : 0; }
+function initialTargetFrom(st){
+  const o = st.targetFrom && initialStudents[st.targetFrom] ? initialStudents[st.targetFrom] : st;
+  return {
+    id: o.id,
+    self: o.id === st.id,
+    no: o.no || null,
+    role: o.role || 'student',
+    photo: o.photo ? '/api/initial/photo?id=' + o.id : null
+  };
+}
 function initialMe(st){
   return {
     made: isInitialPair(st.made) ? st.made : null,
+    target: isInitialPair(initialTarget(st)) ? initialTarget(st) : null,
+    targetFrom: initialTargetFrom(st),
     hand: isInitialPair(st.hand) ? st.hand : null,
-    matched: initialMatchCount(st.made, st.hand),
+    matched: initialMatchCount(initialTarget(st), st.hand),
+    laps: initialLapCount(st),
     clearedAt: st.clearedAt || null
   };
+}
+// クリアしたら、つぎの周へ（配った順にならんだ「ともだち」のイニシャルを、つぎの目標にする）
+function advanceInitialRound(st){
+  const r = initialRooms[normalizeRoom(st.room)];
+  const order = r && Array.isArray(r.order) ? r.order : null;
+  const k = order ? order.indexOf(st.id) : -1;
+  if(k < 0) return false;
+  const n = order.length;
+  let round = st.round || 1;
+  for(let t = 0; t < n; t++){
+    round++;
+    const ownerId = order[(k + round - 1) % n];
+    const o = initialStudents[ownerId];
+    if(!o || !isInitialPair(o.made)) continue;
+    if(initialMatchCount(o.made, st.hand) === 2) continue; // もう手元にそろっている目標はとばす
+    st.round = round;
+    st.target = o.made.slice();
+    st.targetFrom = ownerId;
+    return true;
+  }
+  return false;
+}
+// 手札が目標とそろっていたら1周クリアとして記録して、つぎの周へ進める
+function checkInitialLap(st, now){
+  if(!isInitialPair(st.made) || !isInitialPair(st.hand)) return false;
+  if(initialMatchCount(initialTarget(st), st.hand) !== 2) return false;
+  if(!Array.isArray(st.laps)) st.laps = [];
+  st.laps.push({ round: st.laps.length + 1, at: now });
+  if(!st.clearedAt) st.clearedAt = now;
+  advanceInitialRound(st);
+  return true;
 }
 function publicInitialList(room){
   const list = Object.keys(initialStudents).filter(function(id){
     return normalizeRoom(initialStudents[id].room) === room;
   }).map(function(id){
     const s = initialStudents[id];
+    const laps = initialLapCount(s);
     return {
       id: id,
       no: s.no || null,
       role: s.role || 'student',
       photo: s.photo ? '/api/initial/photo?id=' + id : null,
       made: isInitialPair(s.made) ? s.made : null,
+      target: isInitialPair(initialTarget(s)) ? initialTarget(s) : null,
+      targetFrom: initialTargetFrom(s),
       hand: isInitialPair(s.hand) ? s.hand : null,
-      matched: initialMatchCount(s.made, s.hand),
+      matched: initialMatchCount(initialTarget(s), s.hand),
+      lapCount: laps,
+      lastLapAt: laps ? s.laps[laps - 1].at : null,
       exchanges: s.exchanges || 0,
       clearedAt: s.clearedAt || null,
       registeredAt: s.registeredAt,
       updatedAt: s.updatedAt
     };
   }).sort(function(a, b){
-    // クリアずみを早い順に先頭へ。まだの人はそろった枚数が多い順。
-    if(a.clearedAt && b.clearedAt) return a.clearedAt - b.clearedAt;
-    if(a.clearedAt && !b.clearedAt) return -1;
-    if(!a.clearedAt && b.clearedAt) return 1;
+    // 周回数が多い順。同じなら、早くその周回数に届いた順。まだの人はそろった枚数が多い順。
+    if(b.lapCount !== a.lapCount) return b.lapCount - a.lapCount;
+    if(a.lapCount && b.lapCount) return a.lastLapAt - b.lastLapAt;
     if(b.matched !== a.matched) return b.matched - a.matched;
     return a.registeredAt - b.registeredAt;
   });
@@ -435,14 +486,20 @@ function dealInitialCards(room){
     s.hand = [best[k * 2], best[k * 2 + 1]];
     s.dealt = s.hand.slice();
     s.exchanges = 0;
-    s.clearedAt = initialMatchCount(s.made, s.hand) === 2 ? now : null;
+    s.clearedAt = null;
+    s.laps = [];
+    s.round = 1;
+    s.target = s.made.slice();
+    s.targetFrom = id;
     s.updatedAt = now;
   });
+  getInitialRoom(room).order = ids.slice();
+  ids.forEach(function(id){ checkInitialLap(initialStudents[id], now); });
   // カードを作っていない人（あとから来た人など）は、配りなおされるまで待つ
   Object.keys(initialStudents).forEach(function(id){
     const s = initialStudents[id];
     if(normalizeRoom(s.room) === room && ids.indexOf(id) < 0){
-      s.hand = null; s.dealt = null; s.exchanges = 0; s.clearedAt = null;
+      s.hand = null; s.dealt = null; s.exchanges = 0; s.clearedAt = null; s.laps = []; s.round = 1; s.target = null; s.targetFrom = null;
     }
   });
   const r = getInitialRoom(room);
@@ -1278,6 +1335,10 @@ const server = http.createServer(function(req, res){
         dealt: null,
         exchanges: 0,
         clearedAt: null,
+        laps: [],
+        round: 1,
+        target: null,
+        targetFrom: null,
         registeredAt: Date.now(),
         updatedAt: Date.now()
       };
@@ -1344,11 +1405,11 @@ const server = http.createServer(function(req, res){
       const changed = body.hand[0] !== s.hand[0] || body.hand[1] !== s.hand[1];
       s.hand = body.hand.slice();
       if(changed) s.exchanges = (s.exchanges || 0) + 1;
-      // いちどクリアしたら記録は残す（クリア後も、まだの友だちのために交換をつづける）
-      if(initialMatchCount(s.made, s.hand) === 2 && !s.clearedAt) s.clearedAt = Date.now();
+      // 目標がそろったら1周クリア。記録を残して、じどうでつぎの周（ともだちのイニシャル）へ
+      const lapJustCleared = changed ? checkInitialLap(s, Date.now()) : false;
       s.updatedAt = Date.now();
       saveInitialStudents();
-      sendJson(res, 200, { ok: true, me: initialMe(s) });
+      sendJson(res, 200, { ok: true, lapJustCleared: lapJustCleared, me: initialMe(s) });
     });
     return;
   }

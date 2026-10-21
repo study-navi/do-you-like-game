@@ -135,7 +135,7 @@ function sortStudents(students, mode){
 }
 function renderCurrent(){
   // 終了したら、周回数の多い順（さいしゅう結果）で表示する
-  render(sortStudents(lastStudents, lastPhase === "finished" ? "laps" : currentMode));
+  render(sortStudents(lastStudents, lastMode === "single" ? "clear" : (lastPhase === "finished" ? "laps" : currentMode)));
 }
 var photoCache = {};
 function photoSrc(s){
@@ -165,25 +165,30 @@ function render(students){
       '<div class="rank">' + rankLabel + '</div>' +
       (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="meta">' +
-        '<div class="status">' + (s.lapCount ? "🎉 " + s.lapCount + "周クリア！" + (s.hand ? "　いま " + (s.matched || 0) + " / 2" : "") : (s.hand ? "" : (s.made ? "カードをまっています" : "カードづくり中"))) + '</div>' +
+        '<div class="status">' + (s.lapCount ? (lastMode === "single" ? "🎉 CLEAR!" : "🎉 " + s.lapCount + "周クリア！" + (s.hand ? "　いま " + (s.matched || 0) + " / 2" : "")) : (s.hand ? "" : (s.made ? "カードをまっています" : "カードづくり中"))) + '</div>' +
       '</div>' +
-      '<div class="score">' + (s.lapCount ? s.lapCount + '<span class="unit"> 周</span>' : s.hand ? (s.matched || 0) + '<span class="unit"> / 2 まい</span>' : '<span class="unit">-</span>') + '</div>';
+      '<div class="score">' + (s.lapCount ? (lastMode === "single" ? '<span class="unit">クリア ✓</span>' : s.lapCount + '<span class="unit"> 周</span>') : s.hand ? (s.matched || 0) + '<span class="unit"> / 2 まい</span>' : '<span class="unit">-</span>') + '</div>';
     board.appendChild(row);
     prevMatched[s.id] = progress;
   });
 }
 
+var lastMode = "endless";
 function renderPhase(d){
   var el = document.getElementById("phase-tag");
   var total = (d.students || []).length;
   if(d.phase === "finished"){
     var lt = 0;
     (d.students || []).forEach(function(x){ lt += (x.lapCount || 0); });
-    el.textContent = "🏁 しゅうりょう！　さいしゅう けっか　（のべ " + lt + " 周）";
+    el.textContent = d.mode === "single"
+      ? (d.autoFinished ? "🏁 みんな クリア！　しゅうりょう" : "🏁 しゅうりょう！　さいしゅう けっか")
+      : "🏁 しゅうりょう！　さいしゅう けっか　（のべ " + lt + " 周）";
   } else if(d.phase === "playing"){
     var lapsTotal = 0;
     (d.students || []).forEach(function(x){ lapsTotal += (x.lapCount || 0); });
-    el.textContent = "ゲーム中！　1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
+    el.textContent = d.mode === "single"
+      ? "ゲーム中！　クリア " + (d.clearedCount || 0) + " / " + total + " 人"
+      : "ゲーム中！　1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
   } else {
     el.textContent = "イニシャルカードを つくろう！　できた人 " + (d.madeCount || 0) + " / " + total + " 人";
   }
@@ -194,6 +199,8 @@ function poll(){
     .then(function(d){
       renderPhase(d);
       lastPhase = d.phase;
+      lastMode = d.mode === "single" ? "single" : "endless";
+      document.querySelector(".mode-row").style.display = lastMode === "single" ? "none" : "flex";
       lastStudents = d.students || [];
       renderCurrent();
     })

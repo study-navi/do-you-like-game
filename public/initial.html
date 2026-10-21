@@ -197,6 +197,12 @@
   .step-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
   .step-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 4px; }
   .step-example { font-size: 12px; color: #888780; text-align: center; margin-bottom: 14px; }
+  .name-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .name-wrap { flex: 1; min-width: 0; text-align: center; }
+  .kana-input { width: 100%; padding: 10px 8px; font-size: 18px; border-radius: 10px; border: 2px solid #D3D1C7; text-align: center; font-family: inherit; user-select: text; -webkit-user-select: text; }
+  .kana-input:focus { outline: none; border-color: #185FA5; }
+  .kana-msg { min-height: 18px; font-size: 12px; margin-top: 4px; color: #0F6E56; font-weight: 700; }
+  .kana-msg.err { color: #993C1D; }
   .slot-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 14px; }
   .slot-wrap { text-align: center; }
   .slot-label { font-size: 12px; color: #5F5E5A; margin-bottom: 6px; font-weight: 600; }
@@ -303,11 +309,16 @@
   <div id="screen-make" class="screen active">
     <div class="step-card">
       <div class="step-hint">① きみの イニシャルカードを つくろう！</div>
-      <div class="step-example">みょうじと なまえの かしら文字（ローマ字）　れい: 山田 太郎 → Y と T</div>
+      <div class="step-example">みょうじと なまえを ひらがなで いれてね　れい: やまだ たろう → Y と T</div>
+      <div class="name-row">
+        <div class="name-wrap"><div class="slot-label">みょうじ（ひらがな）</div><input type="text" id="kana-0" class="kana-input" placeholder="やまだ" autocomplete="off" autocapitalize="off" oninput="onKana(0)"><div class="kana-msg" id="kana-msg-0"></div></div>
+        <div class="name-wrap"><div class="slot-label">なまえ（ひらがな）</div><input type="text" id="kana-1" class="kana-input" placeholder="たろう" autocomplete="off" autocapitalize="off" oninput="onKana(1)"><div class="kana-msg" id="kana-msg-1"></div></div>
+      </div>
       <div class="slot-row">
         <div class="slot-wrap"><div class="slot-label">みょうじ</div><div class="icard empty" id="slot-0" onclick="pickSlot(0)">?</div></div>
         <div class="slot-wrap"><div class="slot-label">なまえ</div><div class="icard empty" id="slot-1" onclick="pickSlot(1)">?</div></div>
       </div>
+      <div class="step-example" style="margin-bottom:8px;">もじが ちがうときは、下の ABC から えらびなおせるよ</div>
       <div class="keypad" id="keypad"></div>
       <button class="main-btn" id="make-btn" onclick="confirmMake()" disabled>これでOK！</button>
       <button class="sub-btn" id="make-cancel-btn" style="display:none;" onclick="cancelMake()">もどる</button>
@@ -405,6 +416,7 @@ var editing = false;     // カードを つくりなおし中
 var makeSlots = [null, null];
 var activeSlot = 0;
 var lapSeen = null;
+var roomMode = "endless";
 var lastShownKey = "";
 var xchgGive = -1, xchgGet = null;
 
@@ -458,6 +470,48 @@ function pickSlot(i){
   makeSlots[i] = null;
   renderSlots();
 }
+/* ---------- ひらがな → イニシャル（ヘボン式） ---------- */
+var KANA_INIT = {
+  'あ':'A','い':'I','う':'U','え':'E','お':'O','ぁ':'A','ぃ':'I','ぅ':'U','ぇ':'E','ぉ':'O',
+  'か':'K','き':'K','く':'K','け':'K','こ':'K','が':'G','ぎ':'G','ぐ':'G','げ':'G','ご':'G',
+  'さ':'S','し':'S','す':'S','せ':'S','そ':'S','ざ':'Z','じ':'J','ず':'Z','ぜ':'Z','ぞ':'Z',
+  'た':'T','ち':'C','つ':'T','て':'T','と':'T','だ':'D','ぢ':'J','づ':'Z','で':'D','ど':'D',
+  'な':'N','に':'N','ぬ':'N','ね':'N','の':'N',
+  'は':'H','ひ':'H','ふ':'F','へ':'H','ほ':'H','ば':'B','び':'B','ぶ':'B','べ':'B','ぼ':'B',
+  'ぱ':'P','ぴ':'P','ぷ':'P','ぺ':'P','ぽ':'P',
+  'ま':'M','み':'M','む':'M','め':'M','も':'M','や':'Y','ゆ':'Y','よ':'Y',
+  'ら':'R','り':'R','る':'R','れ':'R','ろ':'R','わ':'W','ゐ':'I','ゑ':'E','を':'O','ん':'N','ゔ':'V'
+};
+function kanaInitial(str){
+  var t = String(str || "").replace(/[\s\u3000]/g, "");
+  if(!t) return { letter: null, state: "empty" };
+  var c = t.charAt(0);
+  // カタカナは、ひらがなに直す
+  if(c >= "\u30A1" && c <= "\u30F6") c = String.fromCharCode(c.charCodeAt(0) - 0x60);
+  if(KANA_INIT[c]) return { letter: KANA_INIT[c], state: "ok" };
+  return { letter: null, state: "bad" };
+}
+function onKana(i){
+  var v = document.getElementById("kana-" + i).value;
+  var r = kanaInitial(v);
+  var msg = document.getElementById("kana-msg-" + i);
+  if(r.state === "ok"){
+    makeSlots[i] = r.letter;
+    msg.className = "kana-msg";
+    msg.textContent = "→ " + r.letter;
+    activeSlot = i === 0 ? 1 : 0;
+    speak(r.letter);
+  } else if(r.state === "bad"){
+    makeSlots[i] = null;
+    msg.className = "kana-msg err";
+    msg.textContent = "ひらがなで いれてね";
+  } else {
+    makeSlots[i] = null;
+    msg.className = "kana-msg";
+    msg.textContent = "";
+  }
+  renderSlots();
+}
 function pickLetter(L){
   makeSlots[activeSlot] = L;
   speak(L);
@@ -489,6 +543,7 @@ function confirmMake(){
 function startRemake(){
   editing = true;
   makeSlots = [null, null];
+  for(var k = 0; k < 2; k++){ document.getElementById("kana-" + k).value = ""; document.getElementById("kana-msg-" + k).textContent = ""; }
   activeSlot = 0;
   document.getElementById("make-cancel-btn").style.display = "block";
   renderSlots();
@@ -529,7 +584,7 @@ function targetLabel(){
 }
 function renderPlay(){
   var target = currentTarget(), hand = meState.hand;
-  var lap = (meState.laps || 0) + 1;
+  var lap = roomMode === "single" ? 1 : (meState.laps || 0) + 1;
   document.getElementById("target-title").innerHTML = (lap > 1 ? '<span class="lap-badge">' + lap + ' 周め</span><br>' : "") + targetLabel();
   var from = meState.targetFrom || {};
   document.getElementById("target-from").innerHTML = (!from.self && from.photo) ? '<img src="' + from.photo + '" alt="">' : "";
@@ -538,7 +593,10 @@ function renderPlay(){
   document.getElementById("hand-cards").innerHTML = hand.map(function(c, i){ return cardHtml(c, flags[i] ? "match" : "", ""); }).join("");
   var box = document.getElementById("ask-box");
   var need = neededLetters();
-  if(need.length === 0){
+  if(roomMode === "single" && (meState.laps || 0) >= 1){
+    box.innerHTML = '<div class="ask-line">🎉 クリアずみ！</div>' +
+      '<div class="ask-ans">みんなが クリアするまで、「Do you have ~?」と きかれたら こうかんに おうじてね。</div>';
+  } else if(need.length === 0){
     box.innerHTML = '<div class="ask-line">🎉 そろったよ！</div>';
   } else {
     var uniq = need.filter(function(c, i){ return need.indexOf(c) === i; });
@@ -567,7 +625,7 @@ function renderByState(){
     showScreen("wait");
     return;
   }
-  var key = (meState.target || meState.made).join("") + "|" + meState.hand.join("") + "|" + (meState.laps || 0);
+  var key = (meState.target || meState.made).join("") + "|" + meState.hand.join("") + "|" + (meState.laps || 0) + "|" + roomMode;
   if(key !== lastShownKey){
     lastShownKey = key;
     renderPlay();
@@ -583,6 +641,12 @@ function renderByState(){
 }
 function showLapOverlay(){
   var laps = meState.laps || 0;
+  if(roomMode === "single"){
+    document.getElementById("lap-text").textContent = "クリア！";
+    document.getElementById("lap-next").innerHTML = "じぶんの イニシャルが そろったよ！<br>みんなが クリアするまで、こうかんを たのまれたら おうじてね。";
+    document.getElementById("bingo-overlay").classList.add("show");
+    return;
+  }
   document.getElementById("lap-text").textContent = laps + "周クリア！";
   var from = meState.targetFrom || {};
   var who = from.self ? "きみの イニシャル" : (from.role === "teacher" ? "先生" : (from.no ? from.no + "ばんの 友だち" : "ともだち")) + "の イニシャル";
@@ -754,8 +818,9 @@ function applyPhase(d){
     closeClear();
     document.getElementById("in-overlay").classList.remove("show");
     var laps = d.me ? (d.me.laps || 0) : 0;
-    var txt = laps > 0 ? laps + "周クリア！" : "ゲームは おわりました";
+    var txt = laps > 0 ? (d.mode === "single" ? "クリア！" : laps + "周クリア！") : "ゲームは おわりました";
     if(laps > 0 && d.rank && d.total) txt += "　（" + d.rank + "位 / " + d.total + "人）";
+    if(d.mode === "single" && d.autoFinished) txt = "みんな クリア！ " + txt;
     document.getElementById("finish-result").textContent = txt;
     ov.classList.add("show");
   } else {
@@ -769,6 +834,9 @@ function pollGame(){
     .then(function(d){
       if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
       applyPhase(d);
+      if(d.mode){
+        if(d.mode !== roomMode){ roomMode = d.mode; lastShownKey = ""; }
+      }
       if(d.me){
         meState = d.me;
         renderByState();

@@ -129,6 +129,7 @@
   .ranking-no.teacher { background: #7F77DD; }
   .rm-btn2 { margin-left: auto; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E9B9A8; background: #FFFFFF; color: #993C1D; font-size: 13px; line-height: 1; cursor: pointer; opacity: 0.55; }
   .rm-btn2:hover { opacity: 1; }
+  .mode-desc { text-align: center; font-size: 12px; color: #888780; margin-top: 8px; min-height: 16px; }
   .phase-box { text-align: center; padding: 6px 0 12px; }
   .phase-label { font-size: 12px; color: #B4B2A9; margin-bottom: 4px; }
   .phase-main { font-size: 24px; font-weight: 700; }
@@ -189,6 +190,15 @@
     </div>
     <div id="no-grid" class="no-grid"></div>
     <div class="roster-hint">番号をタップすると「欠席」にできます（もう一度タップで もどす）<button id="absent-clear">欠席をすべて解除</button></div>
+  </div>
+
+  <div class="card">
+    <div class="size-hint">ゲームの しかた（いつでも きりかえできます）</div>
+    <div class="size-row">
+      <button class="size-btn" id="mode-single" onclick="chooseMode('single')">🏁 1周で終了</button>
+      <button class="size-btn" id="mode-endless" onclick="chooseMode('endless')">♾ 終了まで何周でも</button>
+    </div>
+    <div class="mode-desc" id="mode-desc"></div>
   </div>
 
   <div class="card">
@@ -328,7 +338,7 @@ function renderRanking(students){
     var photoHtml = ph
       ? '<img class="ranking-photo" src="' + ph + '">'
       : '<span class="ranking-photo ranking-photo-placeholder">🙂</span>';
-    var clearBadge = s.lapCount ? '<span class="ranking-bingo-badge">🎉 ' + s.lapCount + '周クリア</span>' : "";
+    var clearBadge = s.lapCount ? '<span class="ranking-bingo-badge">🎉 ' + (currentMode === "single" ? "クリア" : s.lapCount + "周クリア") + '</span>' : "";
     var cards = s.made ? '<span class="ranking-cards">' + s.made[0] + '・' + s.made[1] + '</span>' : '';
     var status;
     if(s.hand){
@@ -350,7 +360,27 @@ function renderRanking(students){
   }).join("");
 }
 
+var currentMode = "endless";
+function renderModeButtons(){
+  document.getElementById("mode-single").classList.toggle("active", currentMode === "single");
+  document.getElementById("mode-endless").classList.toggle("active", currentMode === "endless");
+  document.getElementById("mode-desc").textContent = currentMode === "single"
+    ? "全員が1周クリアしたら、じどうで終了します。（クリアした人は、ほかの人のために交換だけ続けます）"
+    : "先生が「ゲームを終了する」を押すまで、クリアした人は つぎの周（ともだちのイニシャル）に すすみます。";
+}
+function chooseMode(mode){
+  fetch("/api/initial/mode", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom, mode: mode })
+  }).then(function(r){ return r.json(); })
+    .then(function(){ fetchState(); })
+    .catch(function(){ alert("先生のサーバーに つなげませんでした。"); });
+}
+window.chooseMode = chooseMode;
 function applyState(d){
+  currentMode = d.mode === "single" ? "single" : "endless";
+  renderModeButtons();
   currentPhase = (d.phase === "playing" || d.phase === "finished") ? d.phase : "making";
   var students = d.students || [];
   var total = students.length;
@@ -365,7 +395,7 @@ function applyState(d){
     main.className = "phase-main";
     var lt = 0;
     students.forEach(function(x){ lt += (x.lapCount || 0); });
-    sub.textContent = "最終結果：のべ " + lt + " 周（生徒の画面とTVに結果が出ています）";
+    sub.textContent = (d.autoFinished ? "🎉 全員クリアで自動終了しました。" : "") + (currentMode === "single" ? "最終結果（生徒の画面とTVに結果が出ています）" : "最終結果：のべ " + lt + " 周（生徒の画面とTVに結果が出ています）");
     btn.textContent = "もういちど配りなおす（手札がリセットされます）";
     fbtn.textContent = "▶ ゲームを再開する";
     fbtn.style.background = "#1D9E75";
@@ -376,7 +406,9 @@ function applyState(d){
     main.className = "phase-main playing";
     var lapsTotal = 0;
     students.forEach(function(x){ lapsTotal += (x.lapCount || 0); });
-    sub.textContent = "1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
+    sub.textContent = currentMode === "single"
+      ? "クリア " + (d.clearedCount || 0) + " / " + total + " 人　（全員クリアで じどうで終了）"
+      : "1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
     btn.textContent = "もういちど配りなおす（手札がリセットされます）";
   } else {
     main.textContent = "カードづくり中";

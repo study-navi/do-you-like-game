@@ -313,6 +313,8 @@ loadInitial();
 
 function getInitialRoom(room){
   if(!initialRooms[room]) initialRooms[room] = { phase: 'making', dealtAt: null };
+  // mode: 'endless'=先生が終了を押すまで何周でも / 'single'=全員が1周クリアしたら自動で終了
+  if(initialRooms[room].mode !== 'single') initialRooms[room].mode = 'endless';
   if(initialRooms[room].phase !== 'playing' && initialRooms[room].phase !== 'finished') initialRooms[room].phase = 'making';
   return initialRooms[room];
 }
@@ -412,9 +414,37 @@ function checkInitialLap(st, now){
   if(!isInitialPair(st.made) || !isInitialPair(st.hand)) return false;
   if(initialMatchCount(initialTarget(st), st.hand) !== 2) return false;
   if(!Array.isArray(st.laps)) st.laps = [];
+  const room = normalizeRoom(st.room);
+  if(getInitialRoom(room).mode === 'single'){
+    // 1周で終了モード：最初のクリアだけ記録（クリア後は、ほかの友だちのために交換だけつづける）
+    if(st.laps.length > 0) return false;
+    st.laps.push({ round: 1, at: now });
+    if(!st.clearedAt) st.clearedAt = now;
+    st.pendingAdvance = true;
+    maybeAutoFinishInitial(room);
+    return true;
+  }
   st.laps.push({ round: st.laps.length + 1, at: now });
   if(!st.clearedAt) st.clearedAt = now;
   advanceInitialRound(st);
+  return true;
+}
+// 1周で終了モード：全員が1周クリアしたら、じどうでゲームを終了する
+function maybeAutoFinishInitial(room){
+  const r = getInitialRoom(room);
+  if(r.mode !== 'single' || r.phase !== 'playing') return false;
+  const order = Array.isArray(r.order) ? r.order : [];
+  const players = order.filter(function(id){
+    const x = initialStudents[id];
+    return x && isInitialPair(x.made) && isInitialPair(x.hand);
+  });
+  if(players.length < 2) return false;
+  const all = players.every(function(id){ return initialLapCount(initialStudents[id]) >= 1; });
+  if(!all) return false;
+  r.phase = 'finished';
+  r.finishedAt = Date.now();
+  r.autoFinished = true;
+  saveInitialRooms();
   return true;
 }
 function publicInitialList(room){
@@ -536,6 +566,7 @@ function dealInitialCards(room){
     s.exchanges = 0;
     s.clearedAt = null;
     s.laps = [];
+    s.pendingAdvance = false;
     s.round = 1;
     s.target = s.made.slice();
     s.targetFrom = id;
@@ -553,6 +584,7 @@ function dealInitialCards(room){
   });
   const r = getInitialRoom(room);
   r.phase = 'playing';
+  r.autoFinished = false;
   r.dealtAt = now;
   saveInitialRooms();
   saveInitialStudents();
@@ -1322,7 +1354,7 @@ const server = http.createServer(function(req, res){
       const mine = list.filter(function(x){ return x.id === me; })[0];
       rank = mine ? mine.rank : null;
     }
-    sendJson(res, 200, { room: room, phase: r.phase, dealtAt: r.dealtAt, exists: exists, rank: rank, total: total, me: exists ? initialMe(st) : null });
+    sendJson(res, 200, { room: room, phase: r.phase, mode: r.mode, autoFinished: !!r.autoFinished, dealtAt: r.dealtAt, exists: exists, rank: rank, total: total, me: exists ? initialMe(st) : null });
     return;
   }
 
@@ -1331,7 +1363,7 @@ const server = http.createServer(function(req, res){
     const r = getInitialRoom(room);
     const list = publicInitialList(room);
     sendJson(res, 200, {
-      room: room, phase: r.phase, dealtAt: r.dealtAt, students: list,
+      room: room, phase: r.phase, mode: r.mode, autoFinished: !!r.autoFinished, dealtAt: r.dealtAt, students: list,
       madeCount: list.filter(function(s){ return !!s.made; }).length,
       clearedCount: list.filter(function(s){ return !!s.clearedAt; }).length
     });
@@ -1354,7 +1386,7 @@ const server = http.createServer(function(req, res){
   if(req.method === 'POST' && url === '/api/initial/reset'){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);
-      initialRooms[room] = { phase: 'making', dealtAt: null };
+      initialRooms[room] = { phase: 'making', dealtAt: null, mode: getInitialRoom(room).mode };
       Object.keys(initialOffers).forEach(function(k){ if(initialOffers[k].room === room) delete initialOffers[k]; });
       saveInitialRooms();
       Object.keys(initialStudents).forEach(function(id){
@@ -1443,15 +1475,39 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  // 先生：モードを切りかえる（'single'=1周で終了 / 'endless'=終了を押すまで何周でも）
+  if(req.method === 'POST' && url === '/api/initial/mode'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getInitialRoom(room);
+      r.mode = (body && body.mode === 'single') ? 'single' : 'endless';
+      if(r.mode === 'endless'){
+        // 1周で終了モードでクリアした人は、つぎの周へ進める
+        Object.keys(initialStudents).forEach(function(id){
+          const x = initialStudents[id];
+          if(normalizeRoom(x.room) === room && x.pendingAdvance){
+            x.pendingAdvance = false;
+            advanceInitialRound(x);
+          }
+        });
+        saveInitialStudents();
+      }
+      if(r.mode === 'single') maybeAutoFinishInitial(room);
+      saveInitialRooms();
+      sendJson(res, 200, { ok: true, room: room, mode: r.mode, phase: r.phase });
+    });
+    return;
+  }
+
   // 先生：ゲームを終了する／再開する（手札・周回数はそのまま）
   if(req.method === 'POST' && (url === '/api/initial/finish' || url === '/api/initial/resume')){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);
       const r = getInitialRoom(room);
       if(url === '/api/initial/finish'){
-        if(r.phase === 'playing'){ r.phase = 'finished'; r.finishedAt = Date.now(); }
+        if(r.phase === 'playing'){ r.phase = 'finished'; r.finishedAt = Date.now(); r.autoFinished = false; }
       } else if(r.phase === 'finished'){
-        r.phase = 'playing'; r.finishedAt = null;
+        r.phase = 'playing'; r.finishedAt = null; r.autoFinished = false;
       }
       saveInitialRooms();
       sendJson(res, 200, { ok: true, room: room, phase: r.phase });

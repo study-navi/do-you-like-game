@@ -342,8 +342,41 @@ function initialTargetFrom(st){
     photo: o.photo ? '/api/initial/photo?id=' + o.id : null
   };
 }
+// 交換の依頼（メモリ上のみ。再起動で消えてよい）。生徒id -> { id, room, from, to, giveIdx, give, at }
+const initialOffers = {};
+const INITIAL_OFFER_TTL = 90 * 1000;
+function pruneInitialOffers(){
+  const now = Date.now();
+  Object.keys(initialOffers).forEach(function(k){
+    const o = initialOffers[k];
+    const a = initialStudents[o.from], b = initialStudents[o.to];
+    if(!a || !b){ delete initialOffers[k]; return; }
+    if(now - o.at > INITIAL_OFFER_TTL){
+      a.notice = { kind: 'expired', at: now, no: b.no || null, role: b.role || 'student' };
+      delete initialOffers[k];
+    }
+  });
+}
+function initialLabel(st){
+  return { no: st.no || null, role: st.role || 'student' };
+}
 function initialMe(st){
+  pruneInitialOffers();
+  const incoming = [];
+  Object.keys(initialOffers).forEach(function(k){
+    const o = initialOffers[k];
+    if(o.to === st.id && initialStudents[o.from]){
+      incoming.push({ id: o.id, from: o.from, fromNo: initialStudents[o.from].no || null, fromRole: initialStudents[o.from].role || 'student', give: o.give });
+    }
+  });
+  const mine = initialOffers[st.id];
+  const outgoing = mine && initialStudents[mine.to]
+    ? { id: mine.id, to: mine.to, toNo: initialStudents[mine.to].no || null, toRole: initialStudents[mine.to].role || 'student', giveIdx: mine.giveIdx }
+    : null;
   return {
+    incoming: incoming,
+    outgoing: outgoing,
+    notice: (st.notice && Date.now() - st.notice.at < 30000) ? st.notice : null,
     made: isInitialPair(st.made) ? st.made : null,
     target: isInitialPair(initialTarget(st)) ? initialTarget(st) : null,
     targetFrom: initialTargetFrom(st),
@@ -416,6 +449,21 @@ function publicInitialList(room){
   });
   list.forEach(function(s, idx){ s.rank = idx + 1; });
   return list;
+}
+// 2人のカードを、同時に1枚ずつ入れかえる（カードの総数は変わらない）
+function swapInitialCards(a, ai, b, bi, now){
+  const tmp = a.hand[ai];
+  a.hand[ai] = b.hand[bi];
+  b.hand[bi] = tmp;
+  a.exchanges = (a.exchanges || 0) + 1;
+  b.exchanges = (b.exchanges || 0) + 1;
+  a.updatedAt = now; b.updatedAt = now;
+  // 手札が変わった2人が出していた依頼は無効にする
+  delete initialOffers[a.id];
+  delete initialOffers[b.id];
+  const lapA = checkInitialLap(a, now);
+  const lapB = checkInitialLap(b, now);
+  return { lapA: lapA, lapB: lapB };
 }
 // 全員のカードを集めてシャッフルし、2枚ずつ配りなおす。最初から自分のイニシャルがそろう人が出ないようにする（できる範囲で）。
 function dealInitialCards(room){
@@ -494,6 +542,7 @@ function dealInitialCards(room){
     s.updatedAt = now;
   });
   getInitialRoom(room).order = ids.slice();
+  Object.keys(initialOffers).forEach(function(k){ if(initialOffers[k].room === room) delete initialOffers[k]; });
   ids.forEach(function(id){ checkInitialLap(initialStudents[id], now); });
   // カードを作っていない人（あとから来た人など）は、配りなおされるまで待つ
   Object.keys(initialStudents).forEach(function(id){
@@ -1306,6 +1355,7 @@ const server = http.createServer(function(req, res){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);
       initialRooms[room] = { phase: 'making', dealtAt: null };
+      Object.keys(initialOffers).forEach(function(k){ if(initialOffers[k].room === room) delete initialOffers[k]; });
       saveInitialRooms();
       Object.keys(initialStudents).forEach(function(id){
         if(normalizeRoom(initialStudents[id].room) === room) delete initialStudents[id];
@@ -1409,7 +1459,126 @@ const server = http.createServer(function(req, res){
     return;
   }
 
-  // 生徒：カードを交換したあとの手札を送る
+
+  // 交換できる友だちの一覧（交換画面をひらいたときだけ取得）
+  if(req.method === 'GET' && url === '/api/initial/peers'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const peers = Object.keys(initialStudents).filter(function(id){
+      const x = initialStudents[id];
+      return id !== me && normalizeRoom(x.room) === room && isInitialPair(x.made) && isInitialPair(x.hand);
+    }).map(function(id){
+      const x = initialStudents[id];
+      return { id: id, no: x.no || null, role: x.role || 'student' };
+    }).sort(function(a, b){
+      if(a.role !== b.role) return a.role === 'teacher' ? 1 : -1;
+      return (a.no || 999) - (b.no || 999);
+    });
+    sendJson(res, 200, { peers: peers });
+    return;
+  }
+
+  // 交換の依頼：「この友だちと、このカードを交換したい」
+  if(req.method === 'POST' && url === '/api/initial/offer'){
+    readJsonBody(req, function(body){
+      const a = body && initialStudents[body.id];
+      const b = body && initialStudents[body.to];
+      if(!a || !b || a.id === b.id || normalizeRoom(a.room) !== normalizeRoom(b.room)){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      const ai = body.giveIdx;
+      if((ai !== 0 && ai !== 1) || !isInitialPair(a.hand) || !isInitialPair(b.hand)){
+        sendJson(res, 409, { error: 'not dealt' });
+        return;
+      }
+      if(getInitialRoom(normalizeRoom(a.room)).phase !== 'playing'){
+        sendJson(res, 409, { error: 'not playing' });
+        return;
+      }
+      pruneInitialOffers();
+      // 相手がすでに自分に依頼を出していたら、そのまま交換成立
+      const back = initialOffers[b.id];
+      if(back && back.to === a.id && b.hand[back.giveIdx] === back.give){
+        const now = Date.now();
+        const res2 = swapInitialCards(a, ai, b, back.giveIdx, now);
+        b.notice = { kind: 'done', at: now, no: a.no || null, role: a.role || 'student' };
+        saveInitialStudents();
+        sendJson(res, 200, { ok: true, done: true, lapJustCleared: res2.lapA, me: initialMe(a) });
+        return;
+      }
+      initialOffers[a.id] = { id: crypto.randomBytes(4).toString('hex'), room: normalizeRoom(a.room), from: a.id, to: b.id, giveIdx: ai, give: a.hand[ai], at: Date.now() };
+      a.notice = null;
+      sendJson(res, 200, { ok: true, done: false, me: initialMe(a) });
+    });
+    return;
+  }
+
+  // 依頼をとりけす
+  if(req.method === 'POST' && url === '/api/initial/offer-cancel'){
+    readJsonBody(req, function(body){
+      if(body && body.id) delete initialOffers[body.id];
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  // 依頼を受ける（自分が出すカードをえらんで、交換成立）
+  if(req.method === 'POST' && url === '/api/initial/accept'){
+    readJsonBody(req, function(body){
+      const b = body && initialStudents[body.id];
+      if(!b){ sendJson(res, 404, { error: 'unknown student' }); return; }
+      pruneInitialOffers();
+      let offer = null;
+      Object.keys(initialOffers).forEach(function(k){ if(initialOffers[k].id === body.offerId && initialOffers[k].to === b.id) offer = initialOffers[k]; });
+      const a = offer ? initialStudents[offer.from] : null;
+      if(!offer || !a){ sendJson(res, 409, { error: 'expired', me: initialMe(b) }); return; }
+      const bi = body.giveIdx;
+      if((bi !== 0 && bi !== 1) || !isInitialPair(a.hand) || !isInitialPair(b.hand)){
+        sendJson(res, 400, { error: 'invalid' });
+        return;
+      }
+      if(getInitialRoom(normalizeRoom(b.room)).phase !== 'playing'){
+        sendJson(res, 409, { error: 'finished' });
+        return;
+      }
+      if(a.hand[offer.giveIdx] !== offer.give){
+        delete initialOffers[a.id];
+        a.notice = { kind: 'expired', at: Date.now(), no: b.no || null, role: b.role || 'student' };
+        saveInitialStudents();
+        sendJson(res, 409, { error: 'expired', me: initialMe(b) });
+        return;
+      }
+      const now = Date.now();
+      const r2 = swapInitialCards(a, offer.giveIdx, b, bi, now);
+      a.notice = { kind: 'done', at: now, no: b.no || null, role: b.role || 'student' };
+      saveInitialStudents();
+      sendJson(res, 200, { ok: true, lapJustCleared: r2.lapB, me: initialMe(b) });
+    });
+    return;
+  }
+
+  // 依頼をことわる
+  if(req.method === 'POST' && url === '/api/initial/decline'){
+    readJsonBody(req, function(body){
+      const b = body && initialStudents[body.id];
+      if(b){
+        Object.keys(initialOffers).forEach(function(k){
+          const o = initialOffers[k];
+          if(o.id === body.offerId && o.to === b.id){
+            const a = initialStudents[o.from];
+            if(a) a.notice = { kind: 'declined', at: Date.now(), no: b.no || null, role: b.role || 'student' };
+            delete initialOffers[k];
+          }
+        });
+        saveInitialStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  // （旧）手札を直接送る：画面からは使わない
   if(req.method === 'POST' && url === '/api/initial/hand'){
     readJsonBody(req, function(body){
       if(!body || !body.id || !initialStudents[body.id]){

@@ -251,6 +251,11 @@
   .xchg-overlay.show { display: flex; }
   .xchg-card { background: #FFFFFF; border-radius: 22px; padding: 22px 18px; width: 100%; max-width: 420px; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
   .xchg-q { font-size: 15px; font-weight: 700; text-align: center; margin: 4px 0 10px; }
+  .peer-grid { grid-template-columns: repeat(6, 1fr); margin-bottom: 12px; }
+  .peer-grid button.teacher { grid-column: span 2; font-size: 15px; }
+  .peer-grid button.hot { box-shadow: 0 0 0 3px #F5C4B3; }
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #2C2C2A; color: #FFFFFF; padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; z-index: 300; display: none; max-width: 90vw; text-align: center; }
+  .toast.show { display: block; }
   .xchg-preview { text-align: center; font-size: 18px; font-weight: 700; color: #993C1D; min-height: 26px; margin-bottom: 10px; }
 </style>
 </head>
@@ -327,22 +332,44 @@
       <div class="section-title">いま もっている カード</div>
       <div class="card-row" id="hand-cards"></div>
       <div class="ask-box" id="ask-box"></div>
-      <button class="main-btn" onclick="openXchg()">🔁 カードを こうかんした</button>
+      <button class="main-btn" onclick="openXchg()">🔁 カードを こうかんする</button>
     </div>
   </div>
 </div>
 
 <div id="xchg-overlay" class="xchg-overlay">
   <div class="xchg-card">
-    <div class="xchg-q">① どっちの カードを わたした？</div>
-    <div class="card-row" id="xchg-hand"></div>
-    <div class="xchg-q">② どの カードを もらった？</div>
-    <div class="keypad" id="xchg-keypad"></div>
-    <div class="xchg-preview" id="xchg-preview"></div>
-    <button class="main-btn" id="xchg-ok" onclick="applyXchg()" disabled>これで OK</button>
-    <button class="sub-btn" onclick="closeXchg()">やめる</button>
+    <div id="xchg-pick">
+      <div class="xchg-q">① だれと こうかんする？（しゅっせきばんごう）</div>
+      <div class="keypad peer-grid" id="peer-grid"></div>
+      <div class="xchg-q">② きみが わたす カードは？</div>
+      <div class="card-row" id="xchg-hand"></div>
+      <div class="xchg-preview" id="xchg-preview"></div>
+      <button class="main-btn" id="xchg-ok" onclick="sendOffer()" disabled>おくる</button>
+    </div>
+    <div id="xchg-wait" style="display:none;">
+      <div class="wait-msg" id="xchg-wait-msg">…</div>
+      <div class="wait-sub">あいてが「OK」を おすと こうかんできます</div>
+      <div class="card-row" id="xchg-wait-card" style="margin-top:12px;"></div>
+      <button class="sub-btn" onclick="cancelOffer()">とりけす</button>
+    </div>
+    <button class="sub-btn" id="xchg-close-btn" onclick="closeXchg()">やめる</button>
   </div>
 </div>
+
+<div id="in-overlay" class="xchg-overlay" style="z-index:180;">
+  <div class="xchg-card">
+    <div class="xchg-q" id="in-title">こうかんの おねがい！</div>
+    <div class="section-title">あいてが わたす カード</div>
+    <div class="card-row" id="in-their"></div>
+    <div class="xchg-q">きみが わたす カードを えらんでね</div>
+    <div class="card-row" id="in-hand"></div>
+    <button class="main-btn" id="in-ok" onclick="acceptOffer()" disabled>こうかんする</button>
+    <button class="sub-btn" onclick="declineOffer()">ことわる（まちがいのとき）</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <div id="finish-overlay" class="bingo-overlay">
   <div class="bingo-card">
@@ -564,16 +591,57 @@ function showLapOverlay(){
 }
 function closeClear(){ document.getElementById("bingo-overlay").classList.remove("show"); }
 
-/* ---------- ② 交換する ---------- */
+/* ---------- ② 交換する（あいてと、同時に入れかえる） ---------- */
+var xchgTo = null, xchgGive = -1, peerList = [];
+var inOfferId = "", inGive = -1;
+var noticeSeen = 0;
+function whoText(no, role){
+  return role === "teacher" ? "先生" : (no ? no + "ばん" : "ともだち");
+}
+function toast(msg){
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ el.classList.remove("show"); }, 3500);
+}
 function openXchg(){
   if(!meState || !meState.hand) return;
-  xchgGive = -1; xchgGet = null;
-  renderXchg();
+  xchgTo = null; xchgGive = -1;
   document.getElementById("xchg-overlay").classList.add("show");
+  renderXchg();
+  fetch("/api/initial/peers?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId))
+    .then(function(r){ return r.json(); })
+    .then(function(d){ peerList = d.peers || []; renderXchg(); })
+    .catch(function(){});
 }
 function closeXchg(){ document.getElementById("xchg-overlay").classList.remove("show"); }
 function renderXchg(){
+  var waiting = !!(meState && meState.outgoing);
+  document.getElementById("xchg-pick").style.display = waiting ? "none" : "block";
+  document.getElementById("xchg-wait").style.display = waiting ? "block" : "none";
+  if(waiting){
+    var o = meState.outgoing;
+    document.getElementById("xchg-wait-msg").textContent = whoText(o.toNo, o.toRole) + " の へんじを まっています…";
+    document.getElementById("xchg-wait-card").innerHTML = cardHtml(meState.hand[o.giveIdx], "pick", "") ;
+    return;
+  }
   var hand = meState.hand;
+  var grid = document.getElementById("peer-grid");
+  grid.innerHTML = "";
+  var asking = {};
+  (meState.incoming || []).forEach(function(x){ asking[x.from] = true; });
+  if(!peerList.length){
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:#888780;">ともだちを さがしています…</div>';
+  }
+  peerList.forEach(function(pr){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = pr.role === "teacher" ? "先生" : (pr.no || "?");
+    b.className = (xchgTo === pr.id ? "sel " : "") + (pr.role === "teacher" ? "teacher " : "") + (asking[pr.id] ? "hot" : "");
+    b.onclick = function(){ xchgTo = pr.id; renderXchg(); };
+    grid.appendChild(b);
+  });
   var box = document.getElementById("xchg-hand");
   box.innerHTML = "";
   hand.forEach(function(c, i){
@@ -583,37 +651,99 @@ function renderXchg(){
     d.onclick = function(){ xchgGive = i; renderXchg(); };
     box.appendChild(d);
   });
-  var pad = document.getElementById("xchg-keypad");
-  pad.innerHTML = "";
-  LETTERS.forEach(function(L){
-    var b = document.createElement("button");
-    b.type = "button";
-    b.textContent = L;
-    if(xchgGet === L) b.className = "sel";
-    b.onclick = function(){ xchgGet = L; speak(L); renderXchg(); };
-    pad.appendChild(b);
-  });
-  var pv = document.getElementById("xchg-preview");
-  pv.textContent = (xchgGive >= 0 && xchgGet) ? hand[xchgGive] + " → " + xchgGet : "";
-  document.getElementById("xchg-ok").disabled = !(xchgGive >= 0 && xchgGet);
+  var who = null;
+  peerList.forEach(function(pr){ if(pr.id === xchgTo) who = pr; });
+  document.getElementById("xchg-preview").textContent = (who && xchgGive >= 0) ? whoText(who.no, who.role) + " に " + hand[xchgGive] + " を わたす" : "";
+  document.getElementById("xchg-ok").disabled = !(who && xchgGive >= 0);
 }
-function applyXchg(){
-  if(!(xchgGive >= 0 && xchgGet) || !meState || !meState.hand) return;
-  var nh = meState.hand.slice();
-  nh[xchgGive] = xchgGet;
+function sendOffer(){
+  if(!xchgTo || xchgGive < 0 || !meState || !meState.hand) return;
   var btn = document.getElementById("xchg-ok");
   btn.disabled = true;
-  fetch("/api/initial/hand", {
+  fetch("/api/initial/offer", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: studentId, hand: nh })
+    body: JSON.stringify({ id: studentId, to: xchgTo, giveIdx: xchgGive })
   }).then(function(r){ return r.json(); })
     .then(function(d){
       if(d && d.me){ meState = d.me; }
-      closeXchg();
+      if(d && d.done){ closeXchg(); toast("✅ こうかん できたよ！"); }
+      renderXchg();
       renderByState();
     })
-    .catch(function(){ btn.disabled = false; alert("先生のサーバーに つなげませんでした。"); });
+    .catch(function(){ btn.disabled = false; toast("先生のサーバーに つなげませんでした"); });
+}
+function cancelOffer(){
+  fetch("/api/initial/offer-cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId })
+  }).then(function(){ if(meState) meState.outgoing = null; renderXchg(); }).catch(function(){});
+}
+
+/* ---------- 友だちからの「こうかん おねがい」 ---------- */
+function renderIncoming(){
+  var ov = document.getElementById("in-overlay");
+  var list = (meState && meState.incoming) || [];
+  if(!list.length || !meState.hand){
+    ov.classList.remove("show");
+    inOfferId = ""; inGive = -1;
+    return;
+  }
+  var o = list[0];
+  if(o.id !== inOfferId){ inOfferId = o.id; inGive = -1; }
+  document.getElementById("in-title").textContent = whoText(o.fromNo, o.fromRole) + " が こうかん したいって！";
+  document.getElementById("in-their").innerHTML = cardHtml(o.give, "mine", "");
+  var box = document.getElementById("in-hand");
+  box.innerHTML = "";
+  meState.hand.forEach(function(c, i){
+    var d = document.createElement("div");
+    d.className = "icard" + (inGive === i ? " pick" : "");
+    d.textContent = c;
+    d.onclick = function(){ inGive = i; renderIncoming(); };
+    box.appendChild(d);
+  });
+  document.getElementById("in-ok").disabled = inGive < 0;
+  ov.classList.add("show");
+}
+function acceptOffer(){
+  if(!inOfferId || inGive < 0) return;
+  var btn = document.getElementById("in-ok");
+  btn.disabled = true;
+  fetch("/api/initial/accept", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId, offerId: inOfferId, giveIdx: inGive })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.me){ meState = d.me; }
+      if(d && d.ok){ toast("✅ こうかん できたよ！"); }
+      else { toast("こうかんは じかんぎれ でした"); }
+      inOfferId = ""; inGive = -1;
+      renderIncoming();
+      renderByState();
+    })
+    .catch(function(){ btn.disabled = false; toast("先生のサーバーに つなげませんでした"); });
+}
+function declineOffer(){
+  fetch("/api/initial/decline", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId, offerId: inOfferId })
+  }).then(function(){
+    if(meState) meState.incoming = [];
+    inOfferId = ""; inGive = -1;
+    renderIncoming();
+  }).catch(function(){});
+}
+function showNotice(){
+  var n = meState && meState.notice;
+  if(!n || n.at <= noticeSeen) return;
+  noticeSeen = n.at;
+  var who = whoText(n.no, n.role);
+  if(n.kind === "done"){ toast("✅ " + who + " と こうかん できたよ！"); closeXchg(); }
+  else if(n.kind === "declined"){ toast(who + " は こうかん しませんでした"); }
+  else if(n.kind === "expired"){ toast("こうかんは じかんぎれ に なりました"); }
 }
 
 /* ---------- ポーリング ---------- */
@@ -622,6 +752,7 @@ function applyPhase(d){
   if(d.phase === "finished"){
     closeXchg();
     closeClear();
+    document.getElementById("in-overlay").classList.remove("show");
     var laps = d.me ? (d.me.laps || 0) : 0;
     var txt = laps > 0 ? laps + "周クリア！" : "ゲームは おわりました";
     if(laps > 0 && d.rank && d.total) txt += "　（" + d.rank + "位 / " + d.total + "人）";
@@ -639,15 +770,17 @@ function pollGame(){
       if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
       applyPhase(d);
       if(d.me){
-        var xchgOpen = document.getElementById("xchg-overlay").classList.contains("show");
-        var handChanged = meState && meState.hand && d.me.hand && (meState.hand.join("") !== d.me.hand.join(""));
         meState = d.me;
-        if(xchgOpen && handChanged){ closeXchg(); }
         renderByState();
+        if(d.phase !== "finished"){
+          showNotice();
+          renderIncoming();
+          if(document.getElementById("xchg-overlay").classList.contains("show")) renderXchg();
+        }
       }
     })
     .catch(function(){})
-    .finally(function(){ pollTimer = setTimeout(pollGame, 2500); });
+    .finally(function(){ pollTimer = setTimeout(pollGame, (meState && (meState.outgoing || (meState.incoming && meState.incoming.length))) ? 1200 : 2500); });
 }
 
 /* ---------- registration ---------- */

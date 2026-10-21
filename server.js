@@ -313,7 +313,7 @@ loadInitial();
 
 function getInitialRoom(room){
   if(!initialRooms[room]) initialRooms[room] = { phase: 'making', dealtAt: null };
-  if(initialRooms[room].phase !== 'playing') initialRooms[room].phase = 'making';
+  if(initialRooms[room].phase !== 'playing' && initialRooms[room].phase !== 'finished') initialRooms[room].phase = 'making';
   return initialRooms[room];
 }
 function isInitialLetter(v){ return typeof v === 'string' && /^[A-Z]$/.test(v); }
@@ -1266,7 +1266,14 @@ const server = http.createServer(function(req, res){
     const r = getInitialRoom(room);
     const st = initialStudents[me];
     const exists = !!(st && normalizeRoom(st.room) === room);
-    sendJson(res, 200, { room: room, phase: r.phase, dealtAt: r.dealtAt, exists: exists, me: exists ? initialMe(st) : null });
+    let rank = null, total = 0;
+    if(exists){
+      const list = publicInitialList(room);
+      total = list.length;
+      const mine = list.filter(function(x){ return x.id === me; })[0];
+      rank = mine ? mine.rank : null;
+    }
+    sendJson(res, 200, { room: room, phase: r.phase, dealtAt: r.dealtAt, exists: exists, rank: rank, total: total, me: exists ? initialMe(st) : null });
     return;
   }
 
@@ -1386,6 +1393,22 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  // 先生：ゲームを終了する／再開する（手札・周回数はそのまま）
+  if(req.method === 'POST' && (url === '/api/initial/finish' || url === '/api/initial/resume')){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getInitialRoom(room);
+      if(url === '/api/initial/finish'){
+        if(r.phase === 'playing'){ r.phase = 'finished'; r.finishedAt = Date.now(); }
+      } else if(r.phase === 'finished'){
+        r.phase = 'playing'; r.finishedAt = null;
+      }
+      saveInitialRooms();
+      sendJson(res, 200, { ok: true, room: room, phase: r.phase });
+    });
+    return;
+  }
+
   // 生徒：カードを交換したあとの手札を送る
   if(req.method === 'POST' && url === '/api/initial/hand'){
     readJsonBody(req, function(body){
@@ -1396,6 +1419,10 @@ const server = http.createServer(function(req, res){
       const s = initialStudents[body.id];
       if(!isInitialPair(s.made) || !isInitialPair(s.hand)){
         sendJson(res, 409, { error: 'not dealt' });
+        return;
+      }
+      if(getInitialRoom(normalizeRoom(s.room)).phase === 'finished'){
+        sendJson(res, 409, { error: 'finished' });
         return;
       }
       if(!isInitialPair(body.hand)){

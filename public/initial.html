@@ -344,6 +344,15 @@
   </div>
 </div>
 
+<div id="finish-overlay" class="bingo-overlay">
+  <div class="bingo-card">
+    <div class="bingo-emoji">🏁</div>
+    <div class="bingo-text">おしまい！</div>
+    <div id="finish-result" style="font-size:16px;font-weight:700;color:#2C2C2A;margin-bottom:10px;"></div>
+    <div style="font-size:13px;color:#5F5E5A;">おつかれさま！　カードを 先生に もどしてね。</div>
+  </div>
+</div>
+
 <div id="bingo-overlay" class="bingo-overlay">
   <div class="bingo-card">
     <div class="bingo-emoji">🎉</div>
@@ -608,12 +617,27 @@ function applyXchg(){
 }
 
 /* ---------- ポーリング ---------- */
+function applyPhase(d){
+  var ov = document.getElementById("finish-overlay");
+  if(d.phase === "finished"){
+    closeXchg();
+    closeClear();
+    var laps = d.me ? (d.me.laps || 0) : 0;
+    var txt = laps > 0 ? laps + "周クリア！" : "ゲームは おわりました";
+    if(laps > 0 && d.rank && d.total) txt += "　（" + d.rank + "位 / " + d.total + "人）";
+    document.getElementById("finish-result").textContent = txt;
+    ov.classList.add("show");
+  } else {
+    ov.classList.remove("show");
+  }
+}
 function pollGame(){
   if(pollTimer) clearTimeout(pollTimer);
   fetch("/api/initial/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
+      applyPhase(d);
       if(d.me){
         var xchgOpen = document.getElementById("xchg-overlay").classList.contains("show");
         var handChanged = meState && meState.hand && d.me.hand && (meState.hand.join("") !== d.me.hand.join(""));

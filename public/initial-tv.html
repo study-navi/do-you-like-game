@@ -70,6 +70,7 @@
 
 <script>
 var prevMatched = {};
+var lastPhase = "";
 var ROOM_KEY = "initial_tv_room";
 var currentRoom = "";
 var pollTimer = null;
@@ -133,7 +134,8 @@ function sortStudents(students, mode){
   return list;
 }
 function renderCurrent(){
-  render(sortStudents(lastStudents, currentMode));
+  // 終了したら、周回数の多い順（さいしゅう結果）で表示する
+  render(sortStudents(lastStudents, lastPhase === "finished" ? "laps" : currentMode));
 }
 var photoCache = {};
 function photoSrc(s){
@@ -174,7 +176,11 @@ function render(students){
 function renderPhase(d){
   var el = document.getElementById("phase-tag");
   var total = (d.students || []).length;
-  if(d.phase === "playing"){
+  if(d.phase === "finished"){
+    var lt = 0;
+    (d.students || []).forEach(function(x){ lt += (x.lapCount || 0); });
+    el.textContent = "🏁 しゅうりょう！　さいしゅう けっか　（のべ " + lt + " 周）";
+  } else if(d.phase === "playing"){
     var lapsTotal = 0;
     (d.students || []).forEach(function(x){ lapsTotal += (x.lapCount || 0); });
     el.textContent = "ゲーム中！　1周以上クリア " + (d.clearedCount || 0) + " / " + total + " 人　（のべ " + lapsTotal + " 周）";
@@ -187,6 +193,7 @@ function poll(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       renderPhase(d);
+      lastPhase = d.phase;
       lastStudents = d.students || [];
       renderCurrent();
     })

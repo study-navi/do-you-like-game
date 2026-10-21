@@ -204,6 +204,7 @@
       ④ そろったら1周クリア！じどうで、つぎの周（ともだちのイニシャルを あつめる）にすすみます<br>⑤ クリアした生徒も、友だちに交換をたのまれたら応じます
     </div>
     <button class="next-btn" id="deal-btn" onclick="dealCards()">カードを回収して配りなおす</button>
+    <button class="next-btn" id="finish-btn" style="display:none;margin-top:10px;background:#993C1D;" onclick="finishGame()">🏁 ゲームを終了する</button>
     <div class="progress-text" id="progress-text"></div>
   </div>
 
@@ -350,14 +351,27 @@ function renderRanking(students){
 }
 
 function applyState(d){
-  currentPhase = d.phase === "playing" ? "playing" : "making";
+  currentPhase = (d.phase === "playing" || d.phase === "finished") ? d.phase : "making";
   var students = d.students || [];
   var total = students.length;
   var made = d.madeCount || 0;
   var main = document.getElementById("phase-main");
   var sub = document.getElementById("phase-sub");
   var btn = document.getElementById("deal-btn");
-  if(currentPhase === "playing"){
+  var fbtn = document.getElementById("finish-btn");
+  fbtn.style.display = currentPhase === "making" ? "none" : "block";
+  if(currentPhase === "finished"){
+    main.textContent = "🏁 ゲーム終了";
+    main.className = "phase-main";
+    var lt = 0;
+    students.forEach(function(x){ lt += (x.lapCount || 0); });
+    sub.textContent = "最終結果：のべ " + lt + " 周（生徒の画面とTVに結果が出ています）";
+    btn.textContent = "もういちど配りなおす（手札がリセットされます）";
+    fbtn.textContent = "▶ ゲームを再開する";
+    fbtn.style.background = "#1D9E75";
+  } else if(currentPhase === "playing"){
+    fbtn.textContent = "🏁 ゲームを終了する";
+    fbtn.style.background = "#993C1D";
     main.textContent = "ゲーム中";
     main.className = "phase-main playing";
     var lapsTotal = 0;
@@ -384,7 +398,7 @@ function fetchState(){
 }
 
 function dealCards(){
-  if(currentPhase === "playing"){
+  if(currentPhase === "playing" || currentPhase === "finished"){
     if(!confirm("もういちど配りなおすと、いまの手札はリセットされて、クリアの記録も消えます。よろしいですか？")) return;
   }
   fetch("/api/initial/deal", {
@@ -401,6 +415,19 @@ function dealCards(){
     .catch(function(){ alert("先生のサーバーに つなげませんでした。"); });
 }
 window.dealCards = dealCards;
+
+function finishGame(){
+  var finishing = currentPhase !== "finished";
+  if(finishing && !confirm("ゲームを終了しますか？\n（生徒の画面に結果が出て、交換はできなくなります。あとで「再開」もできます）")) return;
+  fetch(finishing ? "/api/initial/finish" : "/api/initial/resume", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom })
+  }).then(function(r){ return r.json(); })
+    .then(function(){ fetchState(); })
+    .catch(function(){ alert("先生のサーバーに つなげませんでした。"); });
+}
+window.finishGame = finishGame;
 
 function resetGame(){
   if(!confirm("生徒の登録とカードをぜんぶリセットしますか？（生徒の画面は登録画面にもどります）")) return;

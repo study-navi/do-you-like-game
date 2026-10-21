@@ -197,6 +197,8 @@
   .step-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
   .step-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 4px; }
   .step-example { font-size: 12px; color: #888780; text-align: center; margin-bottom: 14px; }
+  .relogin-wrap { text-align: center; margin: 4px 0 24px; }
+  .relogin-link { background: none; border: none; color: #888780; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 8px 12px; }
   .name-row { display: flex; gap: 10px; margin-bottom: 14px; }
   .name-wrap { flex: 1; min-width: 0; text-align: center; }
   .kana-input { width: 100%; padding: 10px 8px; font-size: 18px; border-radius: 10px; border: 2px solid #D3D1C7; text-align: center; font-family: inherit; user-select: text; -webkit-user-select: text; }
@@ -292,10 +294,14 @@
         <button id="reg-capture-btn" class="reg-btn-primary" onclick="document.getElementById('reg-file-input').click()">
           <i class="ti ti-camera" style="vertical-align:-3px;margin-right:6px;"></i>しゃしんを とる
         </button>
-        <button id="reg-confirm-btn" class="reg-btn-confirm" style="display:none;" onclick="confirmPhoto()">これで OK</button>
+        <button id="reg-confirm-btn" class="reg-btn-confirm" style="display:none;" onclick="confirmKeep()">これで OK</button>
         <button id="reg-retake-btn" class="reg-btn-secondary" style="display:none;" onclick="retakePhoto()">とりなおす</button>
       </div>
       <div class="reg-error" id="reg-error"></div>
+      <div id="relogin-actions" style="display:none;">
+        <button class="reg-btn-secondary" style="width:100%;margin-bottom:8px;" onclick="confirmAsOther()">べつの人として ログイン（カードは ひきつぎません）</button>
+        <button class="reg-btn-secondary" style="width:100%;" onclick="cancelRelogin()">もどる</button>
+      </div>
     </div>
   </div>
 
@@ -347,6 +353,8 @@
     </div>
   </div>
 </div>
+
+<div class="relogin-wrap"><button class="relogin-link" onclick="startRelogin()">🔑 ログインしなおす</button></div>
 
 <div id="xchg-overlay" class="xchg-overlay">
   <div class="xchg-card">
@@ -857,6 +865,8 @@ var STUDENT_NO_KEY = "initial_student_no";
 var PREV_ID_KEY = "initial_prev_id";
 var DEVICE_KEY = "initial_device";
 var registering = false;
+var inheritNext = true;   // ログインしなおすとき、カードを ひきつぐ
+var reloginMode = false;
 function getDeviceId(){
   var d = "";
   try{ d = localStorage.getItem(DEVICE_KEY) || ""; }catch(e){}
@@ -1010,7 +1020,23 @@ function proceedToSetupScreen(){
   renderKeypad();
   pollGame();
 }
+function resetClientGameState(){
+  meState = null; editing = false; lastShownKey = ""; lapSeen = null; roomMode = "endless";
+  makeSlots = [null, null]; activeSlot = 0; inOfferId = ""; inGive = -1; xchgTo = null; xchgGive = -1;
+  for(var k = 0; k < 2; k++){
+    var inp = document.getElementById("kana-" + k); if(inp) inp.value = "";
+    var msg = document.getElementById("kana-msg-" + k); if(msg) msg.textContent = "";
+  }
+  ["xchg-overlay", "in-overlay", "bingo-overlay", "finish-overlay"].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.classList.remove("show");
+  });
+  document.getElementById("make-cancel-btn").style.display = "none";
+  document.getElementById("relogin-actions").style.display = "none";
+  reloginMode = false;
+  inheritNext = true;
+}
 function enterGame(room){
+  resetClientGameState();
   currentRoom = String(room || "").trim().toLowerCase();
   localStorage.setItem(ROOM_KEY, currentRoom);
   document.getElementById("room-tag").textContent = "教室コード: " + currentRoom;
@@ -1045,7 +1071,7 @@ function confirmPhoto(){
   fetch("/api/initial/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
+    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "", inherit: inheritNext })
   })
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -1067,6 +1093,42 @@ function confirmPhoto(){
       err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
     });
 }
+/* ---------- いつでも ログインしなおす ---------- */
+function startRelogin(){
+  if(!studentId && !localStorage.getItem(STUDENT_ID_KEY)) return;
+  reloginMode = true;
+  inheritNext = true;
+  try{ localStorage.setItem(PREV_ID_KEY, studentId || localStorage.getItem(STUDENT_ID_KEY) || ""); }catch(e){}
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
+  if(document.getElementById("room-row").style.display === "block") renderGC();
+  renderNoPick();
+  capturedPhoto = null;
+  retakePhoto();
+  prefillSavedPhoto();
+  document.getElementById("reg-error").textContent = "";
+  document.getElementById("relogin-actions").style.display = "block";
+  document.getElementById("register-overlay").style.display = "flex";
+}
+function cancelRelogin(){
+  reloginMode = false;
+  inheritNext = true;
+  try{ localStorage.removeItem(PREV_ID_KEY); }catch(e){}
+  document.getElementById("relogin-actions").style.display = "none";
+  document.getElementById("register-overlay").style.display = "none";
+}
+function confirmKeep(){
+  inheritNext = true;
+  confirmPhoto();
+}
+function confirmAsOther(){
+  inheritNext = false;
+  confirmPhoto();
+}
+
 (function boot(){
   document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
   var gc = (localStorage.getItem(GC_KEY) || "").split("-");

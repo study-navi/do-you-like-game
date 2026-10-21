@@ -1402,10 +1402,20 @@ const server = http.createServer(function(req, res){
     readJsonBody(req, function(body){
       if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
       const room = normalizeRoom(body.room);
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      // ログインしなおし：前の登録（同じ教室の、同じ端末のもの）をさがす
+      let old = null;
+      if(typeof body.replaceId === 'string' && initialStudents[body.replaceId] && normalizeRoom(initialStudents[body.replaceId].room) === room){
+        old = initialStudents[body.replaceId];
+      }
+      if(!old && deviceId){
+        Object.keys(initialStudents).forEach(function(k){
+          if(!old && initialStudents[k].deviceId === deviceId && normalizeRoom(initialStudents[k].room) === room) old = initialStudents[k];
+        });
+      }
       if(typeof body.replaceId === 'string' && initialStudents[body.replaceId] && normalizeRoom(initialStudents[body.replaceId].room) === room){
         delete initialStudents[body.replaceId];
       }
-      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
       if(deviceId){
         Object.keys(initialStudents).forEach(function(k){
           if(initialStudents[k].deviceId === deviceId && normalizeRoom(initialStudents[k].room) === room) delete initialStudents[k];
@@ -1431,8 +1441,32 @@ const server = http.createServer(function(req, res){
         registeredAt: Date.now(),
         updatedAt: Date.now()
       };
+      // 「つづきから」：カード・周回数をそのまま引きつぐ（番号や写真をまちがえて登録したときなど）
+      let inherited = false;
+      if(body.inherit === true && old && (old.made || old.hand)){
+        const n = initialStudents[id];
+        ['made', 'hand', 'dealt', 'exchanges', 'clearedAt', 'laps', 'round', 'target', 'pendingAdvance'].forEach(function(f){
+          if(old[f] !== undefined) n[f] = old[f];
+        });
+        n.targetFrom = old.targetFrom === old.id ? id : (old.targetFrom || null);
+        n.registeredAt = old.registeredAt || n.registeredAt;
+        // 古い id を指している情報を、新しい id につけかえる
+        Object.keys(initialStudents).forEach(function(k){
+          if(initialStudents[k].targetFrom === old.id) initialStudents[k].targetFrom = id;
+        });
+        const rr = initialRooms[room];
+        if(rr && Array.isArray(rr.order)){
+          rr.order = rr.order.map(function(x){ return x === old.id ? id : x; });
+          saveInitialRooms();
+        }
+        inherited = true;
+      }
+      // 古い id の交換の依頼は、とりけす
+      Object.keys(initialOffers).forEach(function(k){
+        if(old && (initialOffers[k].from === old.id || initialOffers[k].to === old.id)) delete initialOffers[k];
+      });
       saveInitialStudents();
-      sendJson(res, 200, { id: id, room: room });
+      sendJson(res, 200, { id: id, room: room, inherited: inherited });
     });
     return;
   }

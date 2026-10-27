@@ -29,6 +29,20 @@
   .status { font-size: 15px; color: #F6C453; font-weight: 700; }
   .score { font-size: 36px; font-weight: 700; color: #F6C453; white-space: nowrap; }
   .score .unit { font-size: 16px; font-weight: 500; }
+  #quiz-tv { position: fixed; inset: 0; background: #1B1A2E; z-index: 50; display: none; padding: 36px 40px; overflow: auto; }
+  #quiz-tv.show { display: block; }
+  .qtv-title { font-size: 40px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .qtv-sub { font-size: 22px; text-align: center; color: #B7B4E0; margin-bottom: 18px; }
+  .qtv-letters { display: flex; gap: 30px; justify-content: center; margin: 10px 0 20px; }
+  .qtv-letter { width: 170px; height: 210px; border-radius: 14px; background: #FFF3B0; color: #2C2C2A; display: flex; align-items: center; justify-content: center; font-size: 140px; font-weight: 700; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  .qtv-bar { max-width: 760px; height: 22px; border-radius: 999px; background: #3D3B6B; margin: 0 auto 10px; overflow: hidden; }
+  .qtv-bar > div { height: 100%; background: #1D9E75; transition: width 0.25s linear; }
+  .qtv-count { text-align: center; font-size: 30px; color: #F6C453; font-weight: 700; margin-bottom: 14px; }
+  .qtv-ans { text-align: center; font-size: 56px; font-weight: 700; color: #F6C453; margin: 6px 0; }
+  .qtv-photo { display: block; margin: 8px auto 14px; width: 260px; height: 195px; object-fit: contain; border-radius: 14px; background: #26254A; }
+  .qtv-rank { max-width: 760px; margin: 0 auto; }
+  .qtv-rank div { display: flex; justify-content: space-between; font-size: 28px; padding: 8px 20px; background: #26254A; border-radius: 14px; margin-bottom: 8px; }
+  .qtv-rank div:first-child { border: 2px solid #F6C453; }
   .empty { text-align: center; font-size: 22px; color: #B7B4E0; margin-top: 80px; }
   .room-tag { text-align: center; font-size: 16px; color: #B7B4E0; margin-top: -14px; margin-bottom: 24px; }
   .room-overlay {
@@ -65,6 +79,7 @@
     <button class="mode-btn" id="mode-btn-clear" onclick="setMode('clear')">🏆 最初のクリア順</button>
     <button class="mode-btn" id="mode-btn-cards" onclick="setMode('laps')">🔁 周回数順</button>
   </div>
+  <div id="quiz-tv"></div>
   <div class="board" id="board"></div>
   <div class="empty" id="empty" style="display:none;">まだ誰も参加していません</div>
 
@@ -207,6 +222,51 @@ function poll(){
     .catch(function(){})
     .finally(function(){ pollTimer = setTimeout(poll, 2000); });
 }
+
+/* ---------- 🎯 イニシャルクイズ表示 ---------- */
+var quizTvTimer = null, quizTvEndAt = 0, quizTvData = null;
+function qesc(x){ return String(x == null ? "" : x).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function renderQuizTv(q){
+  quizTvData = q;
+  var el = document.getElementById("quiz-tv");
+  if(!q || q.state === "idle" || !q.letters){ el.className = ""; el.innerHTML = ""; return; }
+  if(q.state === "question") quizTvEndAt = Date.now() + q.remainingMs;
+  var html = '<div class="qtv-title">🎯 だれの イニシャルかな？</div>' +
+    '<div class="qtv-letters"><div class="qtv-letter">' + q.letters[0] + '</div><div class="qtv-letter">' + q.letters[1] + '</div></div>';
+  if(q.state === "question"){
+    html += '<div class="qtv-bar"><div id="qtv-fill" style="width:100%"></div></div>' +
+      '<div class="qtv-count" id="qtv-left"></div>' +
+      '<div class="qtv-sub">じぶんの画面で せいかいを タップ！ はやいほど ポイントが たくさん！　（' + q.answered + ' / ' + q.players + ' にん こたえた）</div>';
+  } else {
+    html += '<div class="qtv-sub">こたえ</div><div class="qtv-ans">' + qesc(q.answer ? q.answer.name : "") + ' さん</div>' +
+      (q.answer && q.answer.photo ? '<img class="qtv-photo" src="' + q.answer.photo + '" alt="">' : '') +
+      '<div class="qtv-rank">' + (q.ranking || []).filter(function(r){ return r.played > 0; }).slice(0, 5).map(function(r){
+        return '<div><span>' + r.rank + 'い　' + qesc(r.name) + '</span><b>' + r.points + ' pt</b></div>';
+      }).join("") + '</div>';
+  }
+  el.innerHTML = html;
+  el.className = "show";
+  tickQuizTv();
+}
+function tickQuizTv(){
+  if(!quizTvData || quizTvData.state !== "question") return;
+  var left = Math.max(0, quizTvEndAt - Date.now());
+  var f = document.getElementById("qtv-fill");
+  if(f) f.style.width = Math.min(100, left / (quizTvData.duration * 1000) * 100) + "%";
+  var t = document.getElementById("qtv-left");
+  if(t) t.textContent = "のこり " + Math.ceil(left / 1000) + " びょう";
+}
+setInterval(tickQuizTv, 250);
+function pollQuizTv(){
+  clearTimeout(quizTvTimer);
+  if(!currentRoom){ quizTvTimer = setTimeout(pollQuizTv, 2000); return; }
+  fetch("/api/initial/quiz?room=" + encodeURIComponent(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(renderQuizTv)
+    .catch(function(){})
+    .finally(function(){ quizTvTimer = setTimeout(pollQuizTv, (quizTvData && quizTvData.state === "question") ? 1000 : 2500); });
+}
+pollQuizTv();
 
 (function boot(){
   updateModeButtons();

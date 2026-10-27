@@ -136,6 +136,20 @@
   .phase-main.playing { color: #0F6E56; }
   .phase-sub { font-size: 13px; color: #888780; margin-top: 6px; }
   .phase-steps { font-size: 13px; color: #5F5E5A; line-height: 1.7; margin: 8px 0 14px; padding: 10px 14px; background: #F7F6F1; border-radius: 12px; }
+  .qz-letters { display: flex; gap: 12px; justify-content: center; margin: 10px 0; }
+  .qz-letter { width: 64px; height: 78px; border-radius: 6px; background: #FFF3B0; border: 2px solid #F0D94F; display: flex; align-items: center; justify-content: center; font-size: 42px; font-weight: 700; }
+  .qz-info { text-align: center; font-size: 14px; color: #5F5E5A; margin: 4px 0; }
+  .qz-ans { text-align: center; font-size: 16px; font-weight: 700; color: #534AB7; background: #EEEDFE; border-radius: 10px; padding: 6px; margin: 6px 0; }
+  .qz-bar { height: 10px; border-radius: 999px; background: #E6E4DA; overflow: hidden; margin: 8px 0; }
+  .qz-bar > div { height: 100%; background: #1D9E75; transition: width 0.25s linear; }
+  .qz-dist { font-size: 13px; margin: 6px 0; }
+  .qz-dist div { display: flex; justify-content: space-between; padding: 2px 8px; border-radius: 6px; }
+  .qz-dist div.ok { background: #E1F5EE; color: #0F6E56; font-weight: 700; }
+  .qz-row { display: flex; gap: 8px; margin-top: 8px; }
+  .qz-row button { flex: 1; padding: 10px 6px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .qz-sec.active { background: #185FA5; color: #FFFFFF; border-color: #185FA5; }
+  .qz-rank { margin-top: 10px; font-size: 14px; }
+  .qz-rank div { display: flex; justify-content: space-between; padding: 4px 8px; border-bottom: 1px solid #F1EFE8; }
   .ranking-name { font-size: 14px; font-weight: 700; color: #2C2C2A; }
   .ranking-hints { font-size: 11px; font-weight: 700; color: #854F0B; background: #FDF3D8; border-radius: 999px; padding: 1px 8px; }
   .ranking-cards { font-size: 14px; font-weight: 700; color: #534AB7; letter-spacing: 1px; }
@@ -201,6 +215,25 @@
       <button class="size-btn" id="mode-endless" onclick="chooseMode('endless')">♾ 終了まで何周でも</button>
     </div>
     <div class="mode-desc" id="mode-desc"></div>
+  </div>
+
+  <div class="card" id="quiz-card">
+    <div class="history-title">🎯 イニシャルクイズ（だれのイニシャルかな？）</div>
+    <div class="size-hint">先生が出題 → 児童が自分の画面で正解をタップ。はやい子ほど高ポイント（100〜1000点）</div>
+    <div class="qz-row" id="qz-secs" style="margin-top:0;">
+      <button class="qz-sec" data-s="10" onclick="quizSecs(10)">10びょう</button>
+      <button class="qz-sec active" data-s="15" onclick="quizSecs(15)">15びょう</button>
+      <button class="qz-sec" data-s="20" onclick="quizSecs(20)">20びょう</button>
+      <button class="qz-sec" data-s="30" onclick="quizSecs(30)">30びょう</button>
+    </div>
+    <button class="next-btn" id="qz-start" style="margin-top:10px;" onclick="quizStart()">▶ 問題を出す</button>
+    <div id="qz-live"></div>
+    <div class="qz-row">
+      <button id="qz-reveal" style="display:none;" onclick="quizPost('reveal')">⏩ こたえ合わせ（はやめる）</button>
+      <button id="qz-stop" style="display:none;" onclick="quizPost('stop')">クイズを おわる</button>
+      <button onclick="if(confirm('クイズのポイントを ぜんぶ リセットします。よろしいですか？')) quizPost('reset')">ポイントを リセット</button>
+    </div>
+    <div class="qz-rank" id="qz-rank"></div>
   </div>
 
   <div class="card">
@@ -435,6 +468,93 @@ function fetchState(){
     .then(applyState)
     .catch(function(){});
 }
+
+/* ---------- 🎯 イニシャルクイズ ---------- */
+var quizSec = 15, quizTimer = null, quizLast = null, quizEndAt = 0;
+function quizSecs(n){
+  quizSec = n;
+  Array.prototype.forEach.call(document.querySelectorAll(".qz-sec"), function(b){ b.classList.toggle("active", parseInt(b.getAttribute("data-s"), 10) === n); });
+}
+function quizStart(){
+  var btn = document.getElementById("qz-start");
+  btn.disabled = true;
+  fetch("/api/initial/quiz/start", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom, seconds: quizSec })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      btn.disabled = false;
+      if(d && d.ok === false){
+        alert(d.error === "same" ? "イニシャルが ちがう子が 2人以上 いないと 出せません。" : "なまえとカードを とうろくした 生徒が 3人以上 いないと 出せません。（いま " + (d.count || 0) + "人）");
+        return;
+      }
+      if(d && d.quiz) renderQuizPanel(d.quiz);
+      scheduleQuiz(300);
+    })
+    .catch(function(){ btn.disabled = false; alert("先生のサーバーに つなげませんでした。"); });
+}
+function quizPost(kind){
+  fetch("/api/initial/quiz/" + kind, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom })
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ if(d && d.quiz) renderQuizPanel(d.quiz); })
+    .catch(function(){});
+}
+function renderQuizPanel(q){
+  quizLast = q;
+  var live = document.getElementById("qz-live");
+  var start = document.getElementById("qz-start");
+  var reveal = document.getElementById("qz-reveal");
+  var stop = document.getElementById("qz-stop");
+  start.textContent = q.state === "idle" ? "▶ 問題を出す" : (q.state === "question" ? "▶ つぎの問題に すぐ すすむ" : "▶ つぎの問題を出す");
+  reveal.style.display = q.state === "question" ? "block" : "none";
+  stop.style.display = q.state === "idle" ? "none" : "block";
+  if(q.state === "question") quizEndAt = Date.now() + q.remainingMs;
+  if(q.state === "idle" || !q.letters){
+    live.innerHTML = '<div class="qz-info">' + (q.eligible >= 3 ? '出題できます（なまえを とうろくした生徒 ' + q.eligible + '人）' : 'なまえを とうろくした生徒が 3人以上 そろうと 出せます（いま ' + q.eligible + '人）') + '</div>';
+  } else {
+    var dist = q.choices.map(function(c){
+      var n = (q.dist && q.dist[c.id]) || 0;
+      return '<div' + (q.state === "reveal" && q.answer && c.id === q.answer.id ? ' class="ok"' : '') + '><span>' + esc(c.name) + '</span><b>' + n + '人</b></div>';
+    }).join("");
+    live.innerHTML =
+      '<div class="qz-letters"><div class="qz-letter">' + q.letters[0] + '</div><div class="qz-letter">' + q.letters[1] + '</div></div>' +
+      '<div class="qz-ans">こたえ: ' + esc(q.answer ? q.answer.name : "") + (q.answer && q.answer.no ? '（' + q.answer.no + '番）' : '') + '</div>' +
+      (q.state === "question" ? '<div class="qz-bar"><div id="qz-bar-fill" style="width:100%"></div></div><div class="qz-info" id="qz-left"></div>' : '<div class="qz-info"><b>こたえ合わせ中</b></div>') +
+      '<div class="qz-info">こたえた人 <b>' + q.answered + ' / ' + q.players + '</b></div>' +
+      '<div class="qz-dist">' + dist + '</div>';
+  }
+  var rows = (q.ranking || []).filter(function(r){ return r.played > 0; });
+  document.getElementById("qz-rank").innerHTML = rows.length
+    ? '<div style="font-weight:700;margin-bottom:4px;">🏆 クイズ ランキング</div>' + rows.map(function(r){
+        return '<div><span>' + r.rank + 'い　' + esc(r.name) + (r.no ? '（' + r.no + '番）' : '') + '</span><b>' + r.points + ' pt</b></div>';
+      }).join("")
+    : "";
+  tickQuizPanel();
+}
+function tickQuizPanel(){
+  if(!quizLast || quizLast.state !== "question") return;
+  var left = Math.max(0, quizEndAt - Date.now());
+  var fill = document.getElementById("qz-bar-fill");
+  if(fill) fill.style.width = Math.min(100, left / (quizLast.duration * 1000) * 100) + "%";
+  var t = document.getElementById("qz-left");
+  if(t) t.textContent = "のこり " + Math.ceil(left / 1000) + " びょう";
+}
+setInterval(tickQuizPanel, 250);
+function scheduleQuiz(ms){
+  clearTimeout(quizTimer);
+  quizTimer = setTimeout(fetchQuiz, ms);
+}
+function fetchQuiz(){
+  if(!currentRoom){ scheduleQuiz(2000); return; }
+  fetch("/api/initial/quiz?room=" + encodeURIComponent(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(renderQuizPanel)
+    .catch(function(){})
+    .finally(function(){ scheduleQuiz(quizLast && quizLast.state === "question" ? 1000 : 3000); });
+}
+fetchQuiz();
 
 function dealCards(){
   if(currentPhase === "playing" || currentPhase === "finished"){

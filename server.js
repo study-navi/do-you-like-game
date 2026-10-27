@@ -609,6 +609,152 @@ function dealInitialCards(room){
   return { ok: true, count: ids.length };
 }
 
+/* ---------- 🎯 イニシャルクイズ（先生が出題 → 児童がタップ → はやいほど高ポイント） ---------- */
+const initialQuizzes = {};   // room -> quiz（メモリ上のみ）
+function getInitialQuiz(room){
+  if(!initialQuizzes[room]){
+    initialQuizzes[room] = { state: 'idle', qid: 0, duration: 15, startedAt: 0, ansId: null, letters: null, choices: [], answers: {}, seen: {}, scores: {}, used: [] };
+  }
+  const q = initialQuizzes[room];
+  // 制限時間がすぎたら、じどうで「こたえ合わせ」へ
+  if(q.state === 'question' && Date.now() >= q.startedAt + q.duration * 1000) q.state = 'reveal';
+  return q;
+}
+function quizEligible(room){
+  return Object.keys(initialStudents).filter(function(id){
+    const x = initialStudents[id];
+    return normalizeRoom(x.room) === room && x.role !== 'teacher' && isInitialPair(x.made) && initialNameOf(x);
+  });
+}
+function quizShuffle(a){
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function startInitialQuiz(room, seconds){
+  const q = getInitialQuiz(room);
+  const ids = quizEligible(room);
+  if(ids.length < 3) return { ok: false, count: ids.length };
+  let pool = ids.filter(function(id){ return q.used.indexOf(id) < 0; });
+  if(!pool.length){ q.used = []; pool = ids.slice(); }
+  const ansId = pool[Math.floor(Math.random() * pool.length)];
+  const key = initialStudents[ansId].made.join('');
+  const seen = {}; seen[key] = 1;
+  const ds = [];
+  quizShuffle(ids.slice()).forEach(function(id){
+    const k = initialStudents[id].made.join('');
+    if(ds.length < 3 && id !== ansId && !seen[k]){ seen[k] = 1; ds.push(id); }
+  });
+  if(!ds.length) return { ok: false, count: ids.length, same: true };
+  q.used.push(ansId);
+  q.qid++;
+  q.state = 'question';
+  q.duration = [10, 15, 20, 30].indexOf(seconds) >= 0 ? seconds : 15;
+  q.startedAt = Date.now();
+  q.ansId = ansId;
+  q.letters = initialStudents[ansId].made.slice();
+  q.choices = quizShuffle([ansId].concat(ds));
+  q.answers = {};
+  q.seen = {};
+  return { ok: true };
+}
+// こたえた人数／こたえられる人数（こたえの本人は、こたえられない）
+function quizCounts(room, q){
+  const ids = quizEligible(room).filter(function(id){ return id !== q.ansId; });
+  let n = 0;
+  ids.forEach(function(id){ if(q.answers[id]) n++; });
+  return { answered: n, players: ids.length };
+}
+function quizPoints(elapsedSec, duration){
+  const e = Math.max(0, Math.min(duration, elapsedSec));
+  return Math.max(100, Math.round(1000 - 900 * e / duration));
+}
+function quizRanking(room, q){
+  const list = quizEligible(room).map(function(id){
+    const x = initialStudents[id];
+    const sc = q.scores[id] || { points: 0, correct: 0, played: 0 };
+    return { id: id, no: x.no || null, name: initialNameOf(x), points: sc.points, correct: sc.correct, played: sc.played };
+  }).sort(function(a, b){
+    if(b.points !== a.points) return b.points - a.points;
+    if(b.correct !== a.correct) return b.correct - a.correct;
+    return (a.no || 999) - (b.no || 999);
+  });
+  list.forEach(function(r, i){ r.rank = (i > 0 && list[i - 1].points === r.points) ? list[i - 1].rank : i + 1; });
+  return list;
+}
+function quizChoicesPublic(q){
+  return q.choices.map(function(id){ return { id: id, name: initialStudents[id] ? initialNameOf(initialStudents[id]) : '' }; });
+}
+// 先生・TV用（こたえも入っている。TVは こたえ合わせまで表示しない）
+function quizTeacherView(room){
+  const q = getInitialQuiz(room);
+  const c = quizCounts(room, q);
+  const ans = q.ansId && initialStudents[q.ansId] ? initialStudents[q.ansId] : null;
+  const dist = {};
+  Object.keys(q.answers).forEach(function(id){ const ch = q.answers[id].choice; dist[ch] = (dist[ch] || 0) + 1; });
+  return {
+    state: q.state, qid: q.qid, duration: q.duration,
+    remainingMs: q.state === 'question' ? Math.max(0, q.startedAt + q.duration * 1000 - Date.now()) : 0,
+    letters: q.letters, choices: quizChoicesPublic(q),
+    answer: ans ? { id: ans.id, name: initialNameOf(ans), no: ans.no || null, photo: ans.photo ? '/api/initial/photo?id=' + ans.id : null } : null,
+    answered: c.answered, players: c.players, dist: dist,
+    eligible: quizEligible(room).length,
+    ranking: quizRanking(room, q).slice(0, 10)
+  };
+}
+// 児童用
+function quizStudentView(room, st){
+  const q = getInitialQuiz(room);
+  if(q.state === 'idle' || !q.qid) return null;
+  const mine = q.answers[st.id] || null;
+  const isAns = q.ansId === st.id;
+  if(q.state === 'question'){
+    if(!q.seen[st.id]) q.seen[st.id] = Date.now();   // この子の画面に、もんだいが出た時刻（通信のおくれで ふりにならないように）
+    return { state: 'question', qid: q.qid, duration: q.duration, remainingMs: Math.max(0, q.startedAt + q.duration * 1000 - Date.now()), letters: q.letters, choices: quizChoicesPublic(q), mine: mine ? mine.choice : null, isAns: isAns };
+  }
+  const rk = quizRanking(room, q);
+  const me = rk.filter(function(r){ return r.id === st.id; })[0];
+  const ans = initialStudents[q.ansId];
+  return {
+    state: 'reveal', qid: q.qid, letters: q.letters, choices: quizChoicesPublic(q),
+    correctId: q.ansId, correctName: ans ? initialNameOf(ans) : '', correctPhoto: ans && ans.photo ? '/api/initial/photo?id=' + ans.id : null,
+    mine: mine ? mine.choice : null, gained: mine ? mine.points : 0, isAns: isAns,
+    total: me ? me.points : 0, rank: me ? me.rank : null, players: rk.length,
+    top: rk.slice(0, 3).map(function(r){ return { name: r.name, points: r.points, rank: r.rank }; })
+  };
+}
+function quizAnswer(room, st, choiceId, qid){
+  const q = getInitialQuiz(room);
+  if(q.state !== 'question' || q.qid !== qid) return { ok: false, reason: 'closed' };
+  if(st.id === q.ansId) return { ok: false, reason: 'self' };
+  if(st.role === 'teacher') return { ok: false, reason: 'teacher' };
+  if(q.answers[st.id]) return { ok: true, already: true };
+  if(q.choices.indexOf(choiceId) < 0) return { ok: false, reason: 'bad' };
+  const now = Date.now();
+  const from = q.seen[st.id] || q.startedAt;
+  const good = choiceId === q.ansId;
+  const points = good ? quizPoints((now - from) / 1000, q.duration) : 0;
+  q.answers[st.id] = { choice: choiceId, at: now, points: points };
+  const sc = q.scores[st.id] || (q.scores[st.id] = { points: 0, correct: 0, played: 0 });
+  sc.points += points; sc.played++; if(good) sc.correct++;
+  // みんな こたえたら、じどうで「こたえ合わせ」
+  const c = quizCounts(room, q);
+  if(c.answered >= c.players) q.state = 'reveal';
+  return { ok: true, points: points };
+}
+function remapInitialQuizId(room, oldId, newId){
+  const q = initialQuizzes[room];
+  if(!q) return;
+  ['answers', 'seen', 'scores'].forEach(function(k){
+    if(q[k] && q[k][oldId] !== undefined){ q[k][newId] = q[k][oldId]; delete q[k][oldId]; }
+  });
+  if(q.ansId === oldId) q.ansId = newId;
+  q.choices = q.choices.map(function(x){ return x === oldId ? newId : x; });
+  q.used = q.used.map(function(x){ return x === oldId ? newId : x; });
+}
+
 function sendJson(res, status, obj){
   const body = JSON.stringify(obj);
   res.writeHead(status, {
@@ -1372,7 +1518,7 @@ const server = http.createServer(function(req, res){
       const mine = list.filter(function(x){ return x.id === me; })[0];
       rank = mine ? mine.rank : null;
     }
-    sendJson(res, 200, { room: room, phase: r.phase, mode: r.mode, autoFinished: !!r.autoFinished, dealtAt: r.dealtAt, exists: exists, rank: rank, total: total, me: exists ? initialMe(st) : null });
+    sendJson(res, 200, { room: room, phase: r.phase, mode: r.mode, autoFinished: !!r.autoFinished, dealtAt: r.dealtAt, exists: exists, rank: rank, total: total, me: exists ? initialMe(st) : null, quiz: (exists && st.role !== 'teacher') ? quizStudentView(room, st) : null });
     return;
   }
 
@@ -1405,6 +1551,7 @@ const server = http.createServer(function(req, res){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);
       initialRooms[room] = { phase: 'making', dealtAt: null, mode: getInitialRoom(room).mode };
+      delete initialQuizzes[room];
       Object.keys(initialOffers).forEach(function(k){ if(initialOffers[k].room === room) delete initialOffers[k]; });
       saveInitialRooms();
       Object.keys(initialStudents).forEach(function(id){
@@ -1478,6 +1625,7 @@ const server = http.createServer(function(req, res){
         Object.keys(initialStudents).forEach(function(k){
           if(initialStudents[k].targetFrom === old.id) initialStudents[k].targetFrom = id;
         });
+        remapInitialQuizId(room, old.id, id);
         const rr = initialRooms[room];
         if(rr && Array.isArray(rr.order)){
           rr.order = rr.order.map(function(x){ return x === old.id ? id : x; });
@@ -1638,18 +1786,39 @@ const server = http.createServer(function(req, res){
     return;
   }
 
-  // クイズ用：イニシャルカードを つくった友だちの名簿（1回だけ取得して、クイズは端末の中で出題する）
-  if(req.method === 'GET' && url === '/api/initial/roster'){
-    const room = normalizeRoom(getQueryParam(queryString, 'room'));
-    const me = getQueryParam(queryString, 'me');
-    const list = Object.keys(initialStudents).filter(function(id){
-      const x = initialStudents[id];
-      return id !== me && normalizeRoom(x.room) === room && x.role !== 'teacher' && isInitialPair(x.made) && initialNameOf(x);
-    }).map(function(id){
-      const x = initialStudents[id];
-      return { id: id, no: x.no || null, name: initialNameOf(x), made: x.made, photo: x.photo ? '/api/initial/photo?id=' + id : null };
+  // ---- イニシャルクイズ ----
+  if(req.method === 'GET' && url === '/api/initial/quiz'){
+    sendJson(res, 200, quizTeacherView(normalizeRoom(getQueryParam(queryString, 'room'))));
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/initial/quiz/start'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = startInitialQuiz(room, body && body.seconds);
+      if(!r.ok){ sendJson(res, 200, { ok: false, error: r.same ? 'same' : 'need3', count: r.count }); return; }
+      sendJson(res, 200, { ok: true, quiz: quizTeacherView(room) });
     });
-    sendJson(res, 200, { students: list });
+    return;
+  }
+  if(req.method === 'POST' && (url === '/api/initial/quiz/reveal' || url === '/api/initial/quiz/stop' || url === '/api/initial/quiz/reset')){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const q = getInitialQuiz(room);
+      if(url.endsWith('/reveal')){ if(q.state === 'question') q.state = 'reveal'; }
+      else if(url.endsWith('/stop')){ q.state = 'idle'; }
+      else { delete initialQuizzes[room]; }
+      sendJson(res, 200, { ok: true, quiz: quizTeacherView(room) });
+    });
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/initial/quiz/answer'){
+    readJsonBody(req, function(body){
+      const st = body && initialStudents[body.id];
+      if(!st){ sendJson(res, 404, { error: 'unknown student' }); return; }
+      const room = normalizeRoom(st.room);
+      const r = quizAnswer(room, st, body.choiceId, body.qid);
+      sendJson(res, 200, { ok: r.ok, reason: r.reason || null, quiz: quizStudentView(room, st) });
+    });
     return;
   }
 

@@ -318,6 +318,17 @@ function getInitialRoom(room){
   if(initialRooms[room].phase !== 'playing' && initialRooms[room].phase !== 'finished') initialRooms[room].phase = 'making';
   return initialRooms[room];
 }
+// ひらがな（カタカナ・のばす棒・空白もOK）だけの名前か。最大12文字。
+function cleanKanaName(v){
+  if(typeof v !== 'string') return '';
+  const t = v.replace(/[\s\u3000]+/g, '').slice(0, 12);
+  return /^[\u3041-\u3096\u30A1-\u30FA\u30FC]+$/.test(t) ? t : '';
+}
+function initialNameOf(st){
+  if(st.role === 'teacher' && !st.family && !st.given) return '';
+  const f = st.family || '', g = st.given || '';
+  return (f && g) ? (f + ' ' + g) : (f || g || '');
+}
 function isInitialLetter(v){ return typeof v === 'string' && /^[A-Z]$/.test(v); }
 function isInitialPair(a){ return Array.isArray(a) && a.length === 2 && isInitialLetter(a[0]) && isInitialLetter(a[1]); }
 // 自分のイニシャルのうち、手元にそろっている枚数（0〜2）
@@ -341,6 +352,7 @@ function initialTargetFrom(st){
     self: o.id === st.id,
     no: o.no || null,
     role: o.role || 'student',
+    name: initialNameOf(o),
     photo: o.photo ? '/api/initial/photo?id=' + o.id : null
   };
 }
@@ -354,7 +366,7 @@ function pruneInitialOffers(){
     const a = initialStudents[o.from], b = initialStudents[o.to];
     if(!a || !b){ delete initialOffers[k]; return; }
     if(now - o.at > INITIAL_OFFER_TTL){
-      a.notice = { kind: 'expired', at: now, no: b.no || null, role: b.role || 'student' };
+      a.notice = { kind: 'expired', at: now, no: b.no || null, role: b.role || 'student', name: initialNameOf(b) };
       delete initialOffers[k];
     }
   });
@@ -368,17 +380,20 @@ function initialMe(st){
   Object.keys(initialOffers).forEach(function(k){
     const o = initialOffers[k];
     if(o.to === st.id && initialStudents[o.from]){
-      incoming.push({ id: o.id, from: o.from, fromNo: initialStudents[o.from].no || null, fromRole: initialStudents[o.from].role || 'student', give: o.give });
+      incoming.push({ id: o.id, from: o.from, fromNo: initialStudents[o.from].no || null, fromRole: initialStudents[o.from].role || 'student', fromName: initialNameOf(initialStudents[o.from]), give: o.give });
     }
   });
   const mine = initialOffers[st.id];
   const outgoing = mine && initialStudents[mine.to]
-    ? { id: mine.id, to: mine.to, toNo: initialStudents[mine.to].no || null, toRole: initialStudents[mine.to].role || 'student', giveIdx: mine.giveIdx }
+    ? { id: mine.id, to: mine.to, toNo: initialStudents[mine.to].no || null, toRole: initialStudents[mine.to].role || 'student', toName: initialNameOf(initialStudents[mine.to]), giveIdx: mine.giveIdx }
     : null;
   return {
     incoming: incoming,
     outgoing: outgoing,
     notice: (st.notice && Date.now() - st.notice.at < 30000) ? st.notice : null,
+    name: initialNameOf(st),
+    family: st.family || '',
+    given: st.given || '',
     made: isInitialPair(st.made) ? st.made : null,
     target: isInitialPair(initialTarget(st)) ? initialTarget(st) : null,
     targetFrom: initialTargetFrom(st),
@@ -457,6 +472,7 @@ function publicInitialList(room){
       id: id,
       no: s.no || null,
       role: s.role || 'student',
+      name: initialNameOf(s),
       photo: s.photo ? '/api/initial/photo?id=' + id : null,
       made: isInitialPair(s.made) ? s.made : null,
       target: isInitialPair(initialTarget(s)) ? initialTarget(s) : null,
@@ -466,6 +482,7 @@ function publicInitialList(room){
       lapCount: laps,
       lastLapAt: laps ? s.laps[laps - 1].at : null,
       exchanges: s.exchanges || 0,
+      hints: s.hints || 0,
       clearedAt: s.clearedAt || null,
       registeredAt: s.registeredAt,
       updatedAt: s.updatedAt
@@ -564,6 +581,7 @@ function dealInitialCards(room){
     s.hand = [best[k * 2], best[k * 2 + 1]];
     s.dealt = s.hand.slice();
     s.exchanges = 0;
+    s.hints = 0;
     s.clearedAt = null;
     s.laps = [];
     s.pendingAdvance = false;
@@ -1403,6 +1421,10 @@ const server = http.createServer(function(req, res){
       if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
       const room = normalizeRoom(body.room);
       const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      // なまえ（ひらがな）は かならず必要
+      const family = cleanKanaName(body.family);
+      const given = cleanKanaName(body.given);
+      if(!family || !given){ sendJson(res, 400, { error: 'name required' }); return; }
       // ログインしなおし：前の登録（同じ教室の、同じ端末のもの）をさがす
       let old = null;
       if(typeof body.replaceId === 'string' && initialStudents[body.replaceId] && normalizeRoom(initialStudents[body.replaceId].room) === room){
@@ -1427,6 +1449,8 @@ const server = http.createServer(function(req, res){
         room: room,
         deviceId: deviceId,
         role: body.role === 'teacher' ? 'teacher' : 'student',
+        family: family,
+        given: given,
         no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
         made: null,
@@ -1559,12 +1583,73 @@ const server = http.createServer(function(req, res){
       return id !== me && normalizeRoom(x.room) === room && isInitialPair(x.made) && isInitialPair(x.hand);
     }).map(function(id){
       const x = initialStudents[id];
-      return { id: id, no: x.no || null, role: x.role || 'student' };
+      return { id: id, no: x.no || null, role: x.role || 'student', name: initialNameOf(x) };
     }).sort(function(a, b){
       if(a.role !== b.role) return a.role === 'teacher' ? 1 : -1;
       return (a.no || 999) - (b.no || 999);
     });
     sendJson(res, 200, { peers: peers });
+    return;
+  }
+
+  // ヒント：いま自分がほしいカードを、手元に持っている友だち
+  if(req.method === 'GET' && url === '/api/initial/hint'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = initialStudents[getQueryParam(queryString, 'me')];
+    if(!me || normalizeRoom(me.room) !== room || !isInitialPair(me.hand)){
+      sendJson(res, 200, { ok: false, need: [], groups: [] });
+      return;
+    }
+    if(getInitialRoom(room).phase !== 'playing'){
+      sendJson(res, 200, { ok: false, need: [], groups: [] });
+      return;
+    }
+    // まだ そろっていない文字
+    const rest = me.hand.slice();
+    const need = [];
+    initialTarget(me).forEach(function(c){
+      const i = rest.indexOf(c);
+      if(i >= 0) rest.splice(i, 1); else need.push(c);
+    });
+    const uniq = need.filter(function(c, i){ return need.indexOf(c) === i; });
+    const others = Object.keys(initialStudents).filter(function(id){
+      const x = initialStudents[id];
+      return id !== me.id && normalizeRoom(x.room) === room && isInitialPair(x.hand);
+    });
+    const groups = uniq.map(function(L){
+      const people = others.filter(function(id){ return initialStudents[id].hand.indexOf(L) >= 0; });
+      // いつも同じ人にあつまらないよう、ランダムな順にして、多すぎるときは6人まで
+      for(let i = people.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = people[i]; people[i] = people[j]; people[j] = t;
+      }
+      return {
+        letter: L,
+        total: people.length,
+        people: people.slice(0, 6).map(function(id){
+          const x = initialStudents[id];
+          return { id: id, no: x.no || null, role: x.role || 'student', name: initialNameOf(x) };
+        }).sort(function(a, b){ return (a.no || 999) - (b.no || 999); })
+      };
+    });
+    me.hints = (me.hints || 0) + 1;
+    saveInitialStudents();
+    sendJson(res, 200, { ok: true, need: need, groups: groups });
+    return;
+  }
+
+  // クイズ用：イニシャルカードを つくった友だちの名簿（1回だけ取得して、クイズは端末の中で出題する）
+  if(req.method === 'GET' && url === '/api/initial/roster'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const list = Object.keys(initialStudents).filter(function(id){
+      const x = initialStudents[id];
+      return id !== me && normalizeRoom(x.room) === room && x.role !== 'teacher' && isInitialPair(x.made) && initialNameOf(x);
+    }).map(function(id){
+      const x = initialStudents[id];
+      return { id: id, no: x.no || null, name: initialNameOf(x), made: x.made, photo: x.photo ? '/api/initial/photo?id=' + id : null };
+    });
+    sendJson(res, 200, { students: list });
     return;
   }
 
@@ -1592,7 +1677,7 @@ const server = http.createServer(function(req, res){
       if(back && back.to === a.id && b.hand[back.giveIdx] === back.give){
         const now = Date.now();
         const res2 = swapInitialCards(a, ai, b, back.giveIdx, now);
-        b.notice = { kind: 'done', at: now, no: a.no || null, role: a.role || 'student' };
+        b.notice = { kind: 'done', at: now, no: a.no || null, role: a.role || 'student', name: initialNameOf(a) };
         saveInitialStudents();
         sendJson(res, 200, { ok: true, done: true, lapJustCleared: res2.lapA, me: initialMe(a) });
         return;
@@ -1634,14 +1719,14 @@ const server = http.createServer(function(req, res){
       }
       if(a.hand[offer.giveIdx] !== offer.give){
         delete initialOffers[a.id];
-        a.notice = { kind: 'expired', at: Date.now(), no: b.no || null, role: b.role || 'student' };
+        a.notice = { kind: 'expired', at: Date.now(), no: b.no || null, role: b.role || 'student', name: initialNameOf(b) };
         saveInitialStudents();
         sendJson(res, 409, { error: 'expired', me: initialMe(b) });
         return;
       }
       const now = Date.now();
       const r2 = swapInitialCards(a, offer.giveIdx, b, bi, now);
-      a.notice = { kind: 'done', at: now, no: b.no || null, role: b.role || 'student' };
+      a.notice = { kind: 'done', at: now, no: b.no || null, role: b.role || 'student', name: initialNameOf(b) };
       saveInitialStudents();
       sendJson(res, 200, { ok: true, lapJustCleared: r2.lapB, me: initialMe(b) });
     });
@@ -1657,7 +1742,7 @@ const server = http.createServer(function(req, res){
           const o = initialOffers[k];
           if(o.id === body.offerId && o.to === b.id){
             const a = initialStudents[o.from];
-            if(a) a.notice = { kind: 'declined', at: Date.now(), no: b.no || null, role: b.role || 'student' };
+            if(a) a.notice = { kind: 'declined', at: Date.now(), no: b.no || null, role: b.role || 'student', name: initialNameOf(b) };
             delete initialOffers[k];
           }
         });

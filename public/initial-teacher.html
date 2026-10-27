@@ -136,6 +136,8 @@
   .phase-main.playing { color: #0F6E56; }
   .phase-sub { font-size: 13px; color: #888780; margin-top: 6px; }
   .phase-steps { font-size: 13px; color: #5F5E5A; line-height: 1.7; margin: 8px 0 14px; padding: 10px 14px; background: #F7F6F1; border-radius: 12px; }
+  .ranking-name { font-size: 14px; font-weight: 700; color: #2C2C2A; }
+  .ranking-hints { font-size: 11px; font-weight: 700; color: #854F0B; background: #FDF3D8; border-radius: 999px; padding: 1px 8px; }
   .ranking-cards { font-size: 14px; font-weight: 700; color: #534AB7; letter-spacing: 1px; }
   .ranking-hand { font-size: 13px; color: #5F5E5A; flex: 1; }
   .ranking-hand b { color: #0F6E56; }
@@ -327,6 +329,9 @@ function photoSrc(s){
   }
   return null;
 }
+function esc(t){
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+}
 function renderRanking(students){
   var list = document.getElementById("ranking-list");
   if(!students || students.length === 0){
@@ -342,7 +347,7 @@ function renderRanking(students){
     var cards = s.made ? '<span class="ranking-cards">' + s.made[0] + '・' + s.made[1] + '</span>' : '';
     var status;
     if(s.hand){
-      status = '<span class="ranking-hand">いま: <b>' + s.hand[0] + '・' + s.hand[1] + '</b>　目標: ' + (s.target ? s.target[0] + '・' + s.target[1] : '') + (s.targetFrom && !s.targetFrom.self ? '（' + (s.targetFrom.role === "teacher" ? "先生" : (s.targetFrom.no ? s.targetFrom.no + "番" : "")) + '）' : '') + '（' + s.matched + '/2）</span>';
+      status = '<span class="ranking-hand">いま: <b>' + s.hand[0] + '・' + s.hand[1] + '</b>　目標: ' + (s.target ? s.target[0] + '・' + s.target[1] : '') + (s.targetFrom && !s.targetFrom.self ? '（' + esc(s.targetFrom.name || (s.targetFrom.role === "teacher" ? "先生" : (s.targetFrom.no ? s.targetFrom.no + "番" : ""))) + '）' : '') + '（' + s.matched + '/2）</span>';
     } else if(s.made){
       status = '<span class="ranking-wait">カードを まっています</span>';
     } else {
@@ -352,8 +357,10 @@ function renderRanking(students){
       '<span class="ranking-rank">' + s.rank + '</span>' +
       photoHtml +
       (s.role === "teacher" ? '<span class="ranking-no teacher">先生</span>' : (s.no ? '<span class="ranking-no">' + s.no + '番</span>' : '')) +
+      (s.name ? '<span class="ranking-name">' + esc(s.name) + '</span>' : '') +
       cards +
       status +
+      (s.hints ? '<span class="ranking-hints" title="ヒントを つかった回数">💡' + s.hints + '</span>' : '') +
       clearBadge +
       '<button class="rm-btn2" data-id="' + s.id + '" title="この表示を消す">×</button>' +
       '</div>';

@@ -259,9 +259,35 @@
   .xchg-overlay.show { display: flex; }
   .xchg-card { background: #FFFFFF; border-radius: 22px; padding: 22px 18px; width: 100%; max-width: 420px; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
   .xchg-q { font-size: 15px; font-weight: 700; text-align: center; margin: 4px 0 10px; }
-  .peer-grid { grid-template-columns: repeat(6, 1fr); margin-bottom: 12px; }
+  .peer-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+  .peer-grid button { padding: 6px 2px; line-height: 1.15; min-height: 50px; }
+  .peer-grid button small { display: block; font-size: 10px; font-weight: 600; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .peer-grid button.teacher { grid-column: span 2; font-size: 15px; }
   .peer-grid button.hot { box-shadow: 0 0 0 3px #F5C4B3; }
+  .reg-name-box { background: #F7F6F1; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left; }
+  .reg-name-box .reg-q { font-size: 14px; font-weight: 700; color: #2C2C2A; margin-bottom: 8px; }
+  .reg-locked { opacity: 0.35; pointer-events: none; }
+  .reg-lock-note { font-size: 12px; color: #993C1D; font-weight: 700; margin: -6px 0 10px; text-align: center; }
+  .target-name { font-size: 20px; font-weight: 700; color: #185FA5; margin-top: 4px; }
+  .target-name small { font-size: 12px; color: #888780; font-weight: 600; margin-left: 4px; }
+  .hint-btn { width: 100%; padding: 12px; font-size: 15px; font-weight: 700; border-radius: 999px; border: 2px solid #F0B429; background: #FDF3D8; color: #854F0B; cursor: pointer; margin-bottom: 10px; }
+  .quiz-btn { width: 100%; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 999px; border: 1px solid #AFA9EC; background: #EEEDFE; color: #534AB7; cursor: pointer; margin-top: 10px; }
+  .hint-group { background: #FDF8E6; border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+  .hint-group-title { font-size: 14px; font-weight: 700; color: #854F0B; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .hint-group-title .hl { font-size: 26px; color: #2C2C2A; }
+  .hint-people { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hint-person { background: #FFFFFF; border: 1px solid #F0D94F; border-radius: 10px; padding: 6px 10px; font-size: 15px; font-weight: 700; }
+  .hint-person small { color: #888780; font-weight: 600; margin-left: 4px; }
+  .hint-note { font-size: 12px; color: #888780; text-align: center; margin: 4px 0 8px; }
+  .quiz-letters { display: flex; gap: 14px; justify-content: center; margin: 8px 0 6px; }
+  .quiz-q { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+  .quiz-prog { font-size: 12px; color: #888780; text-align: center; }
+  .quiz-choices { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .quiz-choice { padding: 14px 10px; font-size: 18px; font-weight: 700; border-radius: 14px; border: 2px solid #D3D1C7; background: #FFFFFF; color: #2C2C2A; cursor: pointer; font-family: inherit; }
+  .quiz-choice.ok { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+  .quiz-choice.ng { background: #FBE9E4; border-color: #D85A30; color: #993C1D; }
+  .quiz-result { text-align: center; font-size: 16px; font-weight: 700; min-height: 24px; margin-bottom: 8px; }
+  .quiz-photo { display: block; margin: 0 auto 8px; width: 120px; height: 90px; object-fit: contain; border-radius: 8px; background: #F1EFE8; border: 1px solid #E6E4DA; }
   .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #2C2C2A; color: #FFFFFF; padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; z-index: 300; display: none; max-width: 90vw; text-align: center; }
   .toast.show { display: block; }
   .xchg-preview { text-align: center; font-size: 18px; font-weight: 700; color: #993C1D; min-height: 26px; margin-bottom: 10px; }
@@ -273,6 +299,16 @@
       <div class="register-title">📷 なまえカードを うつしてね</div>
       <div class="register-sub">ネームカードに なまえを かいて、しゃしんを とってください</div>
       <div id="room-badge" style="font-size:13px;color:#185FA5;background:#E6F1FB;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
+      <div class="reg-name-box">
+        <div class="reg-q">① なまえを ひらがなで いれてね</div>
+        <div class="name-row" style="margin-bottom:4px;">
+          <div class="name-wrap"><div class="slot-label">みょうじ</div><input type="text" id="reg-family" class="kana-input" placeholder="やまだ" autocomplete="off" autocapitalize="off" oninput="onRegName()"></div>
+          <div class="name-wrap"><div class="slot-label">なまえ</div><input type="text" id="reg-given" class="kana-input" placeholder="たろう" autocomplete="off" autocapitalize="off" oninput="onRegName()"></div>
+        </div>
+        <div class="kana-msg" id="reg-name-msg" style="text-align:center;"></div>
+      </div>
+      <div class="reg-lock-note" id="reg-lock-note">↑ まず なまえを いれると、つぎに すすめるよ</div>
+      <div id="reg-rest" class="reg-locked">
       <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
         <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
         <input type="hidden" id="room-input" value="">
@@ -302,6 +338,7 @@
         <button class="reg-btn-secondary" style="width:100%;margin-bottom:8px;" onclick="confirmAsOther()">べつの人として ログイン（カードは ひきつぎません）</button>
         <button class="reg-btn-secondary" style="width:100%;" onclick="cancelRelogin()">もどる</button>
       </div>
+      </div>
     </div>
   </div>
 
@@ -315,7 +352,7 @@
   <div id="screen-make" class="screen active">
     <div class="step-card">
       <div class="step-hint">① きみの イニシャルカードを つくろう！</div>
-      <div class="step-example">みょうじと なまえを ひらがなで いれてね　れい: やまだ たろう → Y と T</div>
+      <div class="step-example">とうろくした なまえから イニシャルが でているよ。まちがいがなければ「これでOK！」</div>
       <div class="name-row">
         <div class="name-wrap"><div class="slot-label">みょうじ（ひらがな）</div><input type="text" id="kana-0" class="kana-input" placeholder="やまだ" autocomplete="off" autocapitalize="off" oninput="onKana(0)"><div class="kana-msg" id="kana-msg-0"></div></div>
         <div class="name-wrap"><div class="slot-label">なまえ（ひらがな）</div><input type="text" id="kana-1" class="kana-input" placeholder="たろう" autocomplete="off" autocapitalize="off" oninput="onKana(1)"><div class="kana-msg" id="kana-msg-1"></div></div>
@@ -337,6 +374,7 @@
       <div class="card-row" id="wait-cards"></div>
       <div class="wait-msg" id="wait-msg">先生が カードを あつめて くばるまで まっててね</div>
       <div class="wait-sub">くばられたら じどうで ゲームが はじまります</div>
+      <button class="quiz-btn" onclick="openQuiz()">🎯 イニシャルクイズ（だれのイニシャルかな？）</button>
       <button class="sub-btn" id="remake-btn" onclick="startRemake()">🔄 カードを つくりなおす</button>
     </div>
   </div>
@@ -349,7 +387,9 @@
       <div class="section-title">いま もっている カード</div>
       <div class="card-row" id="hand-cards"></div>
       <div class="ask-box" id="ask-box"></div>
+      <button class="hint-btn" id="hint-btn" onclick="openHint()">💡 ヒント（ほしいカードを もっている ともだち）</button>
       <button class="main-btn" onclick="openXchg()">🔁 カードを こうかんする</button>
+      <button class="quiz-btn" onclick="openQuiz()">🎯 イニシャルクイズ</button>
     </div>
   </div>
 </div>
@@ -385,6 +425,24 @@
     <div class="card-row" id="in-hand"></div>
     <button class="main-btn" id="in-ok" onclick="acceptOffer()" disabled>こうかんする</button>
     <button class="sub-btn" onclick="declineOffer()">ことわる（まちがいのとき）</button>
+  </div>
+</div>
+
+<div id="hint-overlay" class="xchg-overlay" style="z-index:160;">
+  <div class="xchg-card">
+    <div class="xchg-q" id="hint-title">💡 ヒント</div>
+    <div id="hint-body"></div>
+    <div class="hint-note">いまの じょうほうだよ。こうかんすると かわるよ。</div>
+    <button class="sub-btn" onclick="closeHint()">とじる</button>
+  </div>
+</div>
+
+<div id="quiz-overlay" class="xchg-overlay" style="z-index:160;">
+  <div class="xchg-card">
+    <div class="quiz-prog" id="quiz-prog"></div>
+    <div class="quiz-q">だれの イニシャルかな？</div>
+    <div id="quiz-body"></div>
+    <button class="sub-btn" onclick="closeQuiz()">とじる</button>
   </div>
 </div>
 
@@ -499,7 +557,7 @@ function kanaInitial(str){
   if(KANA_INIT[c]) return { letter: KANA_INIT[c], state: "ok" };
   return { letter: null, state: "bad" };
 }
-function onKana(i){
+function onKana(i, quiet){
   var v = document.getElementById("kana-" + i).value;
   var r = kanaInitial(v);
   var msg = document.getElementById("kana-msg-" + i);
@@ -508,7 +566,7 @@ function onKana(i){
     msg.className = "kana-msg";
     msg.textContent = "→ " + r.letter;
     activeSlot = i === 0 ? 1 : 0;
-    speak(r.letter);
+    if(!quiet) speak(r.letter);
   } else if(r.state === "bad"){
     makeSlots[i] = null;
     msg.className = "kana-msg err";
@@ -518,6 +576,28 @@ function onKana(i){
     msg.className = "kana-msg";
     msg.textContent = "";
   }
+  renderSlots();
+}
+function esc(t){
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+}
+function validKana(str){
+  var t = String(str || "").replace(/[\s\u3000]+/g, "");
+  if(!t || t.length > 12) return false;
+  if(!/^[\u3041-\u3096\u30A1-\u30FA\u30FC]+$/.test(t)) return false;
+  return kanaInitial(t).state === "ok";
+}
+var makePrefilled = false;
+// とうろくした なまえから、カードづくりの画面を うめる
+function prefillMake(force){
+  if(!meState || (makePrefilled && !force)) return;
+  if(!meState.family && !meState.given) return;
+  makePrefilled = true;
+  document.getElementById("kana-0").value = meState.family || "";
+  document.getElementById("kana-1").value = meState.given || "";
+  onKana(0, true);
+  onKana(1, true);
+  activeSlot = 0;
   renderSlots();
 }
 function pickLetter(L){
@@ -554,6 +634,7 @@ function startRemake(){
   for(var k = 0; k < 2; k++){ document.getElementById("kana-" + k).value = ""; document.getElementById("kana-msg-" + k).textContent = ""; }
   activeSlot = 0;
   document.getElementById("make-cancel-btn").style.display = "block";
+  prefillMake(true);
   renderSlots();
   showScreen("make");
 }
@@ -583,24 +664,33 @@ function matchedFlags(made, hand){
     return false;
   });
 }
+// 「だれの」イニシャルか（とうろくした なまえで）
+function friendWho(from){
+  if(from.role === "teacher") return from.name ? from.name + "（先生）" : "先生";
+  if(from.name) return from.name + "さん";
+  return from.no ? from.no + "ばんの 友だち" : "ともだち";
+}
 function targetLabel(){
   var lap = (meState.laps || 0) + 1;
   var from = meState.targetFrom || {};
   if(from.self) return lap === 1 ? "きみの イニシャル（これを 2まい あつめよう）" : lap + "周め：きみの イニシャルを もういちど あつめよう";
-  var who = from.role === "teacher" ? "先生" : (from.no ? from.no + "ばんの 友だち" : "ともだち");
-  return lap + "周め：" + who + "の イニシャルを あつめよう";
+  return lap + "周め：" + esc(friendWho(from)) + "の イニシャルを あつめよう";
 }
 function renderPlay(){
   var target = currentTarget(), hand = meState.hand;
   var lap = roomMode === "single" ? 1 : (meState.laps || 0) + 1;
   document.getElementById("target-title").innerHTML = (lap > 1 ? '<span class="lap-badge">' + lap + ' 周め</span><br>' : "") + targetLabel();
   var from = meState.targetFrom || {};
-  document.getElementById("target-from").innerHTML = (!from.self && from.photo) ? '<img src="' + from.photo + '" alt="">' : "";
+  document.getElementById("target-from").innerHTML = from.self ? "" :
+    ((from.photo ? '<img src="' + from.photo + '" alt="">' : "") +
+     '<div class="target-name">' + esc(friendWho(from)) + (from.no && from.role !== "teacher" ? '<small>' + from.no + 'ばん</small>' : '') + '</div>');
   document.getElementById("target-cards").innerHTML = target.map(function(c){ return cardHtml(c, "mine", ""); }).join("");
   var flags = matchedFlags(target, hand);
   document.getElementById("hand-cards").innerHTML = hand.map(function(c, i){ return cardHtml(c, flags[i] ? "match" : "", ""); }).join("");
   var box = document.getElementById("ask-box");
   var need = neededLetters();
+  var hintBtn = document.getElementById("hint-btn");
+  if(hintBtn) hintBtn.style.display = (need.length === 0 || (roomMode === "single" && (meState.laps || 0) >= 1)) ? "none" : "block";
   if(roomMode === "single" && (meState.laps || 0) >= 1){
     box.innerHTML = '<div class="ask-line">🎉 クリアずみ！</div>' +
       '<div class="ask-ans">みんなが クリアするまで、「Do you have ~?」と きかれたら こうかんに おうじてね。</div>';
@@ -624,6 +714,7 @@ function renderByState(){
   if(editing){ showScreen("make"); return; }
   if(!meState.made){
     document.getElementById("make-cancel-btn").style.display = "none";
+    prefillMake(false);
     showScreen("make");
     renderSlots();
     return;
@@ -657,8 +748,8 @@ function showLapOverlay(){
   }
   document.getElementById("lap-text").textContent = laps + "周クリア！";
   var from = meState.targetFrom || {};
-  var who = from.self ? "きみの イニシャル" : (from.role === "teacher" ? "先生" : (from.no ? from.no + "ばんの 友だち" : "ともだち")) + "の イニシャル";
-  document.getElementById("lap-next").innerHTML = "つぎは「" + who + "」を あつめよう！<br>ほかの友だちに こうかんを たのまれたら、おうじてね。";
+  var who = from.self ? "きみの イニシャル" : friendWho(from) + "の イニシャル";
+  document.getElementById("lap-next").innerHTML = "つぎは「" + esc(who) + "」を あつめよう！<br>ほかの友だちに こうかんを たのまれたら、おうじてね。";
   document.getElementById("bingo-overlay").classList.add("show");
 }
 function closeClear(){ document.getElementById("bingo-overlay").classList.remove("show"); }
@@ -667,8 +758,10 @@ function closeClear(){ document.getElementById("bingo-overlay").classList.remove
 var xchgTo = null, xchgGive = -1, peerList = [];
 var inOfferId = "", inGive = -1;
 var noticeSeen = 0;
-function whoText(no, role){
-  return role === "teacher" ? "先生" : (no ? no + "ばん" : "ともだち");
+function whoText(no, role, name){
+  if(role === "teacher") return name ? name + "（先生）" : "先生";
+  if(name) return (no ? no + "ばん " : "") + name + "さん";
+  return no ? no + "ばん" : "ともだち";
 }
 function toast(msg){
   var el = document.getElementById("toast");
@@ -677,9 +770,9 @@ function toast(msg){
   clearTimeout(toast._t);
   toast._t = setTimeout(function(){ el.classList.remove("show"); }, 3500);
 }
-function openXchg(){
+function openXchg(presel){
   if(!meState || !meState.hand) return;
-  xchgTo = null; xchgGive = -1;
+  xchgTo = (typeof presel === "string" && presel) ? presel : null; xchgGive = -1;
   document.getElementById("xchg-overlay").classList.add("show");
   renderXchg();
   fetch("/api/initial/peers?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId))
@@ -694,7 +787,7 @@ function renderXchg(){
   document.getElementById("xchg-wait").style.display = waiting ? "block" : "none";
   if(waiting){
     var o = meState.outgoing;
-    document.getElementById("xchg-wait-msg").textContent = whoText(o.toNo, o.toRole) + " の へんじを まっています…";
+    document.getElementById("xchg-wait-msg").textContent = whoText(o.toNo, o.toRole, o.toName) + " の へんじを まっています…";
     document.getElementById("xchg-wait-card").innerHTML = cardHtml(meState.hand[o.giveIdx], "pick", "") ;
     return;
   }
@@ -709,7 +802,7 @@ function renderXchg(){
   peerList.forEach(function(pr){
     var b = document.createElement("button");
     b.type = "button";
-    b.textContent = pr.role === "teacher" ? "先生" : (pr.no || "?");
+    b.innerHTML = (pr.role === "teacher" ? "先生" : (pr.no || "?")) + (pr.name ? '<small>' + esc(pr.name) + '</small>' : "");
     b.className = (xchgTo === pr.id ? "sel " : "") + (pr.role === "teacher" ? "teacher " : "") + (asking[pr.id] ? "hot" : "");
     b.onclick = function(){ xchgTo = pr.id; renderXchg(); };
     grid.appendChild(b);
@@ -725,7 +818,7 @@ function renderXchg(){
   });
   var who = null;
   peerList.forEach(function(pr){ if(pr.id === xchgTo) who = pr; });
-  document.getElementById("xchg-preview").textContent = (who && xchgGive >= 0) ? whoText(who.no, who.role) + " に " + hand[xchgGive] + " を わたす" : "";
+  document.getElementById("xchg-preview").textContent = (who && xchgGive >= 0) ? whoText(who.no, who.role, who.name) + " に " + hand[xchgGive] + " を わたす" : "";
   document.getElementById("xchg-ok").disabled = !(who && xchgGive >= 0);
 }
 function sendOffer(){
@@ -764,7 +857,7 @@ function renderIncoming(){
   }
   var o = list[0];
   if(o.id !== inOfferId){ inOfferId = o.id; inGive = -1; }
-  document.getElementById("in-title").textContent = whoText(o.fromNo, o.fromRole) + " が こうかん したいって！";
+  document.getElementById("in-title").textContent = whoText(o.fromNo, o.fromRole, o.fromName) + " が こうかん したいって！";
   document.getElementById("in-their").innerHTML = cardHtml(o.give, "mine", "");
   var box = document.getElementById("in-hand");
   box.innerHTML = "";
@@ -812,10 +905,134 @@ function showNotice(){
   var n = meState && meState.notice;
   if(!n || n.at <= noticeSeen) return;
   noticeSeen = n.at;
-  var who = whoText(n.no, n.role);
+  var who = whoText(n.no, n.role, n.name);
   if(n.kind === "done"){ toast("✅ " + who + " と こうかん できたよ！"); closeXchg(); }
   else if(n.kind === "declined"){ toast(who + " は こうかん しませんでした"); }
   else if(n.kind === "expired"){ toast("こうかんは じかんぎれ に なりました"); }
+}
+
+/* ---------- 💡 ヒント（ほしいカードを もっている ともだち） ---------- */
+var hintBusy = false;
+function openHint(){
+  if(!meState || !meState.hand || hintBusy) return;
+  hintBusy = true;
+  var body = document.getElementById("hint-body");
+  body.innerHTML = '<div class="wait-sub">さがしています…</div>';
+  document.getElementById("hint-overlay").classList.add("show");
+  fetch("/api/initial/hint?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId))
+    .then(function(r){ return r.json(); })
+    .then(renderHint)
+    .catch(function(){ body.innerHTML = '<div class="wait-sub">先生のサーバーに つなげませんでした</div>'; })
+    .finally(function(){ hintBusy = false; });
+}
+function closeHint(){ document.getElementById("hint-overlay").classList.remove("show"); }
+function hintExchange(id){ closeHint(); openXchg(id); }
+function renderHint(d){
+  var body = document.getElementById("hint-body");
+  if(!d || !d.ok){ body.innerHTML = '<div class="wait-sub">いまは ヒントを だせません</div>'; return; }
+  if(!d.groups.length){ body.innerHTML = '<div class="ask-line">🎉 もう そろっているよ！</div>'; return; }
+  body.innerHTML = d.groups.map(function(g){
+    var people = g.people.map(function(pr){
+      var label = pr.role === "teacher" ? (pr.name ? pr.name + "（先生）" : "先生") : (pr.name || ((pr.no || "?") + "ばん"));
+      var sub = (pr.role !== "teacher" && pr.name && pr.no) ? '<small>' + pr.no + 'ばん</small>' : "";
+      return '<button type="button" class="hint-person" onclick="hintExchange(\'' + esc(pr.id) + '\')">' + esc(label) + sub + '</button>';
+    }).join("");
+    return '<div class="hint-group"><div class="hint-group-title"><span class="hl">' + esc(g.letter) + '</span>を もっている ともだち' +
+      (g.total ? '（' + g.total + '人）' : '') +
+      ' <button class="speak-btn" onclick="speak(\'Do you have ' + LETTER_NAMES[g.letter] + '?\')">🔊</button></div>' +
+      (g.people.length ? '<div class="hint-people">' + people + '</div>' : '<div class="wait-sub">いま だれも もっていないよ。あとで もういちど みてね</div>') +
+      (g.total > g.people.length ? '<div class="wait-sub" style="margin-top:6px;">ほかにも ' + (g.total - g.people.length) + '人 いるよ</div>' : '') +
+      '</div>';
+  }).join("") + '<div class="hint-note">なまえを おすと、その子と こうかんの じゅんびが できるよ</div>';
+}
+
+/* ---------- 🎯 イニシャルクイズ「だれの イニシャルかな？」 ---------- */
+var quizAll = null, quizQs = [], quizIdx = 0, quizScore = 0, quizLocked = false;
+function shuffleArr(a){
+  for(var i = a.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function openQuiz(){
+  document.getElementById("quiz-overlay").classList.add("show");
+  document.getElementById("quiz-prog").textContent = "";
+  document.getElementById("quiz-body").innerHTML = '<div class="wait-sub">じゅんびしています…</div>';
+  fetch("/api/initial/roster?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || ""))
+    .then(function(r){ return r.json(); })
+    .then(function(d){ quizAll = d.students || []; startQuiz(); })
+    .catch(function(){ document.getElementById("quiz-body").innerHTML = '<div class="wait-sub">先生のサーバーに つなげませんでした</div>'; });
+}
+function closeQuiz(){ document.getElementById("quiz-overlay").classList.remove("show"); }
+function startQuiz(){
+  var list = (quizAll || []).filter(function(x){ return x.made && x.name; });
+  var body = document.getElementById("quiz-body");
+  if(list.length < 3){
+    body.innerHTML = '<div class="wait-sub" style="font-size:14px;">ともだちが 3人 いじょう イニシャルカードを つくると できるよ。<br>（いま ' + list.length + '人）</div>';
+    return;
+  }
+  quizQs = [];
+  var pool = shuffleArr(list.slice());
+  for(var i = 0; i < pool.length && quizQs.length < 5; i++){
+    var ans = pool[i], key = ans.made.join("");
+    var seen = {}; seen[key] = 1;
+    var ds = [];
+    shuffleArr(list.slice()).forEach(function(x){
+      var k = x.made.join("");
+      if(ds.length < 3 && !seen[k]){ seen[k] = 1; ds.push(x); }
+    });
+    if(ds.length < 1) continue;
+    quizQs.push({ ans: ans, choices: shuffleArr([ans].concat(ds)) });
+  }
+  if(!quizQs.length){
+    body.innerHTML = '<div class="wait-sub">もんだいを つくれませんでした</div>';
+    return;
+  }
+  quizIdx = 0; quizScore = 0;
+  showQuizQ();
+}
+function quizSpeech(q){ return LETTER_NAMES[q.ans.made[0]] + ", " + LETTER_NAMES[q.ans.made[1]]; }
+function showQuizQ(){
+  var q = quizQs[quizIdx];
+  quizLocked = false;
+  document.getElementById("quiz-prog").textContent = (quizIdx + 1) + " / " + quizQs.length + "　せいかい: " + quizScore;
+  var html = '<div class="quiz-letters">' + cardHtml(q.ans.made[0], "mine", "") + cardHtml(q.ans.made[1], "mine", "") + '</div>' +
+    '<div style="text-align:center;margin-bottom:12px;"><button class="speak-btn" onclick="speak(quizSpeech(quizQs[quizIdx]))">🔊</button></div>' +
+    '<div class="quiz-choices">' +
+    q.choices.map(function(c, i){
+      return '<button type="button" class="quiz-choice" id="qc-' + i + '" onclick="answerQuiz(' + i + ')">' + esc(c.name) + '</button>';
+    }).join("") + '</div><div id="quiz-after"></div>';
+  document.getElementById("quiz-body").innerHTML = html;
+}
+function answerQuiz(i){
+  if(quizLocked) return;
+  quizLocked = true;
+  var q = quizQs[quizIdx];
+  var good = q.choices[i].id === q.ans.id;
+  if(good) quizScore++;
+  q.choices.forEach(function(c, k){
+    var el = document.getElementById("qc-" + k);
+    if(c.id === q.ans.id) el.classList.add("ok");
+    else if(k === i) el.classList.add("ng");
+    el.disabled = true;
+  });
+  var last = quizIdx >= quizQs.length - 1;
+  document.getElementById("quiz-prog").textContent = (quizIdx + 1) + " / " + quizQs.length + "　せいかい: " + quizScore;
+  document.getElementById("quiz-after").innerHTML =
+    '<div class="quiz-result" style="color:' + (good ? "#0F6E56" : "#993C1D") + ';">' + (good ? "⭕ せいかい！" : "❌ ざんねん… こたえは " + esc(q.ans.name) + "さん") + '</div>' +
+    (q.ans.photo ? '<img class="quiz-photo" src="' + q.ans.photo + '" alt="">' : "") +
+    '<button class="main-btn" onclick="' + (last ? "finishQuiz()" : "nextQuiz()") + '">' + (last ? "けっかを みる" : "つぎへ") + '</button>';
+}
+function nextQuiz(){ quizIdx++; showQuizQ(); }
+function finishQuiz(){
+  var n = quizQs.length;
+  var msg = quizScore === n ? "ぜんぶ せいかい！ すごい！🎉" : (quizScore >= n - 1 ? "おしい！ よくできました！" : "ともだちの イニシャルを おぼえよう！");
+  document.getElementById("quiz-prog").textContent = "";
+  document.getElementById("quiz-body").innerHTML =
+    '<div class="quiz-result" style="font-size:22px;">' + n + 'もん中 ' + quizScore + 'もん せいかい</div>' +
+    '<div class="wait-sub" style="font-size:14px;margin-bottom:14px;">' + msg + '</div>' +
+    '<button class="main-btn" onclick="openQuiz()">もういちど</button>';
 }
 
 /* ---------- ポーリング ---------- */
@@ -824,6 +1041,8 @@ function applyPhase(d){
   if(d.phase === "finished"){
     closeXchg();
     closeClear();
+    closeHint();
+    closeQuiz();
     document.getElementById("in-overlay").classList.remove("show");
     var laps = d.me ? (d.me.laps || 0) : 0;
     var txt = laps > 0 ? (d.mode === "single" ? "クリア！" : laps + "周クリア！") : "ゲームは おわりました";
@@ -919,6 +1138,38 @@ function renderNoPick(){
   }
 }
 function toggleTeacher(){ setTeacherMode(!isTeacher); }
+/* ---------- なまえ（ひらがな）を さいしょに いれる ---------- */
+var STUDENT_NAME_KEY = "initial_student_name";
+function regNameOk(){
+  return validKana(document.getElementById("reg-family").value) && validKana(document.getElementById("reg-given").value);
+}
+function onRegName(){
+  var f = document.getElementById("reg-family").value, g = document.getElementById("reg-given").value;
+  var msg = document.getElementById("reg-name-msg");
+  var ok = regNameOk();
+  if(ok){
+    msg.className = "kana-msg";
+    msg.textContent = "→ " + kanaInitial(f).letter + " と " + kanaInitial(g).letter + "　（OKだよ！）";
+  } else if(!f.trim() && !g.trim()){
+    msg.className = "kana-msg";
+    msg.textContent = "";
+  } else {
+    msg.className = "kana-msg err";
+    var badF = f.trim() && !validKana(f), badG = g.trim() && !validKana(g);
+    msg.textContent = (badF || badG) ? "ひらがなで いれてね" : "みょうじと なまえ、りょうほう いれてね";
+  }
+  document.getElementById("reg-rest").classList.toggle("reg-locked", !ok);
+  document.getElementById("reg-lock-note").style.display = ok ? "none" : "block";
+}
+function prefillSavedName(){
+  var saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(STUDENT_NAME_KEY) || "null"); }catch(e){}
+  if(saved && saved.f && saved.g){
+    document.getElementById("reg-family").value = saved.f;
+    document.getElementById("reg-given").value = saved.g;
+  }
+  onRegName();
+}
 function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
 function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
 function getSchoolFromUrl(){
@@ -1021,13 +1272,13 @@ function proceedToSetupScreen(){
   pollGame();
 }
 function resetClientGameState(){
-  meState = null; editing = false; lastShownKey = ""; lapSeen = null; roomMode = "endless";
+  meState = null; editing = false; lastShownKey = ""; lapSeen = null; roomMode = "endless"; makePrefilled = false;
   makeSlots = [null, null]; activeSlot = 0; inOfferId = ""; inGive = -1; xchgTo = null; xchgGive = -1;
   for(var k = 0; k < 2; k++){
     var inp = document.getElementById("kana-" + k); if(inp) inp.value = "";
     var msg = document.getElementById("kana-msg-" + k); if(msg) msg.textContent = "";
   }
-  ["xchg-overlay", "in-overlay", "bingo-overlay", "finish-overlay"].forEach(function(id){
+  ["xchg-overlay", "in-overlay", "bingo-overlay", "finish-overlay", "hint-overlay", "quiz-overlay"].forEach(function(id){
     var el = document.getElementById(id); if(el) el.classList.remove("show");
   });
   document.getElementById("make-cancel-btn").style.display = "none";
@@ -1057,6 +1308,7 @@ function needRoom(err){
 function confirmPhoto(){
   if(!capturedPhoto) return;
   var err = document.getElementById("reg-error");
+  if(!regNameOk()){ err.textContent = "さいしょに なまえを ひらがなで いれてね"; return; }
   if(needRoom(err)) return;
   var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
   if(!isTeacher && !(no >= 1 && no <= 99)){
@@ -1071,16 +1323,18 @@ function confirmPhoto(){
   fetch("/api/initial/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "", inherit: inheritNext })
+    body: JSON.stringify({ room: room, photo: capturedPhoto, family: document.getElementById("reg-family").value.replace(/[\s\u3000]+/g, ""), given: document.getElementById("reg-given").value.replace(/[\s\u3000]+/g, ""), no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "", inherit: inheritNext })
   })
     .then(function(r){ return r.json(); })
     .then(function(d){
+      if(d && d.error === "name required"){ registering = false; document.getElementById("reg-confirm-btn").disabled = false; err.textContent = "なまえを ひらがなで いれてね"; return; }
       if(!d || !d.id) throw new Error("no id");
       registering = false;
       document.getElementById("reg-confirm-btn").disabled = false;
       studentId = d.id;
       localStorage.setItem(STUDENT_ID_KEY, studentId);
       localStorage.setItem(STUDENT_PHOTO_KEY, capturedPhoto);
+      try{ localStorage.setItem(STUDENT_NAME_KEY, JSON.stringify({ f: document.getElementById("reg-family").value.replace(/[\s\u3000]+/g, ""), g: document.getElementById("reg-given").value.replace(/[\s\u3000]+/g, "") })); }catch(e){}
       localStorage.removeItem(PREV_ID_KEY);
       localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
       localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
@@ -1109,6 +1363,7 @@ function startRelogin(){
   capturedPhoto = null;
   retakePhoto();
   prefillSavedPhoto();
+  prefillSavedName();
   document.getElementById("reg-error").textContent = "";
   document.getElementById("relogin-actions").style.display = "block";
   document.getElementById("register-overlay").style.display = "flex";
@@ -1135,6 +1390,7 @@ function confirmAsOther(){
   selGrade = parseInt(gc[0], 10) || 0;
   selClass = parseInt(gc[1], 10) || 0;
   setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
+  prefillSavedName();
   var urlRoom = getRoomFromUrl();
   if(urlRoom){
     var badge = document.getElementById("room-badge");

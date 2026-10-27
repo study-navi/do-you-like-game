@@ -1568,10 +1568,6 @@ const server = http.createServer(function(req, res){
       if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
       const room = normalizeRoom(body.room);
       const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
-      // なまえ（ひらがな）は かならず必要
-      const family = cleanKanaName(body.family);
-      const given = cleanKanaName(body.given);
-      if(!family || !given){ sendJson(res, 400, { error: 'name required' }); return; }
       // ログインしなおし：前の登録（同じ教室の、同じ端末のもの）をさがす
       let old = null;
       if(typeof body.replaceId === 'string' && initialStudents[body.replaceId] && normalizeRoom(initialStudents[body.replaceId].room) === room){
@@ -1596,8 +1592,8 @@ const server = http.createServer(function(req, res){
         room: room,
         deviceId: deviceId,
         role: body.role === 'teacher' ? 'teacher' : 'student',
-        family: family,
-        given: given,
+        family: '',
+        given: '',
         no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
         made: null,
@@ -1616,7 +1612,7 @@ const server = http.createServer(function(req, res){
       let inherited = false;
       if(body.inherit === true && old && (old.made || old.hand)){
         const n = initialStudents[id];
-        ['made', 'hand', 'dealt', 'exchanges', 'clearedAt', 'laps', 'round', 'target', 'pendingAdvance'].forEach(function(f){
+        ['family', 'given', 'made', 'hand', 'dealt', 'exchanges', 'clearedAt', 'laps', 'round', 'target', 'pendingAdvance'].forEach(function(f){
           if(old[f] !== undefined) n[f] = old[f];
         });
         n.targetFrom = old.targetFrom === old.id ? id : (old.targetFrom || null);
@@ -1654,12 +1650,21 @@ const server = http.createServer(function(req, res){
         sendJson(res, 400, { error: 'invalid cards' });
         return;
       }
+      // なまえ（ひらがな）は かならず必要
+      const family = cleanKanaName(body.family);
+      const given = cleanKanaName(body.given);
+      if(!family || !given){
+        sendJson(res, 400, { error: 'name required' });
+        return;
+      }
       const s = initialStudents[body.id];
       if(isInitialPair(s.hand)){
         sendJson(res, 409, { error: 'already dealt' });
         return;
       }
       s.made = body.cards.slice();
+      s.family = family;
+      s.given = given;
       s.updatedAt = Date.now();
       saveInitialStudents();
       sendJson(res, 200, { ok: true, me: initialMe(s) });

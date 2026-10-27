@@ -305,16 +305,6 @@
       <div class="register-title">📷 なまえカードを うつしてね</div>
       <div class="register-sub">ネームカードに なまえを かいて、しゃしんを とってください</div>
       <div id="room-badge" style="font-size:13px;color:#185FA5;background:#E6F1FB;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
-      <div class="reg-name-box">
-        <div class="reg-q">① なまえを ひらがなで いれてね</div>
-        <div class="name-row" style="margin-bottom:4px;">
-          <div class="name-wrap"><div class="slot-label">みょうじ</div><input type="text" id="reg-family" class="kana-input" placeholder="やまだ" autocomplete="off" autocapitalize="off" oninput="onRegName()"></div>
-          <div class="name-wrap"><div class="slot-label">なまえ</div><input type="text" id="reg-given" class="kana-input" placeholder="たろう" autocomplete="off" autocapitalize="off" oninput="onRegName()"></div>
-        </div>
-        <div class="kana-msg" id="reg-name-msg" style="text-align:center;"></div>
-      </div>
-      <div class="reg-lock-note" id="reg-lock-note">↑ まず なまえを いれると、つぎに すすめるよ</div>
-      <div id="reg-rest" class="reg-locked">
       <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
         <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
         <input type="hidden" id="room-input" value="">
@@ -344,7 +334,6 @@
         <button class="reg-btn-secondary" style="width:100%;margin-bottom:8px;" onclick="confirmAsOther()">べつの人として ログイン（カードは ひきつぎません）</button>
         <button class="reg-btn-secondary" style="width:100%;" onclick="cancelRelogin()">もどる</button>
       </div>
-      </div>
     </div>
   </div>
 
@@ -358,7 +347,7 @@
   <div id="screen-make" class="screen active">
     <div class="step-card">
       <div class="step-hint">① きみの イニシャルカードを つくろう！</div>
-      <div class="step-example">とうろくした なまえから イニシャルが でているよ。まちがいがなければ「これでOK！」</div>
+      <div class="step-example">まず なまえを ひらがなで いれてね　れい: やまだ たろう → Y と T<br>イニシャルが でたら、まちがいがないか たしかめよう</div>
       <div class="name-row">
         <div class="name-wrap"><div class="slot-label">みょうじ（ひらがな）</div><input type="text" id="kana-0" class="kana-input" placeholder="やまだ" autocomplete="off" autocapitalize="off" oninput="onKana(0)"><div class="kana-msg" id="kana-msg-0"></div></div>
         <div class="name-wrap"><div class="slot-label">なまえ（ひらがな）</div><input type="text" id="kana-1" class="kana-input" placeholder="たろう" autocomplete="off" autocapitalize="off" oninput="onKana(1)"><div class="kana-msg" id="kana-msg-1"></div></div>
@@ -369,6 +358,7 @@
       </div>
       <div class="step-example" style="margin-bottom:8px;">もじが ちがうときは、下の ABC から えらびなおせるよ</div>
       <div class="keypad" id="keypad"></div>
+      <div class="kana-msg err" id="make-note" style="text-align:center;margin-bottom:6px;"></div>
       <button class="main-btn" id="make-btn" onclick="confirmMake()" disabled>これでOK！</button>
       <button class="sub-btn" id="make-cancel-btn" style="display:none;" onclick="cancelMake()">もどる</button>
     </div>
@@ -531,7 +521,9 @@ function renderSlots(){
     el.textContent = makeSlots[i] || "?";
     el.className = "icard" + (makeSlots[i] ? "" : " empty") + (activeSlot === i ? " active" : "");
   }
-  document.getElementById("make-btn").disabled = !(makeSlots[0] && makeSlots[1]);
+  var namesOk = validKana(document.getElementById("kana-0").value) && validKana(document.getElementById("kana-1").value);
+  document.getElementById("make-btn").disabled = !(makeSlots[0] && makeSlots[1] && namesOk);
+  document.getElementById("make-note").textContent = (makeSlots[0] && makeSlots[1] && !namesOk) ? "なまえを ひらがなで いれてね（みょうじも なまえも）" : "";
 }
 function pickSlot(i){
   activeSlot = i;
@@ -616,9 +608,15 @@ function confirmMake(){
   fetch("/api/initial/make", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: studentId, cards: [makeSlots[0], makeSlots[1]] })
+    body: JSON.stringify({ id: studentId, cards: [makeSlots[0], makeSlots[1]],
+      family: document.getElementById("kana-0").value.replace(/[\s\u3000]+/g, ""), given: document.getElementById("kana-1").value.replace(/[\s\u3000]+/g, "") })
   }).then(function(r){ return r.json().then(function(d){ return { status: r.status, d: d }; }); })
     .then(function(res){
+      if(res.status === 400 && res.d && res.d.error === "name required"){
+        btn.disabled = false;
+        alert("なまえを ひらがなで いれてね。");
+        return;
+      }
       if(res.status === 409){
         alert("もう カードが くばられているので、つくりなおせません。");
         editing = false;
@@ -1144,38 +1142,6 @@ function renderNoPick(){
   }
 }
 function toggleTeacher(){ setTeacherMode(!isTeacher); }
-/* ---------- なまえ（ひらがな）を さいしょに いれる ---------- */
-var STUDENT_NAME_KEY = "initial_student_name";
-function regNameOk(){
-  return validKana(document.getElementById("reg-family").value) && validKana(document.getElementById("reg-given").value);
-}
-function onRegName(){
-  var f = document.getElementById("reg-family").value, g = document.getElementById("reg-given").value;
-  var msg = document.getElementById("reg-name-msg");
-  var ok = regNameOk();
-  if(ok){
-    msg.className = "kana-msg";
-    msg.textContent = "→ " + kanaInitial(f).letter + " と " + kanaInitial(g).letter + "　（OKだよ！）";
-  } else if(!f.trim() && !g.trim()){
-    msg.className = "kana-msg";
-    msg.textContent = "";
-  } else {
-    msg.className = "kana-msg err";
-    var badF = f.trim() && !validKana(f), badG = g.trim() && !validKana(g);
-    msg.textContent = (badF || badG) ? "ひらがなで いれてね" : "みょうじと なまえ、りょうほう いれてね";
-  }
-  document.getElementById("reg-rest").classList.toggle("reg-locked", !ok);
-  document.getElementById("reg-lock-note").style.display = ok ? "none" : "block";
-}
-function prefillSavedName(){
-  var saved = null;
-  try{ saved = JSON.parse(localStorage.getItem(STUDENT_NAME_KEY) || "null"); }catch(e){}
-  if(saved && saved.f && saved.g){
-    document.getElementById("reg-family").value = saved.f;
-    document.getElementById("reg-given").value = saved.g;
-  }
-  onRegName();
-}
 function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
 function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
 function getSchoolFromUrl(){
@@ -1314,7 +1280,6 @@ function needRoom(err){
 function confirmPhoto(){
   if(!capturedPhoto) return;
   var err = document.getElementById("reg-error");
-  if(!regNameOk()){ err.textContent = "さいしょに なまえを ひらがなで いれてね"; return; }
   if(needRoom(err)) return;
   var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
   if(!isTeacher && !(no >= 1 && no <= 99)){
@@ -1329,18 +1294,16 @@ function confirmPhoto(){
   fetch("/api/initial/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ room: room, photo: capturedPhoto, family: document.getElementById("reg-family").value.replace(/[\s\u3000]+/g, ""), given: document.getElementById("reg-given").value.replace(/[\s\u3000]+/g, ""), no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "", inherit: inheritNext })
+    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "", inherit: inheritNext })
   })
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if(d && d.error === "name required"){ registering = false; document.getElementById("reg-confirm-btn").disabled = false; err.textContent = "なまえを ひらがなで いれてね"; return; }
       if(!d || !d.id) throw new Error("no id");
       registering = false;
       document.getElementById("reg-confirm-btn").disabled = false;
       studentId = d.id;
       localStorage.setItem(STUDENT_ID_KEY, studentId);
       localStorage.setItem(STUDENT_PHOTO_KEY, capturedPhoto);
-      try{ localStorage.setItem(STUDENT_NAME_KEY, JSON.stringify({ f: document.getElementById("reg-family").value.replace(/[\s\u3000]+/g, ""), g: document.getElementById("reg-given").value.replace(/[\s\u3000]+/g, "") })); }catch(e){}
       localStorage.removeItem(PREV_ID_KEY);
       localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
       localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
@@ -1369,7 +1332,6 @@ function startRelogin(){
   capturedPhoto = null;
   retakePhoto();
   prefillSavedPhoto();
-  prefillSavedName();
   document.getElementById("reg-error").textContent = "";
   document.getElementById("relogin-actions").style.display = "block";
   document.getElementById("register-overlay").style.display = "flex";
@@ -1396,7 +1358,6 @@ function confirmAsOther(){
   selGrade = parseInt(gc[0], 10) || 0;
   selClass = parseInt(gc[1], 10) || 0;
   setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
-  prefillSavedName();
   var urlRoom = getRoomFromUrl();
   if(urlRoom){
     var badge = document.getElementById("room-badge");

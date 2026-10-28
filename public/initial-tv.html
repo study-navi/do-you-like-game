@@ -254,7 +254,7 @@ function tickQuizTv(){
   var f = document.getElementById("qtv-fill");
   if(f) f.style.width = Math.min(100, left / (quizTvData.duration * 1000) * 100) + "%";
   var t = document.getElementById("qtv-left");
-  if(t) t.textContent = "のこり " + Math.ceil(left / 1000) + " びょう";
+  if(t) t.textContent = left > 0 ? "のこり " + Math.ceil(left / 1000) + " びょう" : "じかんぎれ！　でも せいかいなら 100pt もらえるよ";
 }
 setInterval(tickQuizTv, 250);
 function pollQuizTv(){

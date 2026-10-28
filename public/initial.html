@@ -967,7 +967,7 @@ function applyQuiz(qz){
   if(key !== quizKey){
     quizKey = key;
     renderQuiz();
-    if(qz.state === "question" && !qz.mine && !qz.isAns){ try{ speak(quizSpeech(qz.letters)); }catch(e){} }
+    if(qz.state === "question" && !qz.mine){ try{ speak(quizSpeech(qz.letters)); }catch(e){} }
   }
   ov.classList.add("show");
 }
@@ -984,10 +984,8 @@ function renderQuiz(){
     '</div><div style="text-align:center;margin-bottom:10px;"><button class="speak-btn" onclick="speak(quizSpeech(quizState.letters))">🔊</button></div>';
   if(qz.state === "question"){
     document.getElementById("quiz-prog").textContent = "はやく こたえるほど ポイントが たくさん！";
-    var bar = '<div class="quiz-bar"><div id="quiz-bar-fill"></div></div>';
-    if(qz.isAns){
-      body.innerHTML = letters + bar + '<div class="quiz-result">これは きみの イニシャルだよ！<br><span style="font-size:13px;color:#888780;">みんなが こたえるのを まっててね</span></div>';
-    } else if(qz.mine){
+    var bar = '<div class="quiz-bar"><div id="quiz-bar-fill"></div></div><div class="kana-msg" id="quiz-late" style="text-align:center;margin:-6px 0 8px;color:#854F0B;"></div>';
+    if(qz.mine){
       body.innerHTML = letters + bar + '<div class="quiz-result">✋ こたえたよ！<br><span style="font-size:13px;color:#888780;">「' + esc(quizChoiceName(qz, qz.mine)) + '」　けっかを まってね</span></div>';
     } else {
       body.innerHTML = letters + bar + '<div class="quiz-choices">' + qz.choices.map(function(c){
@@ -1000,8 +998,7 @@ function renderQuiz(){
   // こたえ合わせ
   document.getElementById("quiz-prog").textContent = "こたえ合わせ";
   var head, pt = "";
-  if(qz.isAns){ head = '<div class="quiz-result" style="color:#534AB7;">🙋 きみの イニシャルでした！</div>'; }
-  else if(!qz.mine){ head = '<div class="quiz-result" style="color:#993C1D;">⏰ じかんぎれ…</div>'; }
+  if(!qz.mine){ head = '<div class="quiz-result" style="color:#993C1D;">⏰ こたえられなかったよ</div>'; }
   else if(qz.mine === qz.correctId){ head = '<div class="quiz-result" style="color:#0F6E56;">⭕ せいかい！</div>'; pt = '<div class="quiz-pt">+' + qz.gained + ' pt</div>'; }
   else { head = '<div class="quiz-result" style="color:#993C1D;">❌ ざんねん…</div>'; }
   var top = (qz.top || []).map(function(t){ return '<div><span>' + t.rank + 'い　' + esc(t.name) + '</span><b>' + t.points + ' pt</b></div>'; }).join("");
@@ -1019,6 +1016,8 @@ function tickQuiz(){
   var pct = Math.min(100, left / (quizState.duration * 1000) * 100);
   fill.style.width = pct + "%";
   fill.className = pct < 30 ? "low" : "";
+  var late = document.getElementById("quiz-late");
+  if(late) late.textContent = left <= 0 ? "⏰ じかんは すぎたけど、せいかいなら 100ポイント もらえるよ！" : "";
 }
 setInterval(tickQuiz, 250);
 function answerQuiz(choiceId){

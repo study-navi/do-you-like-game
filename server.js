@@ -616,8 +616,8 @@ function getInitialQuiz(room){
     initialQuizzes[room] = { state: 'idle', qid: 0, duration: 15, startedAt: 0, ansId: null, letters: null, choices: [], answers: {}, seen: {}, scores: {}, used: [] };
   }
   const q = initialQuizzes[room];
-  // 制限時間がすぎたら、じどうで「こたえ合わせ」へ
-  if(q.state === 'question' && Date.now() >= q.startedAt + q.duration * 1000) q.state = 'reveal';
+  // 制限時間がすぎても、おそく こたえた人も ポイントが入る（100点）。猶予（30びょう）のあと、じどうで「こたえ合わせ」へ
+  if(q.state === 'question' && Date.now() >= q.startedAt + (q.duration + 30) * 1000) q.state = 'reveal';
   return q;
 }
 function quizEligible(room){
@@ -660,9 +660,9 @@ function startInitialQuiz(room, seconds){
   q.seen = {};
   return { ok: true };
 }
-// こたえた人数／こたえられる人数（こたえの本人は、こたえられない）
+// こたえた人数／こたえられる人数（こたえの本人も、こたえられる）
 function quizCounts(room, q){
-  const ids = quizEligible(room).filter(function(id){ return id !== q.ansId; });
+  const ids = quizEligible(room);
   let n = 0;
   ids.forEach(function(id){ if(q.answers[id]) n++; });
   return { answered: n, players: ids.length };
@@ -728,7 +728,6 @@ function quizStudentView(room, st){
 function quizAnswer(room, st, choiceId, qid){
   const q = getInitialQuiz(room);
   if(q.state !== 'question' || q.qid !== qid) return { ok: false, reason: 'closed' };
-  if(st.id === q.ansId) return { ok: false, reason: 'self' };
   if(st.role === 'teacher') return { ok: false, reason: 'teacher' };
   if(q.answers[st.id]) return { ok: true, already: true };
   if(q.choices.indexOf(choiceId) < 0) return { ok: false, reason: 'bad' };

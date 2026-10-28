@@ -219,7 +219,7 @@
 
   <div class="card" id="quiz-card">
     <div class="history-title">🎯 イニシャルクイズ（だれのイニシャルかな？）</div>
-    <div class="size-hint">先生が出題 → 児童が自分の画面で正解をタップ。はやい子ほど高ポイント（100〜1000点）</div>
+    <div class="size-hint">先生が出題 → 児童が自分の画面で正解をタップ。はやい子ほど高ポイント（100〜1000点）。時間がすぎても、正解すれば100点。こたえの本人も参加できます</div>
     <div class="qz-row" id="qz-secs" style="margin-top:0;">
       <button class="qz-sec" data-s="10" onclick="quizSecs(10)">10びょう</button>
       <button class="qz-sec active" data-s="15" onclick="quizSecs(15)">15びょう</button>
@@ -539,7 +539,7 @@ function tickQuizPanel(){
   var fill = document.getElementById("qz-bar-fill");
   if(fill) fill.style.width = Math.min(100, left / (quizLast.duration * 1000) * 100) + "%";
   var t = document.getElementById("qz-left");
-  if(t) t.textContent = "のこり " + Math.ceil(left / 1000) + " びょう";
+  if(t) t.textContent = left > 0 ? "のこり " + Math.ceil(left / 1000) + " びょう" : "じかんぎれ（おくれて せいかいしても 100pt。しばらくすると じどうで こたえ合わせ）";
 }
 setInterval(tickQuizPanel, 250);
 function scheduleQuiz(ms){

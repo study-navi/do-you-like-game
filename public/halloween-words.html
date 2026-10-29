@@ -89,8 +89,8 @@ function say(t){
 function render(){
   var c = words[idx];
   var card = $("card");
-  card.className = "card" + (c.rare ? " rare" : "");
-  card.innerHTML = (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="art" id="art">' + c.emoji + '</div>' +
+  card.className = "card";
+  card.innerHTML = '<div class="art" id="art">' + c.emoji + '</div>' +
     '<div class="en" id="en">' + (mode === "quiz" && !revealed ? "？？？" : c.en) + '</div>' +
     '<div class="ja" id="ja">' + (showJa && (mode !== "quiz" || revealed) ? c.ja : "　") + '</div>';
   $("art").onclick = function(){ if(mode === "quiz" && !revealed) reveal(); else say(c.en); };
@@ -112,7 +112,7 @@ function setMode(m){
 }
 function buildList(){
   $("list").innerHTML = words.map(function(c, i){
-    return '<div class="mini' + (c.rare ? " rare" : "") + '" data-i="' + i + '">' + (c.rare ? '<span class="rtag">RARE</span>' : "") +
+    return '<div class="mini" data-i="' + i + '">' +
       '<div class="art">' + c.emoji + '</div><div class="en">' + c.en + '</div><div class="ja">' + (showJa ? c.ja : "　") + '</div></div>';
   }).join("");
 }

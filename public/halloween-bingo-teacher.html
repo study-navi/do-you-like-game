@@ -207,12 +207,12 @@
 
   <div class="card round-card">
     <div class="round-head">
-      <span class="round-label" id="round-label">ラウンド 1 / 3</span>
+      <span class="round-label" id="round-label">ラウンド 1 / 2</span>
       <span class="round-goal" id="round-goal"></span>
     </div>
     <div class="lesson-row">
       <span class="lesson-timer" id="lesson-timer">00:00</span>
-      <span style="font-size:12px;color:#888780;">/ 45:00</span>
+      <span style="font-size:12px;color:#888780;">/ 20:00</span>
       <button class="lesson-btn" id="lesson-start" type="button">▶ 授業スタート</button>
       <button class="lesson-btn" id="lesson-reset" type="button">タイマーを戻す</button>
     </div>
@@ -223,7 +223,7 @@
   </div>
 
   <details class="card practice-card" id="practice-card">
-    <summary>🔊 単語れんしゅう（はじめの7分：タップで発音）</summary>
+    <summary>🔊 単語れんしゅう（はじめの3分：タップで発音）</summary>
     <div class="practice-grid" id="practice-grid"></div>
   </details>
 
@@ -232,7 +232,6 @@
     <div class="size-row">
       <button class="size-btn" data-size="3" onclick="chooseSize(3)">3×3</button>
       <button class="size-btn" data-size="4" onclick="chooseSize(4)">4×4</button>
-      <button class="size-btn" data-size="5" onclick="chooseSize(5)">5×5</button>
     </div>
   </div>
 
@@ -285,46 +284,25 @@ var items = [
   {en:"witch", ja:"まじょ", emoji:"🧙", category:"halloween"},
   {en:"bat", ja:"コウモリ", emoji:"🦇", category:"halloween"},
   {en:"spider", ja:"くも", emoji:"🕷️", category:"halloween"},
-  {en:"candy", ja:"キャンディ", emoji:"🍬", category:"halloween"},
-  {en:"black cat", ja:"くろねこ", emoji:"🐈‍⬛", category:"halloween"},
   {en:"skeleton", ja:"がいこつ", emoji:"💀", category:"halloween"},
-  {en:"vampire", ja:"ドラキュラ", emoji:"🧛", category:"halloween"},
+  {en:"black cat", ja:"くろねこ", emoji:"🐈‍⬛", category:"halloween"},
   {en:"zombie", ja:"ゾンビ", emoji:"🧟", category:"halloween"},
-  {en:"monster", ja:"モンスター", emoji:"👾", category:"halloween"},
-  {en:"castle", ja:"おしろ", emoji:"🏰", category:"halloween"},
-  {en:"moon", ja:"つき", emoji:"🌙", category:"halloween"},
-  {en:"broom", ja:"ほうき", emoji:"🧹", category:"halloween"},
-  {en:"hat", ja:"ぼうし", emoji:"🎩", category:"halloween"},
+  {en:"owl", ja:"ふくろう", emoji:"🦉", category:"halloween"},
+  {en:"vampire", ja:"ドラキュラ", emoji:"🧛", category:"halloween"},
+  {en:"dragon", ja:"ドラゴン", emoji:"🐉", category:"halloween"},
+  {en:"devil", ja:"あくま", emoji:"👿", category:"halloween"},
+  {en:"candy", ja:"キャンディ", emoji:"🍬", category:"halloween"},
+  {en:"lollipop", ja:"ぺろぺろキャンディ", emoji:"🍭", category:"halloween"},
   {en:"cookie", ja:"クッキー", emoji:"🍪", category:"halloween"},
   {en:"chocolate", ja:"チョコレート", emoji:"🍫", category:"halloween"},
-  {en:"web", ja:"クモのす", emoji:"🕸️", category:"halloween"},
-  {en:"owl", ja:"ふくろう", emoji:"🦉", category:"halloween"},
-  {en:"apple", ja:"りんご", emoji:"🍎", category:"halloween"},
-  {en:"lollipop", ja:"ぺろぺろキャンディ", emoji:"🍭", category:"halloween"},
-  {en:"cake", ja:"ケーキ", emoji:"🍰", category:"halloween"},
   {en:"candle", ja:"ろうそく", emoji:"🕯️", category:"halloween"},
-  {en:"star", ja:"ほし", emoji:"⭐", category:"halloween"},
+  {en:"castle", ja:"おしろ", emoji:"🏰", category:"halloween"},
   {en:"bone", ja:"ほね", emoji:"🦴", category:"halloween"},
-  {en:"mask", ja:"おめん", emoji:"🎭", category:"halloween"},
+  {en:"apple", ja:"りんご", emoji:"🍎", category:"halloween"},
+  {en:"broom", ja:"ほうき", emoji:"🧹", category:"halloween"},
   {en:"potion", ja:"まほうのくすり", emoji:"🧪", category:"halloween"},
-  {en:"eye", ja:"め", emoji:"👁️", category:"halloween"},
-  {en:"fire", ja:"ひ", emoji:"🔥", category:"halloween"},
-  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"},
-  {en:"devil", ja:"あくま", emoji:"👿", category:"halloween"},
-  {en:"dragon", ja:"ドラゴン", emoji:"🐉", category:"halloween"},
-  {en:"wolf", ja:"おおかみ", emoji:"🐺", category:"halloween"},
-  {en:"snake", ja:"へび", emoji:"🐍", category:"halloween"},
-  {en:"frog", ja:"かえる", emoji:"🐸", category:"halloween"},
-  {en:"rat", ja:"ねずみ", emoji:"🐀", category:"halloween"},
-  {en:"alien", ja:"うちゅうじん", emoji:"👽", category:"halloween"},
-  {en:"robot", ja:"ロボット", emoji:"🤖", category:"halloween"},
-  {en:"clown", ja:"ピエロ", emoji:"🤡", category:"halloween"},
   {en:"wand", ja:"まほうのつえ", emoji:"🪄", category:"halloween"},
-  {en:"crystal ball", ja:"すいしょうだま", emoji:"🔮", category:"halloween"},
-  {en:"key", ja:"かぎ", emoji:"🔑", category:"halloween"},
-  {en:"house", ja:"いえ", emoji:"🏠", category:"halloween"},
-  {en:"donut", ja:"ドーナツ", emoji:"🍩", category:"halloween"},
-  {en:"popcorn", ja:"ポップコーン", emoji:"🍿", category:"halloween"}
+  {en:"crystal ball", ja:"すいしょうだま", emoji:"🔮", category:"halloween"}
 ];
 
 var ROOM_KEY = "hwbingo_teacher_room";
@@ -334,21 +312,19 @@ var calledWords = [];
 var currentRound = 1;
 var ROUND_PLAN = [
   { size: 3, goal: "1ライン" },
-  { size: 4, goal: "2ライン" },
-  { size: 5, goal: "3ライン" }
+  { size: 4, goal: "2ライン" }
 ];
 function roundInfo(r){ return ROUND_PLAN[Math.min(Math.max(r, 1), ROUND_PLAN.length) - 1]; }
 function roundText(r){
   var i = roundInfo(r);
   return "ラウンド " + r + (r <= ROUND_PLAN.length ? " / " + ROUND_PLAN.length : "（ボーナス）") + "　ゴール: " + i.goal + "（" + i.size + "×" + i.size + "）";
 }
-var LESSON_TOTAL = 45;
+var LESSON_TOTAL = 20;
 var LESSON_PLAN = [
-  { from: 0,  to: 7,  label: "導入・単語れんしゅう" },
-  { from: 7,  to: 16, label: "ラウンド1（3×3・1ライン）" },
-  { from: 16, to: 27, label: "ラウンド2（4×4・2ライン）" },
-  { from: 27, to: 40, label: "ラウンド3（5×5・3ライン）" },
-  { from: 40, to: 45, label: "けっか発表・まとめ" }
+  { from: 0,  to: 3,  label: "導入・単語れんしゅう" },
+  { from: 3,  to: 10, label: "ラウンド1（3×3・1ライン）" },
+  { from: 10, to: 18, label: "ラウンド2（4×4・2ライン）" },
+  { from: 18, to: 20, label: "けっか発表" }
 ];
 function lessonKey(){ return "hwbingo_lesson_start_" + currentRoom; }
 function getLessonStart(){ try{ return parseInt(localStorage.getItem(lessonKey()) || "0", 10) || 0; }catch(e){ return 0; } }

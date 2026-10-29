@@ -99,8 +99,7 @@ var currentMode = localStorage.getItem(MODE_KEY) || "total";
 var currentRound = 1;
 var ROUND_PLAN = [
   { size: 3, goal: "1ライン" },
-  { size: 4, goal: "2ライン" },
-  { size: 5, goal: "3ライン" }
+  { size: 4, goal: "2ライン" }
 ];
 function roundInfo(r){ return ROUND_PLAN[Math.min(Math.max(r, 1), ROUND_PLAN.length) - 1]; }
 function roundText(r){

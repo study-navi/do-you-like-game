@@ -303,46 +303,25 @@ var items = [
   {en:"witch", ja:"まじょ", emoji:"🧙", category:"halloween"},
   {en:"bat", ja:"コウモリ", emoji:"🦇", category:"halloween"},
   {en:"spider", ja:"くも", emoji:"🕷️", category:"halloween"},
-  {en:"candy", ja:"キャンディ", emoji:"🍬", category:"halloween"},
-  {en:"black cat", ja:"くろねこ", emoji:"🐈‍⬛", category:"halloween"},
   {en:"skeleton", ja:"がいこつ", emoji:"💀", category:"halloween"},
-  {en:"vampire", ja:"ドラキュラ", emoji:"🧛", category:"halloween"},
+  {en:"black cat", ja:"くろねこ", emoji:"🐈‍⬛", category:"halloween"},
   {en:"zombie", ja:"ゾンビ", emoji:"🧟", category:"halloween"},
-  {en:"monster", ja:"モンスター", emoji:"👾", category:"halloween"},
-  {en:"castle", ja:"おしろ", emoji:"🏰", category:"halloween"},
-  {en:"moon", ja:"つき", emoji:"🌙", category:"halloween"},
-  {en:"broom", ja:"ほうき", emoji:"🧹", category:"halloween"},
-  {en:"hat", ja:"ぼうし", emoji:"🎩", category:"halloween"},
+  {en:"owl", ja:"ふくろう", emoji:"🦉", category:"halloween"},
+  {en:"vampire", ja:"ドラキュラ", emoji:"🧛", category:"halloween"},
+  {en:"dragon", ja:"ドラゴン", emoji:"🐉", category:"halloween"},
+  {en:"devil", ja:"あくま", emoji:"👿", category:"halloween"},
+  {en:"candy", ja:"キャンディ", emoji:"🍬", category:"halloween"},
+  {en:"lollipop", ja:"ぺろぺろキャンディ", emoji:"🍭", category:"halloween"},
   {en:"cookie", ja:"クッキー", emoji:"🍪", category:"halloween"},
   {en:"chocolate", ja:"チョコレート", emoji:"🍫", category:"halloween"},
-  {en:"web", ja:"クモのす", emoji:"🕸️", category:"halloween"},
-  {en:"owl", ja:"ふくろう", emoji:"🦉", category:"halloween"},
-  {en:"apple", ja:"りんご", emoji:"🍎", category:"halloween"},
-  {en:"lollipop", ja:"ぺろぺろキャンディ", emoji:"🍭", category:"halloween"},
-  {en:"cake", ja:"ケーキ", emoji:"🍰", category:"halloween"},
   {en:"candle", ja:"ろうそく", emoji:"🕯️", category:"halloween"},
-  {en:"star", ja:"ほし", emoji:"⭐", category:"halloween"},
+  {en:"castle", ja:"おしろ", emoji:"🏰", category:"halloween"},
   {en:"bone", ja:"ほね", emoji:"🦴", category:"halloween"},
-  {en:"mask", ja:"おめん", emoji:"🎭", category:"halloween"},
+  {en:"apple", ja:"りんご", emoji:"🍎", category:"halloween"},
+  {en:"broom", ja:"ほうき", emoji:"🧹", category:"halloween"},
   {en:"potion", ja:"まほうのくすり", emoji:"🧪", category:"halloween"},
-  {en:"eye", ja:"め", emoji:"👁️", category:"halloween"},
-  {en:"fire", ja:"ひ", emoji:"🔥", category:"halloween"},
-  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"},
-  {en:"devil", ja:"あくま", emoji:"👿", category:"halloween"},
-  {en:"dragon", ja:"ドラゴン", emoji:"🐉", category:"halloween"},
-  {en:"wolf", ja:"おおかみ", emoji:"🐺", category:"halloween"},
-  {en:"snake", ja:"へび", emoji:"🐍", category:"halloween"},
-  {en:"frog", ja:"かえる", emoji:"🐸", category:"halloween"},
-  {en:"rat", ja:"ねずみ", emoji:"🐀", category:"halloween"},
-  {en:"alien", ja:"うちゅうじん", emoji:"👽", category:"halloween"},
-  {en:"robot", ja:"ロボット", emoji:"🤖", category:"halloween"},
-  {en:"clown", ja:"ピエロ", emoji:"🤡", category:"halloween"},
   {en:"wand", ja:"まほうのつえ", emoji:"🪄", category:"halloween"},
-  {en:"crystal ball", ja:"すいしょうだま", emoji:"🔮", category:"halloween"},
-  {en:"key", ja:"かぎ", emoji:"🔑", category:"halloween"},
-  {en:"house", ja:"いえ", emoji:"🏠", category:"halloween"},
-  {en:"donut", ja:"ドーナツ", emoji:"🍩", category:"halloween"},
-  {en:"popcorn", ja:"ポップコーン", emoji:"🍿", category:"halloween"}
+  {en:"crystal ball", ja:"すいしょうだま", emoji:"🔮", category:"halloween"}
 ];
 
 var ROOM_KEY = "hwbingo_student_room";
@@ -366,8 +345,7 @@ var knownRound = null;
 var leaveGame = false;
 var ROUND_PLAN = [
   { size: 3, goal: "1ライン" },
-  { size: 4, goal: "2ライン" },
-  { size: 5, goal: "3ライン" }
+  { size: 4, goal: "2ライン" }
 ];
 function roundInfo(r){ return ROUND_PLAN[Math.min(Math.max(r, 1), ROUND_PLAN.length) - 1]; }
 function roundText(r){

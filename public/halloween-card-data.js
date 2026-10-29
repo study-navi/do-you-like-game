@@ -18,7 +18,7 @@
           { id: "zombie",   en: "zombie",    ja: "ゾンビ",       emoji: "🧟", art: "a" },
           { id: "owl",      en: "owl",       ja: "ふくろう",     emoji: "🦉", art: "an" },
           { id: "vampire",  en: "vampire",   ja: "ドラキュラ",   emoji: "🧛", art: "a", rare: true },
-          { id: "dragon",   en: "dragon",    ja: "ドラゴン",     emoji: "🐉", art: "a", rare: true },
+          { id: "moon",     en: "moon",      ja: "おつきさま",   emoji: "🌙", art: "a", rare: true },
           { id: "devil",    en: "devil",     ja: "あくま",       emoji: "👿", art: "a", rare: true }
         ]
       },
@@ -32,11 +32,11 @@
           { id: "candle",    en: "candle",       ja: "ろうそく",         emoji: "🕯️", art: "a" },
           { id: "castle",    en: "castle",       ja: "おしろ",           emoji: "🏰", art: "a" },
           { id: "bone",      en: "bone",         ja: "ほね",             emoji: "🦴", art: "a" },
-          { id: "apple",     en: "apple",        ja: "りんご",           emoji: "🍎", art: "an" },
+          { id: "mask",      en: "mask",         ja: "おめん",           emoji: "🎭", art: "a" },
           { id: "broom",     en: "broom",        ja: "ほうき",           emoji: "🧹", art: "a" },
           { id: "potion",    en: "potion",       ja: "まほうのくすり",   emoji: "🧪", art: "a", rare: true },
           { id: "wand",      en: "wand",         ja: "まほうのつえ",     emoji: "🪄", art: "a", rare: true },
-          { id: "crystal",   en: "crystal ball", ja: "すいしょうだま",   emoji: "🔮", art: "a", rare: true }
+          { id: "monster",   en: "monster",      ja: "かいぶつ",         emoji: "👹", art: "a", rare: true }
         ]
       }
     },

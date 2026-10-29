@@ -791,8 +791,8 @@ setInterval(renderLive, 1000);
     grid.innerHTML = "";
     words().forEach(function(w){
       var b = document.createElement("button"); b.type = "button"; b.className = "wc-chip";
-      b.className = "wc-chip" + (w.rare ? " rare" : "");
-      b.innerHTML = (w.rare ? '<span class="rtag">RARE</span>' : '') + '<div class="ce">' + w.emoji + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
+      b.className = "wc-chip";
+      b.innerHTML = '<div class="ce">' + w.emoji + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
       b.onclick = function(){
         Array.prototype.forEach.call(grid.children, function(x){ x.classList.remove("sel"); });
         b.classList.add("sel");

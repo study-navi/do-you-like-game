@@ -712,6 +712,52 @@ setInterval(renderLive, 1000);
   .wc-chip { background: #FFFFFF; border: 2px solid #CBB7E8; border-radius: 12px; padding: 7px 2px 5px; text-align: center; cursor: pointer; font-family: inherit; }
   .wc-chip.sel { border-color: #E8710A; background: #FFF1E0; }
   .wc-chip .ce { font-size: 28px; line-height: 1.15; } .wc-chip .cw { font-size: 11px; font-weight: 700; color: #2C2C2A; } .wc-chip .cj { font-size: 9px; color: #888780; }
+
+  /* ===== トレカ風（たて長・5:7）===== */
+  .hcard, .slot, .wcard, .wc-chip, .g-face.g-front {
+    display: flex; flex-direction: column; aspect-ratio: 5 / 7; padding: 4px 4px 5px; box-sizing: border-box;
+    background: linear-gradient(170deg, #5B3A94 0%, #3B2461 100%); border: 3px solid #CBB7E8; border-radius: 12px;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.18), 0 2px 6px rgba(43,27,63,.25); text-align: center; position: relative; min-height: 0;
+  }
+  .hcard .he, .slot .se, .wcard .we, .wc-chip .ce, .g-front .ge {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: center; font-size: 34px; line-height: 1;
+    background: radial-gradient(circle at 50% 40%, #FFFFFF 0%, #F1E8FB 70%, #DCCBF2 100%); border-radius: 8px; border: 2px solid rgba(43,27,63,.35);
+    filter: none; opacity: 1; margin: 0;
+  }
+  .hcard .hw, .slot .sw, .wcard .ww, .wc-chip .cw, .g-front .gw {
+    margin-top: 4px; padding: 2px 0; border-radius: 6px; background: #2B1B3F; color: #FFB347; font-size: 11px; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hcard .hj, .slot .sj, .wcard .wj, .wc-chip .cj, .g-front .gj { margin-top: 2px; font-size: 9px; color: #E8DAF5; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hand-row .hcard { width: 84px; }
+  .hand-row.many .hcard { width: auto; }
+  .g-card { width: 92px; height: auto; aspect-ratio: 5 / 7; }
+  .g-face { border-radius: 12px; }
+  .g-face.g-front .ge { font-size: 38px; } .g-front .gw { font-size: 12px; }
+  .g-face.g-back { border-width: 3px; }
+  /* まだ手に入れていないカード */
+  .slot:not(.got) { background: linear-gradient(170deg, #8C8A9A 0%, #5E5C6B 100%); border-color: #B4B2A9; box-shadow: none; }
+  .slot:not(.got) .se { background: #4A4858; border-color: rgba(255,255,255,.2); filter: grayscale(1) brightness(0); opacity: .75; }
+  .slot:not(.got) .sw { background: #3A3846; color: #B4B2A9; }
+  .slot:not(.got) .sj { color: #D3D1C7; }
+  .slot.got { background: linear-gradient(170deg, #5B3A94 0%, #3B2461 100%); border-color: #FFB347; }
+  .slot.got .sw { background: #2B1B3F; color: #FFB347; } .slot.got .sj { color: #E8DAF5; }
+  /* ★レア：金のふち */
+  .hcard.rare, .slot.rare.got, .wcard.rare, .g-card.rare .g-front, .wc-chip.rare {
+    border-color: #FFC83D; background: linear-gradient(135deg, #8A5A00 0%, #E8A400 30%, #FFE27A 50%, #E8A400 70%, #8A5A00 100%);
+  }
+  .hcard.rare .hw, .slot.rare.got .sw, .wcard.rare .ww, .g-card.rare .gw { background: #5A3A00; color: #FFE27A; }
+  .hcard.rare .hj, .slot.rare.got .sj, .g-card.rare .gj { color: #5A3A00; font-weight: 700; }
+  .slot.rare:not(.got) { border-style: solid; border-color: #C9A24A; }
+  .slot .star { top: 7px; right: 9px; font-size: 13px; z-index: 4; text-shadow: 0 0 4px #fff; }
+  .wcard.sel { outline: 3px solid #E8710A; outline-offset: 1px; background: linear-gradient(170deg, #E8710A 0%, #8A3F00 100%); }
+  .wcard.off { opacity: .35; }
+  .wc-chip.sel { outline: 3px solid #E8710A; outline-offset: 1px; }
+  .want-grid, .book-grid, #wc-grid { gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .hcard, .slot, .wcard, .wc-chip { min-width: 0; }
+
+  .rtag { position: absolute; top: 5px; right: 5px; z-index: 6; padding: 1px 4px; border-radius: 4px; background: #D6002B; color: #FFFFFF; font-size: 8px; font-weight: 900; letter-spacing: .5px; line-height: 1.3; box-shadow: 0 0 0 1px #FFE27A, 0 1px 3px rgba(0,0,0,.4); pointer-events: none; }
+  .slot .star { display: none; }
+  .g-front .rtag { font-size: 9px; top: 6px; right: 6px; }
 </style>
 <button id="wc-fab" type="button">🔊 ことば</button>
 <div id="wc-overlay"><div id="wc-sheet">
@@ -734,7 +780,8 @@ setInterval(renderLive, 1000);
     grid.innerHTML = "";
     words().forEach(function(w){
       var b = document.createElement("button"); b.type = "button"; b.className = "wc-chip";
-      b.innerHTML = '<div class="ce">' + w.emoji + '</div><div class="cw">' + (w.rare ? "★" : "") + w.en + '</div><div class="cj">' + w.ja + '</div>';
+      b.className = "wc-chip" + (w.rare ? " rare" : "");
+      b.innerHTML = (w.rare ? '<span class="rtag">RARE</span>' : '') + '<div class="ce">' + w.emoji + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
       b.onclick = function(){
         Array.prototype.forEach.call(grid.children, function(x){ x.classList.remove("sel"); });
         b.classList.add("sel");

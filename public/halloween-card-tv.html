@@ -165,7 +165,7 @@ function sorted(students){
 function render(){
   if(!state) return;
   var d = state;
-  document.getElementById("sub-line").textContent = "ステージ" + d.stage + "：" + d.stageTitle;
+  document.getElementById("sub-line").textContent = d.stage === 3 ? "24しゅるいの カードから " + d.total + "まい あつめよう！" : "ステージ" + d.stage + "：" + d.stageTitle;
   document.getElementById("cards-strip").innerHTML = HW.sets[d.stage].cards.map(function(c){
     return '<div class="cs' + (c.rare ? " rare" : "") + '"><div class="ce">' + c.emoji + '</div><div class="cw">' + c.en + '</div><div class="cn">' + (c.rare ? "★ " : "") + (d.counts[c.id] || 0) + '</div></div>';
   }).join("");

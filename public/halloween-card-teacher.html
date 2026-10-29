@@ -237,19 +237,28 @@
 
   <div class="card round-card">
     <div class="round-head">
-      <span class="round-label" id="stage-label">ステージ1</span>
+      <span class="round-label" id="stage-label">ぜんぶずかん</span>
       <span class="round-goal" id="phase-label">まだ くばっていません</span>
     </div>
     <div class="size-hint">ステージをえらぶ（ずかんのカードが かわります）</div>
     <div class="size-row" style="margin-bottom:10px;">
+      <button class="size-btn" data-stage="3" onclick="chooseStage(3)">ぜんぶ（24まい）</button>
       <button class="size-btn" data-stage="1" onclick="chooseStage(1)">1 モンスター</button>
       <button class="size-btn" data-stage="2" onclick="chooseStage(2)">2 おかし＆まほう</button>
+    </div>
+    <div class="size-hint">コンプリートに ひつような まいすう（「ぜんぶ」のとき。24しゅるいのうち いくつ あつめるか）</div>
+    <div class="size-row" style="margin-bottom:10px;">
+      <button class="size-btn" data-goal="12" onclick="chooseGoal(12)">12まい（おすすめ）</button>
+      <button class="size-btn" data-goal="16" onclick="chooseGoal(16)">16まい</button>
+      <button class="size-btn" data-goal="20" onclick="chooseGoal(20)">20まい</button>
+      <button class="size-btn" data-goal="24" onclick="chooseGoal(24)">24まい（ぜんぶ）</button>
     </div>
     <div class="size-hint">てふだの まいすう（ふえるほど カードが 見つけやすい）</div>
     <div class="size-row" style="margin-bottom:12px;">
       <button class="size-btn" data-hand="3" onclick="chooseHand(3)">3まい</button>
       <button class="size-btn" data-hand="4" onclick="chooseHand(4)">4まい</button>
       <button class="size-btn" data-hand="5" onclick="chooseHand(5)">5まい</button>
+      <button class="size-btn" data-hand="6" onclick="chooseHand(6)">6まい</button>
     </div>
     <button class="nextround-btn" id="deal-btn" onclick="dealCards()">🃏 カードをくばってスタート！</button>
     <div class="size-hint" id="deal-note" style="margin-top:8px;"></div>
@@ -279,10 +288,10 @@
   <details class="card">
     <summary style="font-weight:700;cursor:pointer;font-size:15px;">⏱ 授業のながれ（めやす）</summary>
     <div class="plan-text" style="margin-top:10px;">
-      0〜5分　ことば・カードのれんしゅう／先生とデモ（「Do you have a ghost?」）<br>
-      5〜20分　ステージ1「モンスターずかん」：こうかんして ずかんを コンプリート<br>
-      20〜35分　ステージ2「おかし＆まほうずかん」：「ステージ2」をえらんで くばりなおす<br>
-      35〜45分　はっぴょう・ふりかえり：TV画面でコンプリート順を見て、おたがいに「Thank you!」<br>
+      （ビンゴ 約20分のあと）<br>
+      20〜22分　ルール説明・先生とデモ（「Do you have a ghost?」）<br>
+      22〜40分　カードあつめ（1ラウンド・ぜんぶ24まい）：こうかんして ずかんを コンプリート<br>
+      40〜45分　はっぴょう・ふりかえり：TV画面でコンプリート順を見て、おたがいに「Thank you!」<br>
       ※ ぜんぶのカードを 1まい持っていれば 手ばなしてOK。ずかんは のこるので、まだの友だちを たすけよう！
     </div>
   </details>
@@ -296,7 +305,7 @@
 var HW = window.HWC;
 var ROOM_KEY = "hwcard_teacher_room";
 var currentRoom = "";
-var state = null, selStage = 1, selHand = 4, inited = false, timeOffset = 0;
+var state = null, selStage = 3, selHand = 5, selGoal = 12, inited = false, timeOffset = 0;
 
 function el(id){ return document.getElementById(id); }
 function enc(v){ return encodeURIComponent(v); }
@@ -458,14 +467,17 @@ function renderControls(){
   Array.prototype.forEach.call(document.querySelectorAll("[data-stage]"), function(b){
     b.classList.toggle("active", Number(b.getAttribute("data-stage")) === selStage);
   });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-goal]"), function(b){
+    b.classList.toggle("active", Number(b.getAttribute("data-goal")) === selGoal);
+  });
   Array.prototype.forEach.call(document.querySelectorAll("[data-hand]"), function(b){
     b.classList.toggle("active", Number(b.getAttribute("data-hand")) === selHand);
   });
-  el("stage-label").textContent = "ステージ" + state.stage + "：" + state.stageTitle;
+  el("stage-label").textContent = state.stage === 3 ? state.stageTitle : "ステージ" + state.stage + "：" + state.stageTitle;
   var players = state.students.length;
   el("phase-label").textContent = playing ? "あそび中（" + players + "人）" : "まだ くばっていません（" + players + "人 ログイン）";
   var btn = el("deal-btn");
-  if(!playing) btn.textContent = "🃏 カードをくばってスタート！（ステージ" + selStage + "・" + selHand + "まい）";
+  if(!playing) btn.textContent = "🃏 カードをくばってスタート！（" + (selStage === 3 ? "ぜんぶ24まい" : "ステージ" + selStage) + "・" + selHand + "まい）";
   else if(selStage !== state.stage) btn.textContent = "▶ ステージ" + selStage + "へ すすむ（ぜんいんに くばりなおし）";
   else btn.textContent = "🔄 くばりなおす（ステージ" + selStage + "・ずかんがリセット）";
   var note = "";
@@ -483,7 +495,7 @@ function renderLive(){
 function applyState(d){
   state = d;
   timeOffset = d.serverNow - Date.now();
-  if(!inited){ selStage = d.stage; selHand = d.handSize; inited = true; }
+  if(!inited){ selStage = d.stage; selHand = d.handSize; selGoal = d.goal || 12; inited = true; }
   renderControls();
   renderCounts(d);
   renderBoard(d.students);
@@ -498,6 +510,7 @@ function fetchState(){
 }
 function chooseStage(n){ selStage = n; renderControls(); }
 function chooseHand(n){ selHand = n; renderControls(); }
+function chooseGoal(n){ selGoal = n; renderControls(); }
 function dealCards(){
   if(!currentRoom || !state) return;
   var playing = state.phase === "playing";
@@ -509,7 +522,7 @@ function dealCards(){
   } else if(state.students.length * selHand < 24){
     if(!confirm("人数がすくないため、カードが かたよって コンプリートできないことがあります。このまま くばりますか？")) return;
   }
-  post("/api/hwcard/deal", { room: currentRoom, stage: selStage, handSize: selHand }).then(applyState);
+  post("/api/hwcard/deal", { room: currentRoom, stage: selStage, handSize: selHand, goal: selGoal }).then(applyState);
 }
 window.chooseStage = chooseStage;
 window.chooseHand = chooseHand;

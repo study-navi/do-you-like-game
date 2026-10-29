@@ -465,7 +465,7 @@ function render(d){
   if(lastKey !== null && key !== lastKey){
     resetTrade(); closeTrade(); closeIncoming();
     prevBook = null; completeShownKey = null;
-    toast("🎃 ステージ" + d.stage + " スタート！<br>" + d.stageTitle + " を コンプリートしよう", 6000);
+    toast("🎃 スタート！<br>" + d.stageTitle + " を コンプリートしよう", 6000);
   }
   lastKey = key;
   if(firstRender && d.notice) seenNoticeAt = d.notice.at;
@@ -496,7 +496,7 @@ function renderHand(d){
   }).join("");
 }
 function renderProgress(d){
-  el("stage-title").textContent = "ステージ" + d.stage + "：" + d.stageTitle;
+  el("stage-title").textContent = d.stage === 3 ? "ハロウィンずかん　" + d.total + "まいで コンプリート！" : "ステージ" + d.stage + "：" + d.stageTitle;
   el("pc-count").textContent = d.book.length + " / " + d.total;
   el("pc-fill").style.width = (d.book.length / d.total * 100) + "%";
   var done = !!d.done;
@@ -539,10 +539,10 @@ function handleComplete(d){
   completeShownKey = key;
   if(firstRender) return;
   var m = Math.floor(d.done.ms / 60000), s = Math.floor((d.done.ms % 60000) / 1000);
-  el("complete-title").textContent = "ステージ" + d.stage + "「" + d.stageTitle + "」 コンプリート！";
+  el("complete-title").textContent = d.stage === 3 ? "「" + d.stageTitle + "」 コンプリート！" : "ステージ" + d.stage + "「" + d.stageTitle + "」 コンプリート！";
   el("complete-rank").textContent = d.done.rank ? d.done.rank + " ばんめに コンプリート！" : "せんせい コンプリート！";
   el("complete-time").textContent = "タイム " + m + "分" + s + "秒";
-  el("complete-all").textContent = (d.stageDone["1"] && d.stageDone["2"]) ? "🏆 ぜんステージ コンプリート！ すごい！" : "";
+  el("complete-all").textContent = (d.stage !== 3 && d.stageDone["1"] && d.stageDone["2"]) ? "🏆 ぜんステージ コンプリート！ すごい！" : "";
   var ov = el("complete-overlay");
   var emojis = ["🎃", "👻", "🍬", "⭐", "🦇", "🍭", "🧙", "🍪"];
   var html = "";

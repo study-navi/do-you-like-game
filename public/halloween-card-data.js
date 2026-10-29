@@ -51,6 +51,7 @@
     ask: function(c){ return "Do you have " + D.noun(c) + "?"; },
     have: function(c){ return "I have " + D.noun(c) + "."; }
   };
+  D.sets[3] = { title: "ハロウィンずかん（24まい）", cards: D.sets[1].cards.concat(D.sets[2].cards) };
   if(typeof module !== "undefined" && module.exports){ module.exports = D; }
   else { root.HWC = D; }
 })(typeof window !== "undefined" ? window : this);

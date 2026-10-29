@@ -320,13 +320,16 @@ const HWC_OFFER_TTL = 90 * 1000;
 
 function getHwcRoom(room){
   let r = hwcRooms[room];
-  if(!r) r = hwcRooms[room] = { phase: 'waiting', stage: 1, handSize: 4, dealtAt: null };
+  if(!r) r = hwcRooms[room] = { phase: 'waiting', stage: 3, handSize: 5, goal: 12, dealtAt: null };
   if(r.phase !== 'playing') r.phase = 'waiting';
-  if(!HWC.sets[r.stage]) r.stage = 1;
-  if([3, 4, 5].indexOf(r.handSize) < 0) r.handSize = 4;
+  if(!HWC.sets[r.stage]) r.stage = 3;
+  if([3, 4, 5, 6].indexOf(r.handSize) < 0) r.handSize = 5;
+  if([12, 16, 20, 24].indexOf(r.goal) < 0) r.goal = 12;
   return r;
 }
-function hwcSet(stage){ return HWC.sets[stage] || HWC.sets[1]; }
+// コンプリートに必要なまいすう（ぜんぶのカードのうち、いくつ集めるか）
+function hwcGoal(r){ return Math.min(r.goal || 12, hwcSet(r.stage).cards.length); }
+function hwcSet(stage){ return HWC.sets[stage] || HWC.sets[3]; }
 function hwcShuffle(a){
   for(let i = a.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
@@ -416,7 +419,7 @@ function pruneHwcOffers(){
 function hwcCheckDone(st, now){
   const room = normalizeRoom(st.room);
   const r = getHwcRoom(room);
-  const n = hwcSet(r.stage).cards.length;
+  const n = hwcGoal(r);
   if(st.stageDone && st.stageDone[r.stage]) return false;
   if(!Array.isArray(st.book) || st.book.length < n) return false;
   if(!st.stageDone) st.stageDone = {};
@@ -479,8 +482,10 @@ function hwcMe(st){
     stage: r.stage,
     stageTitle: set.title,
     handSize: r.handSize,
+    goal: r.goal,
     dealtAt: r.dealtAt,
-    total: set.cards.length,
+    total: hwcGoal(r),
+    cardCount: set.cards.length,
     hand: hand,
     book: book,
     swaps: st.swaps || 0,
@@ -521,8 +526,10 @@ function hwcPublicState(room){
     stage: r.stage,
     stageTitle: set.title,
     handSize: r.handSize,
+    goal: r.goal,
     dealtAt: r.dealtAt,
-    total: set.cards.length,
+    total: hwcGoal(r),
+    cardCount: set.cards.length,
     counts: counts,
     students: students,
     serverNow: Date.now()
@@ -1511,7 +1518,8 @@ const server = http.createServer(function(req, res){
       const room = normalizeRoom(body && body.room);
       const r = getHwcRoom(room);
       if(body && HWC.sets[body.stage]) r.stage = body.stage;
-      if(body && [3, 4, 5].indexOf(body.handSize) >= 0) r.handSize = body.handSize;
+      if(body && [3, 4, 5, 6].indexOf(body.handSize) >= 0) r.handSize = body.handSize;
+      if(body && [12, 16, 20, 24].indexOf(body.goal) >= 0) r.goal = body.goal;
       hwcDealRoom(room);
       sendJson(res, 200, hwcPublicState(room));
     });
@@ -1524,7 +1532,7 @@ const server = http.createServer(function(req, res){
       const room = normalizeRoom(body && body.room);
       hwcPlayers(room).forEach(function(id){ delete hwcStudents[id]; });
       Object.keys(hwcOffers).forEach(function(k){ if(hwcOffers[k].room === room) delete hwcOffers[k]; });
-      hwcRooms[room] = { phase: 'waiting', stage: 1, handSize: 4, dealtAt: null };
+      hwcRooms[room] = { phase: 'waiting', stage: 3, handSize: 5, goal: 12, dealtAt: null };
       saveHwcRooms();
       saveHwcStudents();
       sendJson(res, 200, hwcPublicState(room));

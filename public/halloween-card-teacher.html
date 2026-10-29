@@ -758,6 +758,15 @@ setInterval(renderLive, 1000);
   .rtag { position: absolute; top: 5px; right: 5px; z-index: 6; padding: 1px 4px; border-radius: 4px; background: #D6002B; color: #FFFFFF; font-size: 8px; font-weight: 900; letter-spacing: .5px; line-height: 1.3; box-shadow: 0 0 0 1px #FFE27A, 0 1px 3px rgba(0,0,0,.4); pointer-events: none; }
   .slot .star { display: none; }
   .g-front .rtag { font-size: 9px; top: 6px; right: 6px; }
+
+  /* イラストをカードの大きさに合わせて大きく */
+  .hcard, .slot, .wcard, .wc-chip, .g-face.g-front { container-type: inline-size; padding: 3px 3px 4px; }
+  .hcard .he, .slot .se, .wcard .we, .wc-chip .ce, .g-front .ge { font-size: 64cqw; line-height: 1; border-radius: 7px; }
+  .hcard .hw, .slot .sw, .wcard .ww, .wc-chip .cw, .g-front .gw { font-size: 13.5cqw; margin-top: 3px; padding: 1.5px 0; }
+  .hcard .hj, .slot .sj, .wcard .wj, .wc-chip .cj, .g-front .gj { font-size: 10.5cqw; margin-top: 1px; }
+  .rtag { font-size: 9.5cqw; top: 4px; right: 4px; padding: 1px 4px; }
+  .g-front .rtag { font-size: 9.5cqw; }
+  .wcard .we, .slot .se, .hcard .he { min-height: 0; }
 </style>
 <button id="wc-fab" type="button">🔊 ことば</button>
 <div id="wc-overlay"><div id="wc-sheet">

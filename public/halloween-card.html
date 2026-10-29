@@ -228,6 +228,8 @@
   .sec-title { font-size: 13px; font-weight: 700; color: #5F5E5A; margin: 4px 2px 8px; }
   .sec-title small { font-weight: 500; color: #888780; }
   .hand-row { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; }
+  .hand-row.many { flex-wrap: wrap; overflow: visible; }
+  .hand-row.many .hcard { flex: 0 0 calc(25% - 6px); width: auto; min-width: 0; }
   .hcard { flex: 0 0 auto; width: 78px; background: #FFFFFF; border: 2px solid #CBB7E8; border-radius: 12px; text-align: center; padding: 8px 2px 6px; position: relative; }
   .hcard .he { font-size: 32px; line-height: 1.15; }
   .hcard .hw { font-size: 11px; font-weight: 700; }
@@ -490,6 +492,7 @@ function renderBook(d){
   prevBook = d.book.slice();
 }
 function renderHand(d){
+  el("hand-row").className = "hand-row" + (d.hand.length > 5 ? " many" : "");
   el("hand-row").innerHTML = d.hand.map(function(id){
     var c = cardOf(id);
     return '<div class="hcard' + (c.rare ? " rare" : "") + '"><div class="he">' + c.emoji + '</div><div class="hw">' + c.en + '</div><div class="hj">' + c.ja + '</div></div>';

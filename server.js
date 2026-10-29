@@ -323,7 +323,7 @@ function getHwcRoom(room){
   if(!r) r = hwcRooms[room] = { phase: 'waiting', stage: 3, handSize: 5, goal: 12, dealtAt: null };
   if(r.phase !== 'playing') r.phase = 'waiting';
   if(!HWC.sets[r.stage]) r.stage = 3;
-  if([3, 4, 5, 6].indexOf(r.handSize) < 0) r.handSize = 5;
+  if([3, 4, 5, 6, 8, 10].indexOf(r.handSize) < 0) r.handSize = 5;
   if([12, 16, 20, 24].indexOf(r.goal) < 0) r.goal = 12;
   return r;
 }
@@ -1518,7 +1518,7 @@ const server = http.createServer(function(req, res){
       const room = normalizeRoom(body && body.room);
       const r = getHwcRoom(room);
       if(body && HWC.sets[body.stage]) r.stage = body.stage;
-      if(body && [3, 4, 5, 6].indexOf(body.handSize) >= 0) r.handSize = body.handSize;
+      if(body && [3, 4, 5, 6, 8, 10].indexOf(body.handSize) >= 0) r.handSize = body.handSize;
       if(body && [12, 16, 20, 24].indexOf(body.goal) >= 0) r.goal = body.goal;
       hwcDealRoom(room);
       sendJson(res, 200, hwcPublicState(room));

@@ -64,6 +64,22 @@
   .num.teacher { background: #7F77DD; }
   .allclear { display: none; text-align: center; font-size: 40px; font-weight: 800; color: #FFD27A; margin-bottom: 20px; animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+  /* ★レアカード：キラキラ仕様 */
+  @keyframes hwShine { 0% { transform: translateX(-130%) skewX(-20deg); } 55%,100% { transform: translateX(230%) skewX(-20deg); } }
+  @keyframes hwGlow { 0%,100% { box-shadow: 0 0 6px rgba(240,180,41,.5), 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 16px rgba(255,200,60,.95), 0 0 26px rgba(255,160,40,.5); } }
+  @keyframes hwTwinkle { 0%,100% { opacity: 0; transform: scale(.3) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(25deg); } }
+  .hcard.rare, .slot.rare.got, .wcard.rare:not(.off), .cs.rare { position: relative; overflow: hidden; animation: hwGlow 2.2s ease-in-out infinite; }
+  .hcard.rare::before, .slot.rare.got::before, .wcard.rare:not(.off)::before, .cs.rare::before {
+    content: ""; position: absolute; top: 0; left: 0; width: 45%; height: 100%; pointer-events: none; z-index: 2;
+    background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.85) 50%, rgba(255,255,255,0) 100%);
+    animation: hwShine 2.8s ease-in-out infinite;
+  }
+  .hcard.rare::after, .slot.rare.got::after, .wcard.rare:not(.off)::after, .cs.rare::after {
+    content: "✨"; position: absolute; top: 3px; left: 5px; font-size: 14px; pointer-events: none; z-index: 3;
+    animation: hwTwinkle 1.6s ease-in-out infinite;
+  }
+  .hcard.rare, .slot.rare.got, .wcard.rare:not(.off) { background: linear-gradient(135deg, #FFF3C4 0%, #FFE0F5 35%, #D9ECFF 65%, #FFF3C4 100%); }
 </style>
 </head>
 <body>

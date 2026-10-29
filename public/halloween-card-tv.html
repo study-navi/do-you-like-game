@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ハロウィンカードあつめ - Do you like ...? ゲーム</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #1A1026; color: #FFFFFF; margin: 0; padding: 40px;
+  }
+  .title { font-size: 42px; font-weight: 700; text-align: center; margin-bottom: 30px; letter-spacing: 1px; }
+  .board { display: flex; flex-direction: column; gap: 14px; max-width: 1000px; margin: 0 auto; }
+  .row {
+    display: flex; align-items: center; gap: 22px; background: #26254A;
+    border-radius: 20px; padding: 16px 28px;
+  }
+  .row.top1 { background: linear-gradient(90deg, #4A2A0E, #26254A); border: 2px solid #FF9F2E; }
+  .row.flash { animation: flash 0.9s ease-out; }
+  @keyframes flash { 0% { background: #FF9F2E; } 100% { background: #26254A; } }
+  .rank { font-size: 34px; font-weight: 700; width: 76px; text-align: center; color: #FF9F2E; }
+  .avatar { width: 104px; height: 78px; border-radius: 10px; object-fit: cover; border: 3px solid #FF9F2E; flex: 0 0 auto; }
+  .avatar-blank {
+    width: 104px; height: 78px; border-radius: 10px; background: #3D3B6B; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; font-size: 26px; color: #B7B4E0;
+  }
+  .meta { flex: 1; }
+  .status { font-size: 15px; color: #FF9F2E; font-weight: 700; }
+  .score { font-size: 36px; font-weight: 700; color: #FF9F2E; white-space: nowrap; }
+  .score .unit { font-size: 16px; font-weight: 500; }
+  .empty { text-align: center; font-size: 22px; color: #B7B4E0; margin-top: 80px; }
+  .room-tag { text-align: center; font-size: 16px; color: #B7B4E0; margin-top: -14px; margin-bottom: 24px; }
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(10,10,20,0.75);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #26254A; border-radius: 20px; padding: 28px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  .room-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; color: #FFFFFF; }
+  .room-sub { font-size: 14px; color: #B7B4E0; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 18px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: none; background: #FF9F2E; color: #26254A; font-weight: 700; font-size: 16px; }
+  .mode-row { display: flex; gap: 12px; justify-content: center; margin-bottom: 26px; }
+  .mode-btn {
+    padding: 10px 22px; border-radius: 999px; border: 2px solid #3D3B6B; background: #26254A;
+    color: #B7B4E0; font-weight: 700; font-size: 16px; cursor: pointer;
+  }
+  .mode-btn.active { border-color: #FF9F2E; color: #FF9F2E; background: #3D3B6B; }
+  .round-tag { text-align: center; font-size: 26px; font-weight: 700; color: #FF9F2E; margin: -8px 0 22px; }
+  .status .last { color: #B7B4E0; font-weight: 500; margin-left: 8px; }
+  .sub-line { text-align: center; font-size: 26px; font-weight: 700; color: #FF9F2E; margin: -8px 0 6px; }
+  .live-line { text-align: center; font-size: 30px; font-weight: 700; margin-bottom: 18px; font-variant-numeric: tabular-nums; }
+  .cards-strip { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 0 auto 26px; max-width: 1100px; }
+  .cs { background: #26254A; border-radius: 14px; padding: 8px 14px; text-align: center; min-width: 84px; }
+  .cs.rare { background: #4A3A12; border: 2px solid #FF9F2E; }
+  .cs .ce { font-size: 40px; line-height: 1.2; }
+  .cs .cw { font-size: 14px; color: #B7B4E0; }
+  .cs .cn { font-size: 20px; font-weight: 700; color: #FF9F2E; }
+  .slots { display: flex; gap: 5px; margin-top: 6px; }
+  .slots i { width: 22px; height: 12px; border-radius: 4px; background: #3D3B6B; display: block; }
+  .slots i.on { background: #FF9F2E; }
+  .tag-done { font-size: 20px; font-weight: 700; color: #1A1026; background: #FFD27A; border-radius: 999px; padding: 6px 16px; white-space: nowrap; }
+  .num { font-size: 30px; font-weight: 700; color: #FFFFFF; background: #E8710A; border-radius: 999px; padding: 2px 16px; }
+  .num.teacher { background: #7F77DD; }
+  .allclear { display: none; text-align: center; font-size: 40px; font-weight: 800; color: #FFD27A; margin-bottom: 20px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+</style>
+</head>
+<body>
+  <div id="room-overlay" class="room-overlay">
+    <div class="room-card">
+      <div class="room-title">教室コードを入力してください</div>
+      <div class="room-sub">先生・生徒に配ったURLと同じコードを入れてください（例: 3-1）</div>
+      <input type="text" id="room-code-input" class="room-input" placeholder="れい: 3-1">
+      <button id="room-code-btn" class="room-start-btn">はじめる</button>
+    </div>
+  </div>
+  <div class="title">🎃 ハロウィン カードあつめ 👻</div>
+  <div class="room-tag" id="room-tag"></div>
+  <div class="sub-line" id="sub-line"></div>
+  <div class="live-line" id="live-line"></div>
+  <div class="allclear" id="allclear">🎉 クラスぜんいん コンプリート！ 🎉</div>
+  <div class="cards-strip" id="cards-strip"></div>
+  <div class="board" id="board"></div>
+  <div class="empty" id="empty" style="display:none;">まだ誰も参加していません</div>
+
+<script src="/halloween-card-data.js"></script>
+<script>
+var HW = window.HWC;
+var ROOM_KEY = "hwcard_tv_room";
+var currentRoom = "";
+var pollTimer = null;
+var state = null, timeOffset = 0;
+var prevBooks = {};
+
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function startWithRoom(room){
+  currentRoom = room;
+  localStorage.setItem(ROOM_KEY, room);
+  var url = new URL(location.href);
+  url.searchParams.set("room", room);
+  history.replaceState(null, "", url.toString());
+  document.getElementById("room-tag").textContent = "教室コード: " + room;
+  document.getElementById("room-overlay").style.display = "none";
+  if(pollTimer) clearTimeout(pollTimer);
+  poll();
+}
+document.getElementById("room-code-btn").onclick = function(){
+  var v = document.getElementById("room-code-input").value.trim();
+  if(!v) return;
+  startWithRoom(v);
+};
+function mmss(ms){
+  var sec = Math.max(0, Math.floor(ms / 1000));
+  var m = Math.floor(sec / 60), r = sec % 60;
+  return (m < 10 ? "0" : "") + m + ":" + (r < 10 ? "0" : "") + r;
+}
+var photoCache = {};
+function photoSrc(s){
+  if(!s.photo) return null;
+  var c = photoCache[s.id];
+  if(c && c !== "loading") return c;
+  if(!c){
+    photoCache[s.id] = "loading";
+    fetch(s.photo).then(function(r){ if(!r.ok) throw new Error("x"); return r.blob(); })
+      .then(function(b){ photoCache[s.id] = URL.createObjectURL(b); })
+      .catch(function(){ delete photoCache[s.id]; });
+  }
+  return null;
+}
+function sorted(students){
+  return students.slice().sort(function(a, b){
+    var da = a.done, db = b.done;
+    if(da && db){
+      if(da.rank && db.rank) return da.rank - db.rank;
+      if(da.rank) return -1;
+      if(db.rank) return 1;
+      return da.at - db.at;
+    }
+    if(da) return -1;
+    if(db) return 1;
+    if(b.bookCount !== a.bookCount) return b.bookCount - a.bookCount;
+    return (a.no || 999) - (b.no || 999);
+  });
+}
+function render(){
+  if(!state) return;
+  var d = state;
+  document.getElementById("sub-line").textContent = "ステージ" + d.stage + "：" + d.stageTitle;
+  document.getElementById("cards-strip").innerHTML = HW.sets[d.stage].cards.map(function(c){
+    return '<div class="cs' + (c.rare ? " rare" : "") + '"><div class="ce">' + c.emoji + '</div><div class="cw">' + c.en + '</div><div class="cn">' + (c.rare ? "★ " : "") + (d.counts[c.id] || 0) + '</div></div>';
+  }).join("");
+  var kids = d.students.filter(function(s){ return s.role !== "teacher"; });
+  var done = kids.filter(function(s){ return s.done; }).length;
+  var t = (d.phase === "playing" && d.dealtAt) ? mmss(Date.now() + timeOffset - d.dealtAt) : "--:--";
+  document.getElementById("live-line").textContent = d.phase === "playing"
+    ? "⏱ " + t + "　🏆 コンプリート " + done + " / " + kids.length + "人"
+    : "もうすぐ スタート！（" + d.students.length + "人 あつまってます）";
+  document.getElementById("allclear").style.display = (d.phase === "playing" && kids.length > 0 && done === kids.length) ? "block" : "none";
+  var board = document.getElementById("board");
+  var list = sorted(d.students);
+  document.getElementById("empty").style.display = list.length ? "none" : "block";
+  board.innerHTML = "";
+  list.forEach(function(s, idx){
+    var rankLabel = idx < 3 ? ["🥇", "🥈", "🥉"][idx] : ("#" + (idx + 1));
+    var row = document.createElement("div");
+    var cls = "row" + (idx === 0 ? " top1" : "");
+    if(prevBooks[s.id] !== undefined && s.bookCount > prevBooks[s.id]) cls += " flash";
+    row.className = cls;
+    var dots = "";
+    for(var k = 0; k < d.total; k++) dots += '<i class="' + (k < s.bookCount ? "on" : "") + '"></i>';
+    row.innerHTML =
+      '<div class="rank">' + rankLabel + '</div>' +
+      (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
+      '<div class="meta">' +
+        '<span class="num' + (s.role === "teacher" ? " teacher" : "") + '">' + (s.role === "teacher" ? "先生" : (s.no ? s.no + "番" : "?")) + '</span>' +
+        '<div class="slots">' + dots + '</div>' +
+      '</div>' +
+      (s.done ? '<div class="tag-done">🏆 ' + (s.done.rank ? s.done.rank + "位 " : "") + mmss(s.done.ms) + '</div>' : '') +
+      '<div class="score">' + s.bookCount + '<span class="unit"> / ' + d.total + '</span></div>';
+    board.appendChild(row);
+    prevBooks[s.id] = s.bookCount;
+  });
+}
+function poll(){
+  fetch("/api/hwcard/state?room=" + encodeURIComponent(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      state = d;
+      timeOffset = d.serverNow - Date.now();
+      render();
+    })
+    .catch(function(){})
+    .finally(function(){ pollTimer = setTimeout(poll, 2000); });
+}
+setInterval(function(){ if(state) render(); }, 1000);
+
+(function boot(){
+  var urlRoom = getRoomFromUrl();
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  if(urlRoom){
+    startWithRoom(urlRoom);
+  } else if(savedRoom){
+    startWithRoom(savedRoom);
+  } else {
+    document.getElementById("room-overlay").style.display = "flex";
+  }
+})();
+</script>
+</body>
+</html>

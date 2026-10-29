@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ハロウィンカードあつめ（先生用） - Do you like ...? ゲーム</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.46.0/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 20px;
+    display: flex; justify-content: center;
+  }
+  .app { width: 100%; max-width: 640px; }
+  .title { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+  .room-tag { text-align: center; font-size: 13px; color: #888780; margin-bottom: 20px; }
+  .card {
+    background: #FFFFFF; border-radius: 20px; padding: 22px; margin-bottom: 16px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  }
+  .size-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 4px; }
+  .size-btn {
+    flex: 1; padding: 10px; border-radius: 12px; border: 2px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; font-weight: 600; font-size: 15px; cursor: pointer;
+  }
+  .size-btn.active { border-color: #E8710A; background: #FFF1E0; color: #E8710A; }
+  .size-hint { text-align: center; font-size: 12px; color: #B4B2A9; margin-bottom: 4px; }
+  .current-word-box {
+    text-align: center; background: #F1EFE8; border-radius: 16px; padding: 26px 16px; margin-bottom: 16px;
+  }
+  .current-word-icon { font-size: 44px; color: #E8710A; }
+  .current-word-en { font-size: 28px; font-weight: 700; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .current-word-ja { font-size: 15px; color: #888780; margin-top: 4px; }
+  .current-word-empty { color: #B4B2A9; font-size: 15px; padding: 20px 0; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 34px; height: 34px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .next-btn {
+    width: 100%; padding: 20px; font-size: 20px; font-weight: 700; border-radius: 999px;
+    border: none; background: #E8710A; color: #FFFFFF; cursor: pointer; transition: transform 0.1s;
+  }
+  .next-btn:active { transform: scale(0.97); }
+  .next-btn:disabled { background: #D3D1C7; cursor: default; }
+  .progress-text { text-align: center; font-size: 13px; color: #888780; margin-top: 10px; }
+  .history-title { font-size: 14px; font-weight: 600; color: #5F5E5A; margin-bottom: 10px; }
+  .history-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .history-chip {
+    background: #F1EFE8; border-radius: 999px; padding: 6px 14px; font-size: 13px; color: #5F5E5A;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .history-empty { color: #B4B2A9; font-size: 13px; }
+  .footer-row { text-align: center; margin-top: 6px; }
+  .reset-btn { font-size: 13px; padding: 8px 16px; color: #993C1D; background: #FAECE7; border: none; border-radius: 999px; cursor: pointer; }
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .room-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  .room-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #E8710A; background: #FFF1E0; color: #E8710A; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .ranking-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F1EFE8;
+  }
+  .ranking-row:last-child { border-bottom: none; }
+  .ranking-rank {
+    width: 24px; height: 24px; border-radius: 50%; background: #EEEDFE; color: #534AB7;
+    font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  .ranking-photo {
+    width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: #F1EFE8;
+  }
+  .ranking-photo-placeholder { display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .ranking-lines { font-size: 14px; font-weight: 600; color: #E8710A; flex: 1; }
+  .ranking-bingo-badge {
+    background: #FDF3D8; color: #A9740A; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 999px; flex: 0 0 auto;
+  }
+  .ranking-empty { color: #B4B2A9; font-size: 13px; }
+  .t-gc { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 12px; }
+  .t-gc button { padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF; font-size: 16px; font-weight: 700; color: #2C2C2A; cursor: pointer; }
+  .t-gc button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+  .t-gc-name { text-align: left; font-size: 13px; color: #5F5E5A; font-weight: 600; margin-bottom: 6px; }
+  .room-preview { font-size: 14px; color: #E8710A; font-weight: 600; margin-bottom: 12px; min-height: 20px; }
+  .qr-card { max-width: 420px; }
+  .qr-tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+  .qr-tabs button { font-size: 13px; padding: 6px 14px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .qr-tabs button.sel { background: #E8710A; border-color: #E8710A; color: #FFFFFF; }
+  .qr-box { display: flex; justify-content: center; margin: 6px 0 10px; }
+  .qr-box svg { width: 260px; height: 260px; }
+  .qr-url { font-size: 12px; color: #5F5E5A; word-break: break-all; background: #F1EFE8; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+  .qr-actions { display: flex; gap: 8px; justify-content: center; }
+  .qr-actions button { font-size: 13px; padding: 8px 14px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #2C2C2A; cursor: pointer; }
+  @media print {
+    body * { visibility: hidden; }
+    #qr-overlay, #qr-overlay * { visibility: visible; }
+    #qr-overlay { position: absolute; inset: 0; background: #FFFFFF; }
+    .qr-tabs, .qr-actions { display: none !important; }
+    .qr-card { box-shadow: none; }
+  }
+  .roster { background: #FFFFFF; border-radius: 16px; padding: 14px 18px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+  .roster-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+  .roster-top input { width: 70px; padding: 6px 8px; border-radius: 8px; border: 1px solid #D3D1C7; font-size: 15px; text-align: center; }
+  .roster-count { font-weight: 700; font-size: 16px; }
+  .roster-missing { color: #993C1D; font-weight: 600; }
+  .roster-ok { color: #0F6E56; font-weight: 600; }
+  .roster-warn { color: #854F0B; font-size: 13px; }
+  .no-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .no-chip { min-width: 38px; padding: 6px 4px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 700; background: #EDEBE3; color: #B4B2A9; }
+  .no-chip.in { background: #E1F5EE; color: #0F6E56; }
+  .no-chip.dup { background: #FAEEDA; color: #854F0B; }
+  .no-chip { cursor: pointer; user-select: none; border: 1px solid transparent; }
+  .no-chip.absent { background: #FFFFFF; color: #993C1D; border: 1px dashed #D85A30; text-decoration: line-through; }
+  .no-chip small { display: block; font-size: 9px; font-weight: 600; text-decoration: none; }
+  .roster-hint { font-size: 12px; color: #888780; margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .roster-hint button { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .no-badge.teacher { background: #7F77DD; }
+  .rm-btn { position: absolute; bottom: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E9B9A8; background: #FFFFFF; color: #993C1D; font-size: 13px; line-height: 1; cursor: pointer; opacity: 0.55; }
+  .rm-btn:hover { opacity: 1; background: #FAECE7; }
+  .card.teacher-card { border: 2px solid #CECBF6; }
+  .no-badge { position: absolute; top: 8px; right: 10px; background: #E8710A; color: #FFFFFF; font-size: 14px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
+  .room-change { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .t-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 6px 0 14px; }
+  .ranking-row { position: relative; }
+  .ranking-no { font-size: 13px; font-weight: 700; color: #FFFFFF; background: #E8710A; border-radius: 999px; padding: 2px 9px; }
+  .ranking-no.teacher { background: #7F77DD; }
+  .rm-btn2 { margin-left: auto; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #E9B9A8; background: #FFFFFF; color: #993C1D; font-size: 13px; line-height: 1; cursor: pointer; opacity: 0.55; }
+  .rm-btn2:hover { opacity: 1; }
+
+  /* ---- Halloween theme ---- */
+  body { background: #F4ECFA !important; }
+  .title { background: #2B1B3F; color: #FFB347 !important; border-radius: 16px; padding: 10px 12px; letter-spacing: 1px; }
+  .round-card .round-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
+  .round-card .round-label { font-size: 22px; font-weight: 700; color: #B85600; }
+  .round-card .round-goal { font-size: 14px; color: #5F5E5A; font-weight: 600; }
+  .lesson-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .lesson-timer { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; color: #2B1B3F; }
+  .lesson-btn { font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .lesson-bar { height: 8px; border-radius: 999px; background: #EEE6F5; overflow: hidden; margin-bottom: 10px; }
+  .lesson-bar > i { display: block; height: 100%; width: 0; background: #E8710A; }
+  .lesson-plan { list-style: none; padding: 0; margin: 0 0 12px; font-size: 13px; color: #5F5E5A; }
+  .lesson-plan li { padding: 5px 10px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .lesson-plan li.cur { background: #FFF1E0; color: #B85600; font-weight: 700; }
+  .lesson-plan li.done { color: #B4B2A9; text-decoration: line-through; }
+  .nextround-btn { width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px; border: none; background: #2B1B3F; color: #FFB347; cursor: pointer; }
+  .practice-card summary { font-weight: 700; cursor: pointer; font-size: 15px; }
+  .practice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin-top: 12px; }
+  .practice-chip { background: #F4ECFA; border: none; border-radius: 12px; padding: 8px 4px; text-align: center; cursor: pointer; font-family: inherit; }
+  .practice-chip .pe { font-size: 26px; line-height: 1.2; }
+  .practice-chip .pw { font-size: 13px; font-weight: 700; color: #2C2C2A; }
+  .practice-chip .pj { font-size: 10px; color: #888780; }
+  .ranking-total { font-size: 13px; font-weight: 700; color: #B85600; background: #FFF1E0; border-radius: 999px; padding: 3px 10px; }
+  .mini { display: inline-block; vertical-align: middle; width: 70px; height: 8px; border-radius: 999px; background: #EEE6F5; overflow: hidden; margin-left: 6px; }
+  .mini i { display: block; height: 100%; background: #E8710A; }
+  .done-badge { font-size: 12px; font-weight: 700; color: #FFFFFF; background: #7A9A1A; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .counts-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .count-chip { background: #F4ECFA; border-radius: 12px; padding: 6px 10px; text-align: center; min-width: 62px; }
+  .count-chip.rare { background: #FFF3C4; }
+  .count-chip .ce { font-size: 24px; line-height: 1.2; }
+  .count-chip .cn { font-size: 14px; font-weight: 700; color: #2B1B3F; }
+  .live-line { font-size: 18px; font-weight: 700; color: #2B1B3F; text-align: center; margin: 4px 0 12px; font-variant-numeric: tabular-nums; }
+  .phrase-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .phrase-chip { background: #FFF1E0; color: #B85600; border: none; border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .set-title { font-size: 13px; font-weight: 700; color: #5F5E5A; margin: 12px 0 6px; }
+  .plan-text { font-size: 13px; color: #5F5E5A; line-height: 1.9; }
+</style>
+<script src="/qrcode.js"></script>
+<script src="/halloween-card-data.js"></script>
+</head>
+<body>
+<div id="room-overlay" class="room-overlay">
+  <div class="room-card">
+    <div class="room-title">クラスをえらんでください</div>
+    <div class="room-sub">学校コードは、ほかの学校とデータが混ざらないようにするためのものです（半角英数字・空欄でもOK）</div>
+    <input type="text" id="school-input" class="room-input" placeholder="学校コード（例: hiiragi）" autocomplete="off">
+    <div class="t-gc-name">学年</div>
+    <div id="t-grade" class="t-gc"></div>
+    <div class="t-gc-name">組</div>
+    <div id="t-class" class="t-gc"></div>
+    <div id="room-preview" class="room-preview"></div>
+    <button id="room-code-btn" class="room-start-btn">はじめる</button>
+  </div>
+</div>
+<div id="qr-overlay" class="room-overlay" style="display:none;">
+  <div class="room-card qr-card">
+    <div class="room-title">生徒用QRコード</div>
+    <div class="qr-tabs">
+      <button id="qr-tab-common" type="button">全クラス共通</button>
+      <button id="qr-tab-class" type="button">このクラス専用</button>
+    </div>
+    <div id="qr-desc" class="room-sub"></div>
+    <div id="qr-box" class="qr-box"></div>
+    <div id="qr-url" class="qr-url"></div>
+    <div class="qr-actions">
+      <button id="qr-copy" type="button">URLをコピー</button>
+      <button id="qr-print" type="button">印刷</button>
+      <button id="qr-close" type="button">とじる</button>
+    </div>
+  </div>
+</div>
+<div class="app">
+  <div class="title">🎃 ハロウィン カードあつめ（先生用）</div>
+  <div class="room-tag" id="room-tag"></div>
+  <div class="t-actions">
+    <button id="room-change-btn" class="room-change">クラスを変える</button>
+    <button id="url-btn" class="room-change">🔳 生徒用QRコード</button>
+    <button id="tv-btn" class="room-change">📺 TV画面を開く</button>
+  </div>
+  <div class="roster">
+    <div class="roster-top">
+      <label>クラスの人数 <input type="number" id="class-size" min="1" max="99" placeholder="例: 30"> 人</label>
+      <span id="roster-count" class="roster-count"></span>
+      <span id="roster-msg"></span>
+    </div>
+    <div id="no-grid" class="no-grid"></div>
+    <div class="roster-hint">番号をタップすると「欠席」にできます（もう一度タップで もどす）<button id="absent-clear">欠席をすべて解除</button></div>
+  </div>
+
+  <div class="card round-card">
+    <div class="round-head">
+      <span class="round-label" id="stage-label">ステージ1</span>
+      <span class="round-goal" id="phase-label">まだ くばっていません</span>
+    </div>
+    <div class="size-hint">ステージをえらぶ（ずかんのカードが かわります）</div>
+    <div class="size-row" style="margin-bottom:10px;">
+      <button class="size-btn" data-stage="1" onclick="chooseStage(1)">1 モンスター</button>
+      <button class="size-btn" data-stage="2" onclick="chooseStage(2)">2 おかし＆まほう</button>
+    </div>
+    <div class="size-hint">てふだの まいすう（ふえるほど カードが 見つけやすい）</div>
+    <div class="size-row" style="margin-bottom:12px;">
+      <button class="size-btn" data-hand="3" onclick="chooseHand(3)">3まい</button>
+      <button class="size-btn" data-hand="4" onclick="chooseHand(4)">4まい</button>
+      <button class="size-btn" data-hand="5" onclick="chooseHand(5)">5まい</button>
+    </div>
+    <button class="nextround-btn" id="deal-btn" onclick="dealCards()">🃏 カードをくばってスタート！</button>
+    <div class="size-hint" id="deal-note" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="live-line" id="live-line">⏱ 00:00　🏆 コンプリート 0 / 0人</div>
+    <div class="history-title">いま みんなが もっている まいすう（★はレア＝少ない）</div>
+    <div class="counts-row" id="counts-row"></div>
+  </div>
+
+  <div class="card">
+    <div class="history-title">ずかんの すすみぐあい（コンプリートが はやい順）</div>
+    <div id="ranking-list"><span class="ranking-empty">まだ登録した生徒がいません</span></div>
+  </div>
+
+  <details class="card practice-card" id="practice-card">
+    <summary>🔊 ことば・カードのれんしゅう（はじめの5分：タップで発音）</summary>
+    <div class="set-title">つかうことば</div>
+    <div class="phrase-list" id="phrase-list"></div>
+    <div class="set-title" id="set1-title"></div>
+    <div class="practice-grid" id="practice-grid-1"></div>
+    <div class="set-title" id="set2-title"></div>
+    <div class="practice-grid" id="practice-grid-2"></div>
+  </details>
+
+  <details class="card">
+    <summary style="font-weight:700;cursor:pointer;font-size:15px;">⏱ 授業のながれ（めやす）</summary>
+    <div class="plan-text" style="margin-top:10px;">
+      0〜5分　ことば・カードのれんしゅう／先生とデモ（「Do you have a ghost?」）<br>
+      5〜20分　ステージ1「モンスターずかん」：こうかんして ずかんを コンプリート<br>
+      20〜35分　ステージ2「おかし＆まほうずかん」：「ステージ2」をえらんで くばりなおす<br>
+      35〜45分　はっぴょう・ふりかえり：TV画面でコンプリート順を見て、おたがいに「Thank you!」<br>
+      ※ ぜんぶのカードを 1まい持っていれば 手ばなしてOK。ずかんは のこるので、まだの友だちを たすけよう！
+    </div>
+  </details>
+
+  <div class="footer-row">
+    <button class="reset-btn" onclick="resetCards()">ぜんぶ さいしょから やりなおす（生徒の登録も消えます）</button>
+  </div>
+</div>
+
+<script>
+var HW = window.HWC;
+var ROOM_KEY = "hwcard_teacher_room";
+var currentRoom = "";
+var state = null, selStage = 1, selHand = 4, inited = false, timeOffset = 0;
+
+function el(id){ return document.getElementById(id); }
+function enc(v){ return encodeURIComponent(v); }
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function post(path, body){
+  return fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .then(function(r){ return r.json(); });
+}
+
+var CLASS_SIZE_KEY = "hwcard_class_size";
+var lastStudents = [];
+
+function absentKey(){ return "hwcard_absent_" + currentRoom; }
+function getAbsent(){
+  try{ return JSON.parse(localStorage.getItem(absentKey()) || "[]"); }catch(e){ return []; }
+}
+function setAbsent(list){
+  try{ localStorage.setItem(absentKey(), JSON.stringify(list)); }catch(e){}
+}
+function toggleAbsent(n){
+  var list = getAbsent();
+  var i = list.indexOf(n);
+  if(i >= 0) list.splice(i, 1); else list.push(n);
+  setAbsent(list);
+  renderRoster(lastStudents);
+}
+function clearAbsent(){ setAbsent([]); }
+
+function renderRoster(students){
+  lastStudents = students;
+  var size = parseInt(document.getElementById("class-size").value, 10) || 0;
+  var counts = {};
+  var noNumber = 0, teachers = 0;
+  students.forEach(function(s){
+    if(s.role === "teacher") teachers++;
+    else if(s.no) counts[s.no] = (counts[s.no] || 0) + 1;
+    else noNumber++;
+  });
+  var absent = getAbsent();
+  var grid = document.getElementById("no-grid");
+  var msg = document.getElementById("roster-msg");
+  grid.innerHTML = "";
+  var teacherText = teachers ? ' <span class="roster-warn">／ 先生 ' + teachers + '人</span>' : '';
+  if(!size){
+    document.getElementById("roster-count").textContent = "ログイン " + (students.length - teachers) + "人";
+    msg.innerHTML = '<span class="roster-warn">クラスの人数を入れると、まだログインしていない番号が わかります</span>' + teacherText;
+    return;
+  }
+  var missing = [], dups = [], loggedIn = 0, absentCount = 0;
+  for(var n = 1; n <= size; n++){
+    var c = counts[n] || 0;
+    var isAbsent = !c && absent.indexOf(n) >= 0;
+    if(c) loggedIn++;
+    else if(isAbsent) absentCount++;
+    else missing.push(n);
+    if(c > 1) dups.push(n);
+    var chip = document.createElement("div");
+    chip.className = "no-chip" + (c > 1 ? " dup" : (c ? " in" : (isAbsent ? " absent" : "")));
+    chip.innerHTML = n + (isAbsent ? "<small>欠席</small>" : "");
+    chip.title = c ? "ログイン済み" : (isAbsent ? "欠席（タップで もどす）" : "タップで 欠席にする");
+    (function(num, logged){
+      chip.onclick = function(){ if(!logged) toggleAbsent(num); };
+    })(n, !!c);
+    grid.appendChild(chip);
+  }
+  var expected = size - absentCount;
+  document.getElementById("roster-count").textContent = "ログイン " + loggedIn + " / " + expected + "人" + (absentCount ? "（欠席 " + absentCount + "人）" : "");
+  var html = missing.length
+    ? '<span class="roster-missing">まだ: ' + missing.map(function(n){ return n + "番"; }).join("、") + '</span>'
+    : '<span class="roster-ok">✅ 全員ログインしました</span>';
+  if(dups.length) html += ' <span class="roster-warn">／ 番号がかぶっています: ' + dups.map(function(n){ return n + "番"; }).join("、") + '</span>';
+  if(noNumber) html += ' <span class="roster-warn">／ 番号なし ' + noNumber + '人</span>';
+  html += teacherText;
+  msg.innerHTML = html;
+}
+document.getElementById("absent-clear").onclick = function(){
+  clearAbsent();
+  renderRoster(lastStudents);
+};
+document.getElementById("class-size").addEventListener("input", function(){
+  try{ localStorage.setItem(CLASS_SIZE_KEY, this.value); }catch(e){}
+  renderRoster(lastStudents);
+});
+try{ document.getElementById("class-size").value = localStorage.getItem(CLASS_SIZE_KEY) || ""; }catch(e){}
+
+var photoCache = {};
+function photoSrc(s){
+  if(!s.photo) return null;
+  var c = photoCache[s.id];
+  if(c && c !== "loading") return c;
+  if(!c){
+    photoCache[s.id] = "loading";
+    fetch(s.photo).then(function(r){ if(!r.ok) throw new Error("x"); return r.blob(); })
+      .then(function(b){ photoCache[s.id] = URL.createObjectURL(b); })
+      .catch(function(){ delete photoCache[s.id]; });
+  }
+  return null;
+}
+function mmss(ms){
+  var sec = Math.max(0, Math.floor(ms / 1000));
+  var m = Math.floor(sec / 60), r = sec % 60;
+  return (m < 10 ? "0" : "") + m + ":" + (r < 10 ? "0" : "") + r;
+}
+function renderBoard(students){
+  var list = el("ranking-list");
+  var total = state ? state.total : 12;
+  if(!students || students.length === 0){
+    list.innerHTML = '<span class="ranking-empty">まだ登録した生徒がいません</span>';
+    return;
+  }
+  var arr = students.slice().sort(function(a, b){
+    var da = a.done, db = b.done;
+    if(da && db){
+      if(da.rank && db.rank) return da.rank - db.rank;
+      if(da.rank) return -1;
+      if(db.rank) return 1;
+      return da.at - db.at;
+    }
+    if(da) return -1;
+    if(db) return 1;
+    if(b.bookCount !== a.bookCount) return b.bookCount - a.bookCount;
+    return (a.no || 999) - (b.no || 999);
+  });
+  list.innerHTML = arr.map(function(s, idx){
+    var ph = photoSrc(s);
+    var photoHtml = ph ? '<img class="ranking-photo" src="' + ph + '">' : '<span class="ranking-photo ranking-photo-placeholder">🙂</span>';
+    var badge = s.done ? '<span class="done-badge">🏆 ' + (s.done.rank ? s.done.rank + "位 " : "") + mmss(s.done.ms) + '</span>' : "";
+    return '<div class="ranking-row">' +
+      '<span class="ranking-rank">' + (idx + 1) + '</span>' + photoHtml +
+      (s.role === "teacher" ? '<span class="ranking-no teacher">先生</span>' : (s.no ? '<span class="ranking-no">' + s.no + '番</span>' : '')) +
+      '<span class="ranking-lines">' + (s.dealt ? "📖 " + s.bookCount + " / " + total + '<span class="mini"><i style="width:' + Math.round(s.bookCount / total * 100) + '%"></i></span>' : "（まだ くばっていません）") + '</span>' +
+      badge +
+      '<button class="rm-btn2" data-id="' + s.id + '" title="この表示を消す">×</button>' +
+      '</div>';
+  }).join("");
+}
+function renderCounts(d){
+  var cards = HW.sets[d.stage].cards;
+  el("counts-row").innerHTML = cards.map(function(c){
+    return '<div class="count-chip' + (c.rare ? " rare" : "") + '"><div class="ce">' + c.emoji + '</div><div class="cn">' + (c.rare ? "★" : "") + (d.counts[c.id] || 0) + '</div></div>';
+  }).join("");
+}
+function renderControls(){
+  if(!state) return;
+  var playing = state.phase === "playing";
+  Array.prototype.forEach.call(document.querySelectorAll("[data-stage]"), function(b){
+    b.classList.toggle("active", Number(b.getAttribute("data-stage")) === selStage);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-hand]"), function(b){
+    b.classList.toggle("active", Number(b.getAttribute("data-hand")) === selHand);
+  });
+  el("stage-label").textContent = "ステージ" + state.stage + "：" + state.stageTitle;
+  var players = state.students.length;
+  el("phase-label").textContent = playing ? "あそび中（" + players + "人）" : "まだ くばっていません（" + players + "人 ログイン）";
+  var btn = el("deal-btn");
+  if(!playing) btn.textContent = "🃏 カードをくばってスタート！（ステージ" + selStage + "・" + selHand + "まい）";
+  else if(selStage !== state.stage) btn.textContent = "▶ ステージ" + selStage + "へ すすむ（ぜんいんに くばりなおし）";
+  else btn.textContent = "🔄 くばりなおす（ステージ" + selStage + "・ずかんがリセット）";
+  var note = "";
+  if(players * selHand < 24) note = "⚠ 人数がすくないので、カードが かたよってコンプリートできないことがあります（ためしあそび向け）";
+  else note = "ログインしている ぜんいんに くばります。あとから入った子には ランダムに くばられます。";
+  el("deal-note").textContent = note;
+}
+function renderLive(){
+  if(!state) return;
+  var students = state.students.filter(function(s){ return s.role !== "teacher"; });
+  var done = students.filter(function(s){ return s.done; }).length;
+  var t = (state.phase === "playing" && state.dealtAt) ? mmss(Date.now() + timeOffset - state.dealtAt) : "00:00";
+  el("live-line").textContent = "⏱ " + t + "　🏆 コンプリート " + done + " / " + students.length + "人";
+}
+function applyState(d){
+  state = d;
+  timeOffset = d.serverNow - Date.now();
+  if(!inited){ selStage = d.stage; selHand = d.handSize; inited = true; }
+  renderControls();
+  renderCounts(d);
+  renderBoard(d.students);
+  renderRoster(d.students);
+  renderLive();
+}
+function fetchState(){
+  fetch("/api/hwcard/state?room=" + enc(currentRoom))
+    .then(function(r){ return r.json(); })
+    .then(applyState)
+    .catch(function(){});
+}
+function chooseStage(n){ selStage = n; renderControls(); }
+function chooseHand(n){ selHand = n; renderControls(); }
+function dealCards(){
+  if(!currentRoom || !state) return;
+  var playing = state.phase === "playing";
+  if(playing){
+    var msg = selStage !== state.stage
+      ? "ステージ" + selStage + "にすすみます。みんなのカードと ずかんが あたらしくなります。よろしいですか？"
+      : "カードを くばりなおします。みんなの ずかんが リセットされます。よろしいですか？";
+    if(!confirm(msg)) return;
+  } else if(state.students.length * selHand < 24){
+    if(!confirm("人数がすくないため、カードが かたよって コンプリートできないことがあります。このまま くばりますか？")) return;
+  }
+  post("/api/hwcard/deal", { room: currentRoom, stage: selStage, handSize: selHand }).then(applyState);
+}
+window.chooseStage = chooseStage;
+window.chooseHand = chooseHand;
+window.dealCards = dealCards;
+function resetCards(){
+  if(!confirm("カードも、生徒の登録も ぜんぶリセットしますか？（生徒の画面は登録画面にもどります）")) return;
+  clearAbsent();
+  post("/api/hwcard/reset", { room: currentRoom }).then(function(d){ inited = false; applyState(d); });
+}
+window.resetCards = resetCards;
+function buildPractice(){
+  var phrases = ["Do you have a ghost?", "Yes, I do. Here you are.", "No, I don't. Sorry.", "Let's trade!", "Thank you!", "You're welcome!"];
+  el("phrase-list").innerHTML = "";
+  phrases.forEach(function(p){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "phrase-chip"; b.textContent = "🔊 " + p;
+    b.onclick = function(){ speak(p); };
+    el("phrase-list").appendChild(b);
+  });
+  [1, 2].forEach(function(n){
+    el("set" + n + "-title").textContent = "ステージ" + n + "：" + HW.sets[n].title;
+    var g = el("practice-grid-" + n);
+    g.innerHTML = "";
+    HW.sets[n].cards.forEach(function(c){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "practice-chip";
+      b.innerHTML = '<div class="pe">' + c.emoji + '</div><div class="pw">' + (c.rare ? "★" : "") + c.en + '</div><div class="pj">' + c.ja + '</div>';
+      b.onclick = function(){ speak(HW.ask(c)); };
+      g.appendChild(b);
+    });
+  });
+}
+
+function startWithRoom(room){
+  currentRoom = room;
+  localStorage.setItem(ROOM_KEY, room);
+  var url = new URL(location.href);
+  url.searchParams.set("room", room);
+  history.replaceState(null, "", url.toString());
+  document.getElementById("room-tag").textContent = "教室コード: " + room;
+  document.getElementById("room-overlay").style.display = "none";
+  fetchState();
+}
+
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+var SCHOOL_KEY = "hwcard_school";
+var tGrade = 0, tClass = 0;
+function parseRoom(room){
+  var m = String(room || "").match(/^(?:([a-z0-9]+)-)?([1-6])-([1-8])$/);
+  return m ? { school: m[1] || "", g: parseInt(m[2], 10), c: parseInt(m[3], 10) } : null;
+}
+function currentSchool(){ return sanitizeSchool(document.getElementById("school-input").value); }
+function renderTGC(){
+  function build(id, max, onPick){
+    var box = document.getElementById(id);
+    if(!box.children.length){
+      for(var n = 1; n <= max; n++){
+        (function(num){
+          var b = document.createElement("button");
+          b.type = "button";
+          b.textContent = num;
+          b.onclick = function(){ onPick(num); renderTGC(); };
+          box.appendChild(b);
+        })(n);
+      }
+    }
+    return box;
+  }
+  var g = build("t-grade", 6, function(n){ tGrade = n; });
+  var c = build("t-class", 8, function(n){ tClass = n; });
+  Array.prototype.forEach.call(g.children, function(b){ b.className = parseInt(b.textContent, 10) === tGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(c.children, function(b){ b.className = parseInt(b.textContent, 10) === tClass ? "sel" : ""; });
+  document.getElementById("room-preview").textContent = (tGrade && tClass)
+    ? tGrade + "年" + tClass + "組（教室コード: " + makeRoom(currentSchool(), tGrade, tClass) + "）"
+    : "学年と組をえらんでください";
+}
+function showRoomOverlay(prefill){
+  var p = parseRoom(prefill);
+  var school = p ? p.school : "";
+  if(!p){ try{ school = localStorage.getItem(SCHOOL_KEY) || ""; }catch(e){} }
+  document.getElementById("school-input").value = school;
+  tGrade = p ? p.g : 0;
+  tClass = p ? p.c : 0;
+  renderTGC();
+  document.getElementById("room-overlay").style.display = "flex";
+}
+document.getElementById("school-input").oninput = renderTGC;
+document.getElementById("room-code-btn").onclick = function(){
+  if(!tGrade || !tClass){ alert("学年と組をえらんでください"); return; }
+  var school = currentSchool();
+  try{ localStorage.setItem(SCHOOL_KEY, school); }catch(e){}
+  startWithRoom(makeRoom(school, tGrade, tClass));
+};
+document.getElementById("room-change-btn").onclick = function(){
+  showRoomOverlay(currentRoom);
+};
+document.getElementById("tv-btn").onclick = function(){
+  window.open("/halloween-card-tv?room=" + encodeURIComponent(currentRoom), "_blank");
+};
+var qrMode = "common";
+function qrUrl(){
+  var p = parseRoom(currentRoom);
+  var school = p ? p.school : "";
+  return qrMode === "common"
+    ? location.origin + "/halloween-card" + (school ? "?school=" + school : "")
+    : location.origin + "/halloween-card?room=" + encodeURIComponent(currentRoom);
+}
+function renderQR(){
+  var p = parseRoom(currentRoom);
+  var school = p ? p.school : "";
+  var url = qrUrl();
+  document.getElementById("qr-tab-common").className = qrMode === "common" ? "sel" : "";
+  document.getElementById("qr-tab-class").className = qrMode === "class" ? "sel" : "";
+  document.getElementById("qr-desc").textContent = qrMode === "common"
+    ? "全クラス共通のプリント用です。生徒は学年・組・番号をえらびます。" + (school ? "（学校コード「" + school + "」入り）" : "（学校コードなし）")
+    : (p ? p.g + "年" + p.c + "組" : currentRoom) + " 専用です。生徒は学年・組をえらばずに入れます（番号をえらぶだけ）。TVに映して読み取らせるときに便利です。";
+  var box = document.getElementById("qr-box");
+  if(typeof qrcode !== "function"){
+    box.textContent = "QRコードを作れませんでした（ページを読みこみ直してください）";
+  } else {
+    var qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2 });
+  }
+  document.getElementById("qr-url").textContent = url;
+  document.getElementById("qr-copy").textContent = "URLをコピー";
+}
+document.getElementById("url-btn").onclick = function(){
+  qrMode = "common";
+  renderQR();
+  document.getElementById("qr-overlay").style.display = "flex";
+};
+document.getElementById("qr-tab-common").onclick = function(){ qrMode = "common"; renderQR(); };
+document.getElementById("qr-tab-class").onclick = function(){ qrMode = "class"; renderQR(); };
+document.getElementById("qr-close").onclick = function(){ document.getElementById("qr-overlay").style.display = "none"; };
+document.getElementById("qr-print").onclick = function(){ window.print(); };
+document.getElementById("qr-copy").onclick = function(){
+  var url = qrUrl();
+  var btn = this;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ btn.textContent = "コピーしました"; }, function(){ prompt("このURLをコピーしてください", url); });
+  } else {
+    prompt("このURLをコピーしてください", url);
+  }
+};
+
+document.getElementById("ranking-list").addEventListener("click", function(e){
+  var btn = e.target.closest ? e.target.closest(".rm-btn2") : null;
+  if(!btn) return;
+  if(!confirm("この表示を消しますか？\n（まちがえて2つ出ているときなどに使います。その端末は登録画面にもどります）")) return;
+  fetch("/api/hwcard/remove", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom, id: btn.getAttribute("data-id") })
+  }).then(function(){ fetchState(); }).catch(function(){});
+});
+
+(function boot(){
+  var urlRoom = getRoomFromUrl();
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  if(urlRoom){
+    startWithRoom(urlRoom);
+  } else if(savedRoom){
+    startWithRoom(savedRoom);
+  } else {
+    showRoomOverlay("");
+  }
+})();
+setInterval(function(){ if(currentRoom) fetchState(); }, 3000);
+buildPractice();
+setInterval(renderLive, 1000);
+</script>
+</body>
+</html>

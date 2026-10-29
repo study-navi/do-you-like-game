@@ -293,6 +293,244 @@ function publicAlphabetList(room){
 
 
 /* ============================================================
+ * ハロウィン カードあつめ（交換して「ずかん」をコンプリートするゲーム）
+ *   /halloween-card（生徒用）/halloween-card-teacher（先生用）/halloween-card-tv（TV用）
+ *   room -> { phase: 'waiting' | 'playing', stage: 1|2, handSize: 3|4|5, dealtAt }
+ *   生徒 -> { hand:[てふだ], book:[ずかん（いちど持ったカード）], stageDone:{ステージ: {at, ms, rank}} }
+ * ============================================================ */
+const HWC = require('./public/halloween-card-data.js');
+const HWC_ROOMS_FILE = path.join(__dirname, 'hwcard_rooms.json');
+const HWC_STUDENTS_FILE = path.join(__dirname, 'hwcard_students.json');
+let hwcRooms = {};
+let hwcStudents = {};
+function loadHwc(){
+  try{ hwcRooms = JSON.parse(fs.readFileSync(HWC_ROOMS_FILE, 'utf8')); }catch(e){ hwcRooms = {}; }
+  try{ hwcStudents = JSON.parse(fs.readFileSync(HWC_STUDENTS_FILE, 'utf8')); }catch(e){ hwcStudents = {}; }
+}
+function saveHwcRooms(){
+  try{ fs.writeFileSync(HWC_ROOMS_FILE, JSON.stringify(hwcRooms)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function saveHwcStudents(){
+  try{ fs.writeFileSync(HWC_STUDENTS_FILE, JSON.stringify(hwcStudents)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+loadHwc();
+
+const hwcOffers = {}; // 依頼した人の id -> { id, room, from, to, give, want, at }
+const HWC_OFFER_TTL = 90 * 1000;
+
+function getHwcRoom(room){
+  let r = hwcRooms[room];
+  if(!r) r = hwcRooms[room] = { phase: 'waiting', stage: 1, handSize: 4, dealtAt: null };
+  if(r.phase !== 'playing') r.phase = 'waiting';
+  if(!HWC.sets[r.stage]) r.stage = 1;
+  if([3, 4, 5].indexOf(r.handSize) < 0) r.handSize = 4;
+  return r;
+}
+function hwcSet(stage){ return HWC.sets[stage] || HWC.sets[1]; }
+function hwcShuffle(a){
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function hwcUnique(a){ return a.filter(function(v, i){ return a.indexOf(v) === i; }); }
+
+// 全員ぶんのカードの山をつくる。★レアは少なめ、どのカードも最低1まいは入れる。
+function hwcDeck(total, stage){
+  const cards = hwcSet(stage).cards;
+  const n = cards.length;
+  if(total < n){
+    return hwcShuffle(cards.map(function(c){ return c.id; })).slice(0, total);
+  }
+  const w = cards.map(function(c){ return c.rare ? 0.5 : 1; });
+  const sw = w.reduce(function(a, b){ return a + b; }, 0);
+  const minCopies = total >= n * 2 ? 2 : 1;
+  const copies = w.map(function(x){ return Math.max(minCopies, Math.floor(total * x / sw)); });
+  let sum = copies.reduce(function(a, b){ return a + b; }, 0);
+  let i = 0, guard = 0;
+  while(sum < total && guard++ < 100000){
+    const k = i++ % n;
+    if(!cards[k].rare){ copies[k]++; sum++; }
+  }
+  guard = 0;
+  while(sum > total && guard++ < 100000){
+    let mi = 0;
+    for(let k = 1; k < n; k++){ if(copies[k] > copies[mi]) mi = k; }
+    if(copies[mi] <= minCopies) break;
+    copies[mi]--; sum--;
+  }
+  const deck = [];
+  copies.forEach(function(c, k){ for(let m = 0; m < c; m++) deck.push(cards[k].id); });
+  return hwcShuffle(deck);
+}
+// あとから入った子には、ランダムに配る（★レアは出にくい）
+function hwcRandomHand(stage, size){
+  const cards = hwcSet(stage).cards;
+  const w = cards.map(function(c){ return c.rare ? 0.5 : 1; });
+  const sw = w.reduce(function(a, b){ return a + b; }, 0);
+  const hand = [];
+  for(let m = 0; m < size; m++){
+    let x = Math.random() * sw, k = 0;
+    while(k < cards.length - 1 && x >= w[k]){ x -= w[k]; k++; }
+    hand.push(cards[k].id);
+  }
+  return hand;
+}
+function hwcPlayers(room){
+  return Object.keys(hwcStudents).filter(function(id){ return normalizeRoom(hwcStudents[id].room) === room; });
+}
+function hwcDealRoom(room){
+  const r = getHwcRoom(room);
+  const ids = hwcPlayers(room);
+  const deck = hwcDeck(ids.length * r.handSize, r.stage);
+  ids.forEach(function(id, i){
+    const s = hwcStudents[id];
+    s.hand = deck.slice(i * r.handSize, (i + 1) * r.handSize);
+    s.book = hwcUnique(s.hand);
+    if(s.stageDone) delete s.stageDone[r.stage];
+    s.swaps = 0;
+    s.notice = null;
+    s.updatedAt = Date.now();
+  });
+  Object.keys(hwcOffers).forEach(function(k){ if(hwcOffers[k].room === room) delete hwcOffers[k]; });
+  r.phase = 'playing';
+  r.dealtAt = Date.now();
+  saveHwcRooms();
+  saveHwcStudents();
+}
+function hwcName(st){ return { no: st.no || null, role: st.role || 'student' }; }
+function pruneHwcOffers(){
+  const now = Date.now();
+  Object.keys(hwcOffers).forEach(function(k){
+    const o = hwcOffers[k];
+    const a = hwcStudents[o.from], b = hwcStudents[o.to];
+    if(!a || !b){ delete hwcOffers[k]; return; }
+    if(now - o.at > HWC_OFFER_TTL){
+      a.notice = { kind: 'expired', at: now, withNo: b.no || null, withRole: b.role || 'student' };
+      delete hwcOffers[k];
+    }
+  });
+}
+// ずかん（book）が全部そろったらコンプリート
+function hwcCheckDone(st, now){
+  const room = normalizeRoom(st.room);
+  const r = getHwcRoom(room);
+  const n = hwcSet(r.stage).cards.length;
+  if(st.stageDone && st.stageDone[r.stage]) return false;
+  if(!Array.isArray(st.book) || st.book.length < n) return false;
+  if(!st.stageDone) st.stageDone = {};
+  let rank = null;
+  if(st.role !== 'teacher'){
+    rank = 1 + hwcPlayers(room).filter(function(id){
+      const x = hwcStudents[id];
+      return x.role !== 'teacher' && x.stageDone && x.stageDone[r.stage];
+    }).length;
+  }
+  st.stageDone[r.stage] = { at: now, ms: now - (r.dealtAt || now), rank: rank };
+  return true;
+}
+function hwcSwap(a, give, b, want, now){
+  const ai = a.hand.indexOf(give), bi = b.hand.indexOf(want);
+  a.hand[ai] = want;
+  b.hand[bi] = give;
+  const aNew = a.book.indexOf(want) < 0;
+  const bNew = b.book.indexOf(give) < 0;
+  if(aNew) a.book.push(want);
+  if(bNew) b.book.push(give);
+  a.swaps = (a.swaps || 0) + 1;
+  b.swaps = (b.swaps || 0) + 1;
+  a.updatedAt = now; b.updatedAt = now;
+  const doneA = hwcCheckDone(a, now);
+  const doneB = hwcCheckDone(b, now);
+  a.notice = { kind: 'done', at: now, withNo: b.no || null, withRole: b.role || 'student', got: want, gave: give, isNew: aNew, complete: doneA };
+  b.notice = { kind: 'done', at: now, withNo: a.no || null, withRole: a.role || 'student', got: give, gave: want, isNew: bNew, complete: doneB };
+  return { aNew: aNew, bNew: bNew, doneA: doneA, doneB: doneB };
+}
+function hwcMe(st){
+  pruneHwcOffers();
+  const room = normalizeRoom(st.room);
+  const r = getHwcRoom(room);
+  const set = hwcSet(r.stage);
+  const hand = Array.isArray(st.hand) ? st.hand : [];
+  const book = Array.isArray(st.book) ? st.book : [];
+  const incoming = [];
+  Object.keys(hwcOffers).forEach(function(k){
+    const o = hwcOffers[k];
+    const from = hwcStudents[o.from];
+    if(o.to === st.id && from){
+      incoming.push({
+        id: o.id, from: o.from, fromNo: from.no || null, fromRole: from.role || 'student',
+        fromPhoto: from.photo ? '/api/hwcard/photo?id=' + from.id : null,
+        give: o.give, want: o.want,
+        haveWant: hand.indexOf(o.want) >= 0,
+        giveIsNew: book.indexOf(o.give) < 0
+      });
+    }
+  });
+  const mine = hwcOffers[st.id];
+  const outTo = mine ? hwcStudents[mine.to] : null;
+  const outgoing = (mine && outTo) ? { id: mine.id, to: mine.to, toNo: outTo.no || null, toRole: outTo.role || 'student', give: mine.give, want: mine.want } : null;
+  return {
+    exists: true,
+    id: st.id,
+    room: room,
+    phase: r.phase,
+    stage: r.stage,
+    stageTitle: set.title,
+    handSize: r.handSize,
+    dealtAt: r.dealtAt,
+    total: set.cards.length,
+    hand: hand,
+    book: book,
+    swaps: st.swaps || 0,
+    done: (st.stageDone && st.stageDone[r.stage]) || null,
+    stageDone: st.stageDone || {},
+    incoming: incoming,
+    outgoing: outgoing,
+    notice: (st.notice && Date.now() - st.notice.at < 30000) ? st.notice : null,
+    players: hwcPlayers(room).length,
+    serverNow: Date.now()
+  };
+}
+function hwcPublicState(room){
+  const r = getHwcRoom(room);
+  const set = hwcSet(r.stage);
+  const counts = {};
+  set.cards.forEach(function(c){ counts[c.id] = 0; });
+  const students = hwcPlayers(room).map(function(id){
+    const s = hwcStudents[id];
+    (Array.isArray(s.hand) ? s.hand : []).forEach(function(t){ if(counts[t] !== undefined) counts[t]++; });
+    return {
+      id: id,
+      no: s.no || null,
+      role: s.role || 'student',
+      photo: s.photo ? '/api/hwcard/photo?id=' + id : null,
+      bookCount: Array.isArray(s.book) ? s.book.length : 0,
+      done: (s.stageDone && s.stageDone[r.stage]) || null,
+      stageDone: s.stageDone || {},
+      swaps: s.swaps || 0,
+      dealt: Array.isArray(s.hand),
+      registeredAt: s.registeredAt,
+      updatedAt: s.updatedAt
+    };
+  });
+  return {
+    room: room,
+    phase: r.phase,
+    stage: r.stage,
+    stageTitle: set.title,
+    handSize: r.handSize,
+    dealtAt: r.dealtAt,
+    total: set.cards.length,
+    counts: counts,
+    students: students,
+    serverNow: Date.now()
+  };
+}
+
+
+/* ============================================================
  * イニシャルカード交換ゲーム（Let's Try! 1 Unit6 ALPHABET）
  *   /initial（生徒用）/initial-teacher（先生用）/initial-tv（TV用）
  *   room -> { phase: 'making' | 'playing', dealtAt }
@@ -1137,6 +1375,253 @@ const server = http.createServer(function(req, res){
     serveFile(res, path.join(PUBLIC_DIR, 'what-teacher.html'), 'text/html; charset=utf-8');
     return;
   }
+  /* ---------- ハロウィン カードあつめ ---------- */
+  if(req.method === 'GET' && url === '/halloween-card'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-card.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/halloween-card-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-card-teacher.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/halloween-card-tv'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-card-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/halloween-card-data.js'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-card-data.js'), 'application/javascript; charset=utf-8');
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/hwcard/photo'){
+    const st = hwcStudents[getQueryParam(queryString, 'id')];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, { 'Content-Type': m[1], 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=604800, immutable', 'Access-Control-Allow-Origin': '*' });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/hwcard/me'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const st = hwcStudents[getQueryParam(queryString, 'id')];
+    if(!st || normalizeRoom(st.room) !== room){
+      const r = getHwcRoom(room);
+      sendJson(res, 200, { exists: false, phase: r.phase, stage: r.stage });
+      return;
+    }
+    sendJson(res, 200, hwcMe(st));
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/hwcard/state'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    sendJson(res, 200, hwcPublicState(room));
+    return;
+  }
+
+  // 交換できる相手（カードが配られている、同じ教室の人）
+  if(req.method === 'GET' && url === '/api/hwcard/peers'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    const peers = hwcPlayers(room).filter(function(id){
+      return id !== me && Array.isArray(hwcStudents[id].hand);
+    }).map(function(id){
+      const x = hwcStudents[id];
+      return { id: id, no: x.no || null, role: x.role || 'student', photo: x.photo ? '/api/hwcard/photo?id=' + id : null };
+    }).sort(function(a, b){
+      if(a.role !== b.role) return a.role === 'teacher' ? 1 : -1;
+      return (a.no || 999) - (b.no || 999);
+    });
+    sendJson(res, 200, { peers: peers });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/hwcard/register'){
+    readJsonBody(req, function(body){
+      if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
+      const room = normalizeRoom(body.room);
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      const role = body.role === 'teacher' ? 'teacher' : 'student';
+      const no = (role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null;
+      // 前の登録（同じ教室の、同じ端末）をさがす
+      let old = null;
+      if(typeof body.replaceId === 'string' && hwcStudents[body.replaceId] && normalizeRoom(hwcStudents[body.replaceId].room) === room){
+        old = hwcStudents[body.replaceId];
+      }
+      if(!old && deviceId){
+        Object.keys(hwcStudents).forEach(function(k){
+          if(!old && hwcStudents[k].deviceId === deviceId && normalizeRoom(hwcStudents[k].room) === room) old = hwcStudents[k];
+        });
+      }
+      if(typeof body.replaceId === 'string' && hwcStudents[body.replaceId] && normalizeRoom(hwcStudents[body.replaceId].room) === room){
+        delete hwcStudents[body.replaceId];
+      }
+      if(deviceId){
+        Object.keys(hwcStudents).forEach(function(k){
+          if(hwcStudents[k].deviceId === deviceId && normalizeRoom(hwcStudents[k].room) === room) delete hwcStudents[k];
+        });
+      }
+      const id = crypto.randomBytes(4).toString('hex');
+      const st = hwcStudents[id] = {
+        id: id, room: room, deviceId: deviceId, role: role, no: no,
+        photo: typeof body.photo === 'string' ? body.photo : null,
+        hand: null, book: [], stageDone: {}, swaps: 0, notice: null,
+        registeredAt: Date.now(), updatedAt: Date.now()
+      };
+      const r = getHwcRoom(room);
+      // 同じ人が登録しなおしたら、てふだ・ずかんをそのまま引きつぐ
+      if(old && Array.isArray(old.hand) && old.role === role && old.no === no){
+        st.hand = old.hand; st.book = old.book || []; st.stageDone = old.stageDone || {}; st.swaps = old.swaps || 0;
+        st.registeredAt = old.registeredAt || st.registeredAt;
+      } else if(r.phase === 'playing'){
+        // ゲームがはじまってから入った子には、ランダムに配る
+        st.hand = hwcRandomHand(r.stage, r.handSize);
+        st.book = hwcUnique(st.hand);
+      }
+      if(old){
+        Object.keys(hwcOffers).forEach(function(k){
+          if(hwcOffers[k].from === old.id || hwcOffers[k].to === old.id) delete hwcOffers[k];
+        });
+      }
+      saveHwcStudents();
+      sendJson(res, 200, { id: id, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/hwcard/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && hwcStudents[id] && normalizeRoom(hwcStudents[id].room) === room){
+        delete hwcStudents[id];
+        Object.keys(hwcOffers).forEach(function(k){ if(hwcOffers[k].from === id || hwcOffers[k].to === id) delete hwcOffers[k]; });
+        saveHwcStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  // 先生：カードをくばってスタート（ステージ・てふだの枚数もここで決める）
+  if(req.method === 'POST' && url === '/api/hwcard/deal'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getHwcRoom(room);
+      if(body && HWC.sets[body.stage]) r.stage = body.stage;
+      if(body && [3, 4, 5].indexOf(body.handSize) >= 0) r.handSize = body.handSize;
+      hwcDealRoom(room);
+      sendJson(res, 200, hwcPublicState(room));
+    });
+    return;
+  }
+
+  // 先生：ぜんぶリセット（生徒の登録も消える）
+  if(req.method === 'POST' && url === '/api/hwcard/reset'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      hwcPlayers(room).forEach(function(id){ delete hwcStudents[id]; });
+      Object.keys(hwcOffers).forEach(function(k){ if(hwcOffers[k].room === room) delete hwcOffers[k]; });
+      hwcRooms[room] = { phase: 'waiting', stage: 1, handSize: 4, dealtAt: null };
+      saveHwcRooms();
+      saveHwcStudents();
+      sendJson(res, 200, hwcPublicState(room));
+    });
+    return;
+  }
+
+  // 交換をおねがいする（「Do you have ○○?」＋「I have △△.」）
+  if(req.method === 'POST' && url === '/api/hwcard/offer'){
+    readJsonBody(req, function(body){
+      const a = body && hwcStudents[body.id];
+      const b = body && hwcStudents[body.to];
+      if(!a || !b || a.id === b.id || normalizeRoom(a.room) !== normalizeRoom(b.room)){
+        sendJson(res, 404, { error: 'unknown student' });
+        return;
+      }
+      const room = normalizeRoom(a.room);
+      const r = getHwcRoom(room);
+      const ids = hwcSet(r.stage).cards.map(function(c){ return c.id; });
+      if(r.phase !== 'playing' || !Array.isArray(a.hand) || !Array.isArray(b.hand)){
+        sendJson(res, 409, { error: 'not playing' });
+        return;
+      }
+      if(ids.indexOf(body.want) < 0 || a.hand.indexOf(body.give) < 0 || body.give === body.want){
+        sendJson(res, 400, { error: 'invalid cards', me: hwcMe(a) });
+        return;
+      }
+      pruneHwcOffers();
+      hwcOffers[a.id] = { id: crypto.randomBytes(4).toString('hex'), room: room, from: a.id, to: b.id, give: body.give, want: body.want, at: Date.now() };
+      a.notice = null;
+      sendJson(res, 200, { ok: true, me: hwcMe(a) });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/hwcard/offer-cancel'){
+    readJsonBody(req, function(body){
+      if(body && body.id) delete hwcOffers[body.id];
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  // 依頼をうける（Yes, I do!）
+  if(req.method === 'POST' && url === '/api/hwcard/accept'){
+    readJsonBody(req, function(body){
+      const b = body && hwcStudents[body.id];
+      if(!b){ sendJson(res, 404, { error: 'unknown student' }); return; }
+      pruneHwcOffers();
+      let offer = null;
+      Object.keys(hwcOffers).forEach(function(k){ if(hwcOffers[k].id === body.offerId && hwcOffers[k].to === b.id) offer = hwcOffers[k]; });
+      const a = offer ? hwcStudents[offer.from] : null;
+      if(!offer || !a){ sendJson(res, 409, { error: 'expired', me: hwcMe(b) }); return; }
+      const r = getHwcRoom(normalizeRoom(b.room));
+      if(r.phase !== 'playing' || !Array.isArray(a.hand) || !Array.isArray(b.hand)){
+        sendJson(res, 409, { error: 'not playing', me: hwcMe(b) });
+        return;
+      }
+      if(a.hand.indexOf(offer.give) < 0){
+        delete hwcOffers[a.id];
+        a.notice = { kind: 'expired', at: Date.now(), withNo: b.no || null, withRole: b.role || 'student' };
+        saveHwcStudents();
+        sendJson(res, 409, { error: 'expired', me: hwcMe(b) });
+        return;
+      }
+      if(b.hand.indexOf(offer.want) < 0){
+        sendJson(res, 409, { error: 'no card', me: hwcMe(b) });
+        return;
+      }
+      delete hwcOffers[a.id];
+      hwcSwap(a, offer.give, b, offer.want, Date.now());
+      saveHwcStudents();
+      sendJson(res, 200, { ok: true, me: hwcMe(b) });
+    });
+    return;
+  }
+
+  // 依頼をことわる（No, I don't.）
+  if(req.method === 'POST' && url === '/api/hwcard/decline'){
+    readJsonBody(req, function(body){
+      const b = body && hwcStudents[body.id];
+      if(b){
+        Object.keys(hwcOffers).forEach(function(k){
+          const o = hwcOffers[k];
+          if(o.id === body.offerId && o.to === b.id){
+            const a = hwcStudents[o.from];
+            if(a) a.notice = { kind: 'declined', at: Date.now(), withNo: b.no || null, withRole: b.role || 'student', want: o.want };
+            delete hwcOffers[k];
+          }
+        });
+        saveHwcStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
   if(req.method === 'GET' && url === '/qrcode.js'){
     serveFile(res, path.join(PUBLIC_DIR, 'qrcode.js'), 'application/javascript; charset=utf-8');
     return;

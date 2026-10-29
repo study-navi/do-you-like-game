@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ハロウィンビンゴ - Do you like ...? ゲーム</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.46.0/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 16px; touch-action: manipulation;
+  }
+  .app { max-width: 520px; margin: 0 auto; }
+  .title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 2px; }
+  .room-tag { text-align: center; font-size: 12px; color: #888780; margin-bottom: 16px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* setup screen */
+  .setup-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .setup-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 12px; }
+  .random-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #E8710A; color: #FFFFFF; cursor: pointer; margin-bottom: 4px;
+  }
+  .or-sep { text-align: center; font-size: 12px; color: #B4B2A9; margin: 10px 0; }
+  .setup-grid-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .setup-grid { display: grid; gap: 6px; }
+  .setup-cell {
+    background: #F1EFE8; border: 2px dashed #D3D1C7; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; padding: 4px; overflow: hidden;
+  }
+  .setup-cell.filled { border-style: solid; border-color: #A9C23F; background: #F3F8E4; }
+  .setup-cell .cell-en { font-weight: 700; }
+  .setup-cell .cell-ja { color: #888780; }
+  .fill-count { text-align: center; font-size: 13px; color: #5F5E5A; margin-bottom: 10px; }
+  .pool-title { font-size: 13px; font-weight: 600; color: #5F5E5A; margin-bottom: 8px; }
+  .pool-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; min-height: 44px; }
+  .pool-tile {
+    background: #EEEDFE; border-radius: 12px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    color: #534AB7; cursor: grab; display: flex; align-items: center; gap: 6px; touch-action: none;
+  }
+  .pool-tile.selected { outline: 3px solid #534AB7; }
+  .pool-tile.dragging { opacity: 0.35; }
+  .drag-ghost {
+    position: fixed; z-index: 999; pointer-events: none; background: #534AB7; color: #FFFFFF;
+    border-radius: 12px; padding: 8px 14px; font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+  .confirm-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #A9C23F; color: #FFFFFF; cursor: pointer; margin-top: 6px;
+  }
+  .confirm-btn:disabled { background: #D3D1C7; cursor: default; }
+  .size-note { text-align: center; font-size: 12px; color: #B4B2A9; margin-bottom: 10px; }
+
+  /* game screen */
+  .word-banner {
+    background: #FFFFFF; border-radius: 18px; padding: 16px; text-align: center; margin-bottom: 14px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  }
+  .word-banner .label { font-size: 11px; color: #B4B2A9; margin-bottom: 4px; }
+  .word-banner .en { font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .word-banner .ja { font-size: 13px; color: #888780; margin-top: 2px; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 30px; height: 30px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .board-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .board-grid { display: grid; gap: 6px; }
+  .board-cell {
+    background: #FFFFFF; border: 2px solid #E6E4DA; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 4px; overflow: hidden; position: relative;
+  }
+  .board-cell.marked { background: #E1F5EE; border-color: #1D9E75; }
+  .board-cell.marked::after {
+    content: "✓"; position: absolute; top: 2px; right: 5px; color: #0F6E56; font-weight: 700; font-size: 13px;
+  }
+  .board-cell.line { background: #FDF3D8; border-color: #F0B429; }
+  .board-cell .cell-en { font-weight: 700; }
+  .board-cell .cell-ja { color: #888780; }
+  .history-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
+  .history-chip {
+    flex: 0 0 auto; background: #F1EFE8; border-radius: 999px; padding: 5px 12px; font-size: 12px; color: #5F5E5A;
+  }
+  .redo-btn {
+    width: 100%; padding: 10px; font-size: 13px; border-radius: 999px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; cursor: pointer;
+  }
+
+  .bingo-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  }
+  .bingo-overlay.show { display: flex; }
+  .bingo-card { background: #FFFFFF; border-radius: 22px; padding: 30px 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .bingo-emoji { font-size: 50px; margin-bottom: 8px; }
+  .bingo-text { font-size: 26px; font-weight: 700; color: #E8710A; margin-bottom: 16px; }
+  .bingo-close { padding: 10px 26px; border-radius: 999px; border: none; background: #E8710A; color: #FFFFFF; font-weight: 600; cursor: pointer; }
+
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .room-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  .room-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #E8710A; background: #FFF1E0; color: #E8710A; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .line-count-badge {
+    position: fixed; top: 12px; right: 12px; background: #E8710A; color: #FFFFFF;
+    padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 14px; z-index: 60;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .register-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55); display: none;
+    align-items: center; justify-content: center; padding: 16px; z-index: 110;
+  }
+  .register-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .register-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .register-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .reg-frame {
+    width: 140px; height: 140px; border-radius: 50%; background: #F1EFE8; border: 3px dashed #D3D1C7;
+    margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 40px;
+  }
+  .reg-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .reg-btn-primary, .reg-btn-secondary {
+    padding: 12px 20px; border-radius: 999px; border: none; font-weight: 700; font-size: 14px;
+    cursor: pointer; margin-bottom: 10px; width: 100%;
+  }
+  .reg-btn-primary { background: #E8710A; color: #FFFFFF; }
+  .reg-btn-secondary { background: #EEEDFE; color: #534AB7; }
+  .reg-skip-btn {
+    display: block; width: 100%; padding: 8px; border: none; background: none; color: #B4B2A9;
+    font-size: 12px; text-decoration: underline; cursor: pointer; margin-top: 6px;
+  }
+  /* ---- registration overlay ---- */
+  .register-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .register-card {
+    background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 420px;
+    text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  }
+  .register-title { font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .register-sub { font-size: 13px; color: #888780; margin-bottom: 14px; }
+  .reg-frame {
+    width: 100%; aspect-ratio: 4 / 3; background: #F1EFE8; border-radius: 16px;
+    overflow: hidden; margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .reg-frame video, .reg-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .register-actions { display: flex; flex-direction: column; gap: 10px; }
+  .reg-btn-primary {
+    padding: 14px; font-size: 16px; border-radius: 999px; font-weight: 600;
+    border: 2px solid #7F77DD; color: #534AB7; background: #EEEDFE;
+  }
+  .reg-btn-confirm {
+    padding: 14px; font-size: 16px; border-radius: 999px; font-weight: 600;
+    border: 2px solid #1D9E75; color: #0F6E56; background: #E1F5EE;
+  }
+  .reg-btn-secondary {
+    padding: 10px; font-size: 14px; border-radius: 999px; font-weight: 500;
+    border: 1px solid #D3D1C7; color: #5F5E5A; background: #FFFFFF;
+  }
+  .reg-error { color: #993C1D; font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .no-flex { display: flex; gap: 8px; }
+  .teacher-toggle {
+    flex: 0 0 auto; padding: 0 14px; border-radius: 10px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; font-size: 14px; font-weight: 600;
+  }
+  .teacher-toggle.on { background: #EEEDFE; border-color: #7F77DD; color: #534AB7; }
+  .register-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .no-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
+  .no-pick button {
+    padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 17px; font-weight: 700; color: #2C2C2A; transition: transform 0.1s;
+  }
+  .no-pick button:active { transform: scale(0.92); }
+  .no-pick button.sel { background: #E8710A; border-color: #E8710A; color: #FFFFFF; }
+  .no-pick.off { opacity: 0.3; pointer-events: none; }
+  #teacher-btn { width: 100%; padding: 10px 14px; }
+  .gc-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .gc-name { flex: 0 0 34px; font-size: 13px; color: #5F5E5A; font-weight: 600; }
+  .gc-pick { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .gc-pick button {
+    padding: 8px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 16px; font-weight: 700; color: #2C2C2A;
+  }
+  .gc-pick button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+  .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
+
+  /* ---- Halloween theme ---- */
+  body { background: #F4ECFA !important; }
+  .title { background: #2B1B3F; color: #FFB347 !important; border-radius: 16px; padding: 10px 12px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<div id="line-count-badge" class="line-count-badge" style="display:none;">🎯 0本</div>
+  <div id="register-overlay" class="register-overlay">
+    <div class="register-card">
+      <div class="register-title">📷 なまえカードを うつしてね</div>
+      <div class="register-sub">ネームカードに なまえを かいて、しゃしんを とってください</div>
+      <div id="room-badge" style="font-size:13px;color:#E8710A;background:#FFF1E0;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
+      <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
+        <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
+        <input type="hidden" id="room-input" value="">
+        <div class="gc-line"><span class="gc-name">ねん</span><div id="grade-pick" class="gc-pick"></div></div>
+        <div class="gc-line"><span class="gc-name">くみ</span><div id="class-pick" class="gc-pick"></div></div>
+      </div>
+      <div id="no-row" style="margin-bottom:14px;text-align:left;">
+        <label id="no-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">しゅっせきばんごうを えらんでね</label>
+        <input type="hidden" id="no-input" value="">
+        <div id="no-pick" class="no-pick"></div>
+        <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
+      </div>
+      <div class="reg-frame" id="reg-frame">
+        <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
+        <img id="reg-preview" style="display:none;">
+      </div>
+      <input type="file" id="reg-file-input" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoSelected(event)">
+      <div class="register-actions">
+        <button id="reg-capture-btn" class="reg-btn-primary" onclick="document.getElementById('reg-file-input').click()">
+          <i class="ti ti-camera" style="vertical-align:-3px;margin-right:6px;"></i>しゃしんを とる
+        </button>
+        <button id="reg-confirm-btn" class="reg-btn-confirm" style="display:none;" onclick="confirmPhoto()">これで OK</button>
+        <button id="reg-retake-btn" class="reg-btn-secondary" style="display:none;" onclick="retakePhoto()">とりなおす</button>
+      </div>
+      <div class="reg-error" id="reg-error"></div>
+      <button class="reg-skip" onclick="skipRegister()">とうろくしないで あそぶ（ランキングに でません）</button>
+    </div>
+  </div>
+
+
+<div class="app">
+  <div class="title">🎃 ハロウィンビンゴ 👻</div>
+  <div class="room-tag" id="room-tag"></div>
+
+  <div id="screen-setup" class="screen active">
+    <div class="setup-card">
+      <div class="setup-hint">カードを作ろう！<span id="size-label"></span></div>
+      <button class="random-btn" onclick="randomFill()">🎲 ランダムでうめる</button>
+      <div class="or-sep">・・・または・・・</div>
+      <div class="setup-grid-wrap"><div class="setup-grid" id="setup-grid"></div></div>
+      <div class="fill-count" id="fill-count"></div>
+      <div class="pool-title">下の単語をドラッグ（またはタップ）してマスにおいてね</div>
+      <div class="pool-wrap" id="pool-wrap"></div>
+      <button class="confirm-btn" id="confirm-btn" onclick="confirmCard()" disabled>これでOK！</button>
+    </div>
+  </div>
+
+  <div id="screen-game" class="screen">
+    <div class="word-banner">
+      <div class="label">さいしんの単語</div>
+      <div class="en" id="latest-en">-</div>
+      <div class="ja" id="latest-ja"></div>
+    </div>
+    <div class="board-wrap"><div class="board-grid" id="board-grid"></div></div>
+    <div class="history-strip" id="history-strip"></div>
+    <button class="redo-btn" onclick="backToSetup()">🔄 あたらしいカードにする</button>
+  </div>
+</div>
+
+<div id="bingo-overlay" class="bingo-overlay">
+  <div class="bingo-card">
+    <div class="bingo-emoji">🎃</div>
+    <div class="bingo-text" id="bingo-text">BINGO!</div>
+    <button class="bingo-close" onclick="closeBingoOverlay()">とじる</button>
+  </div>
+</div>
+
+<script>
+/* ハロウィンビンゴは通常のビンゴと部屋を分けるため、API の room に hw- を付ける */
+(function(){
+  var _f = window.fetch;
+  function pre(r){ r = String(r); return r.indexOf("hw-") === 0 ? r : "hw-" + r; }
+  window.fetch = function(u, o){
+    try{
+      if(typeof u === "string" && u.indexOf("/api/bingo/") === 0){
+        u = u.replace(/([?&]room=)([^&]*)/, function(m, a, b){ return a + encodeURIComponent(pre(decodeURIComponent(b))); });
+        if(o && typeof o.body === "string"){
+          var j = JSON.parse(o.body);
+          if(j && typeof j.room === "string"){ j.room = pre(j.room); o = Object.assign({}, o, { body: JSON.stringify(j) }); }
+        }
+      }
+    }catch(e){}
+    return _f.call(this, u, o);
+  };
+})();
+</script>
+<script>
+var items = [
+  {en:"pumpkin", ja:"かぼちゃ", emoji:"🎃", category:"halloween"},
+  {en:"ghost", ja:"おばけ", emoji:"👻", category:"halloween"},
+  {en:"witch", ja:"まじょ", emoji:"🧙", category:"halloween"},
+  {en:"bat", ja:"コウモリ", emoji:"🦇", category:"halloween"},
+  {en:"spider", ja:"くも", emoji:"🕷️", category:"halloween"},
+  {en:"candy", ja:"キャンディ", emoji:"🍬", category:"halloween"},
+  {en:"black cat", ja:"くろねこ", emoji:"🐈‍⬛", category:"halloween"},
+  {en:"skeleton", ja:"がいこつ", emoji:"💀", category:"halloween"},
+  {en:"vampire", ja:"ドラキュラ", emoji:"🧛", category:"halloween"},
+  {en:"zombie", ja:"ゾンビ", emoji:"🧟", category:"halloween"},
+  {en:"monster", ja:"モンスター", emoji:"👾", category:"halloween"},
+  {en:"castle", ja:"おしろ", emoji:"🏰", category:"halloween"},
+  {en:"moon", ja:"つき", emoji:"🌙", category:"halloween"},
+  {en:"broom", ja:"ほうき", emoji:"🧹", category:"halloween"},
+  {en:"hat", ja:"ぼうし", emoji:"🎩", category:"halloween"},
+  {en:"cookie", ja:"クッキー", emoji:"🍪", category:"halloween"},
+  {en:"chocolate", ja:"チョコレート", emoji:"🍫", category:"halloween"},
+  {en:"web", ja:"クモのす", emoji:"🕸️", category:"halloween"},
+  {en:"owl", ja:"ふくろう", emoji:"🦉", category:"halloween"},
+  {en:"apple", ja:"りんご", emoji:"🍎", category:"halloween"},
+  {en:"lollipop", ja:"ぺろぺろキャンディ", emoji:"🍭", category:"halloween"},
+  {en:"cake", ja:"ケーキ", emoji:"🍰", category:"halloween"},
+  {en:"candle", ja:"ろうそく", emoji:"🕯️", category:"halloween"},
+  {en:"star", ja:"ほし", emoji:"⭐", category:"halloween"},
+  {en:"bone", ja:"ほね", emoji:"🦴", category:"halloween"},
+  {en:"mask", ja:"おめん", emoji:"🎭", category:"halloween"},
+  {en:"potion", ja:"まほうのくすり", emoji:"🧪", category:"halloween"},
+  {en:"eye", ja:"め", emoji:"👁️", category:"halloween"},
+  {en:"fire", ja:"ひ", emoji:"🔥", category:"halloween"},
+  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"}
+];
+
+var ROOM_KEY = "hwbingo_student_room";
+var currentRoom = "";
+var gridSize = 3;
+var setupCells = [];   // array of length size*size, each null or item.en
+var boardWords = [];   // confirmed card, same shape as setupCells but full
+var markedFlags = [];  // parallel boolean array
+var lineHit = [];      // parallel boolean array for completed-line highlight
+var calledSeen = [];   // calledWords already processed
+var completedLineCount = 0;
+var STUDENT_ID_KEY = "hwbingo_student_id";
+var STUDENT_PHOTO_KEY = "hwbingo_student_photo";
+var studentId = localStorage.getItem(STUDENT_ID_KEY) || null;
+var capturedPhotoData = null;
+var pollTimer = null;
+var setupPollTimer = null;
+var dragState = null;
+var selectedTile = null;
+
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function findItem(en){
+  for(var i = 0; i < items.length; i++){ if(items[i].en === en) return items[i]; }
+  return null;
+}
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function iconHtml(it, size){
+  if(it && it.emoji) return '<span style="font-size:' + Math.round(size * 1.25) + 'px;line-height:1.1;">' + it.emoji + '</span>';
+  if(!it) return "";
+  return it.swatch
+    ? '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + it.swatch + ';border:1px solid #D3D1C7;"></span>'
+    : '<i class="ti ' + it.icon + '" style="font-size:' + size + 'px;color:#E8710A;"></i>';
+}
+function cellFontSize(){
+  if(gridSize === 3) return { icon: 22, en: 12, ja: 10, cellPx: 92 };
+  if(gridSize === 4) return { icon: 18, en: 10, ja: 9, cellPx: 78 };
+  return { icon: 15, en: 9, ja: 8, cellPx: 62 };
+}
+
+/* ---------- setup screen ---------- */
+function resetSetupCells(){
+  var n = gridSize * gridSize;
+  setupCells = new Array(n).fill(null);
+}
+function renderSetupGrid(){
+  var fs = cellFontSize();
+  var grid = document.getElementById("setup-grid");
+  grid.style.gridTemplateColumns = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.style.gridTemplateRows = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.innerHTML = "";
+  setupCells.forEach(function(en, idx){
+    var cell = document.createElement("div");
+    cell.className = "setup-cell" + (en ? " filled" : "");
+    cell.dataset.idx = idx;
+    if(en){
+      var it = findItem(en);
+      cell.innerHTML = iconHtml(it, fs.icon) +
+        '<div class="cell-en" style="font-size:' + fs.en + 'px;">' + en + '</div>' +
+        '<div class="cell-ja" style="font-size:' + fs.ja + 'px;">' + it.ja + '</div>';
+      cell.onclick = function(){ removeFromCell(idx); };
+    } else {
+      cell.onclick = function(){ placeSelectedTile(idx); };
+    }
+    grid.appendChild(cell);
+  });
+  updateFillCount();
+}
+function updateFillCount(){
+  var filled = setupCells.filter(function(v){ return v; }).length;
+  document.getElementById("fill-count").textContent = filled + " / " + setupCells.length + " まいうめた";
+  document.getElementById("confirm-btn").disabled = filled < setupCells.length;
+}
+function renderPool(){
+  var poolWrap = document.getElementById("pool-wrap");
+  poolWrap.innerHTML = "";
+  var used = setupCells.filter(function(v){ return v; });
+  items.forEach(function(it){
+    if(used.indexOf(it.en) >= 0) return;
+    var tile = document.createElement("div");
+    tile.className = "pool-tile";
+    tile.dataset.en = it.en;
+    tile.innerHTML = iconHtml(it, 14) + '<span>' + it.en + '</span>';
+    tile.onclick = function(){ selectTile(it.en, tile); };
+    tile.addEventListener("pointerdown", function(ev){ startDrag(ev, it.en, tile); });
+    poolWrap.appendChild(tile);
+  });
+}
+function selectTile(en, el){
+  document.querySelectorAll(".pool-tile").forEach(function(t){ t.classList.remove("selected"); });
+  if(selectedTile === en){ selectedTile = null; return; }
+  selectedTile = en;
+  el.classList.add("selected");
+}
+function placeSelectedTile(idx){
+  if(!selectedTile) return;
+  if(setupCells[idx]) return;
+  setupCells[idx] = selectedTile;
+  selectedTile = null;
+  renderSetupGrid();
+  renderPool();
+}
+function removeFromCell(idx){
+  setupCells[idx] = null;
+  renderSetupGrid();
+  renderPool();
+}
+function randomFill(){
+  var pool = items.map(function(it){ return it.en; });
+  for(var i = pool.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  var n = gridSize * gridSize;
+  setupCells = pool.slice(0, n);
+  renderSetupGrid();
+  renderPool();
+}
+window.randomFill = randomFill;
+window.confirmCard = confirmCard;
+window.backToSetup = backToSetup;
+window.speak = speak;
+window.closeBingoOverlay = closeBingoOverlay;
+
+/* drag and drop (pointer events, touch-friendly) */
+function startDrag(ev, en, sourceEl){
+  ev.preventDefault();
+  var ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  ghost.textContent = en;
+  document.body.appendChild(ghost);
+  positionGhost(ghost, ev.clientX, ev.clientY);
+  sourceEl.classList.add("dragging");
+  dragState = { en: en, ghost: ghost, sourceEl: sourceEl };
+  document.addEventListener("pointermove", onDragMove);
+  document.addEventListener("pointerup", onDragEnd);
+}
+function positionGhost(ghost, x, y){
+  ghost.style.left = (x - ghost.offsetWidth / 2) + "px";
+  ghost.style.top = (y - ghost.offsetHeight / 2 - 40) + "px";
+}
+function onDragMove(ev){
+  if(!dragState) return;
+  positionGhost(dragState.ghost, ev.clientX, ev.clientY);
+}
+function onDragEnd(ev){
+  if(!dragState) return;
+  document.removeEventListener("pointermove", onDragMove);
+  document.removeEventListener("pointerup", onDragEnd);
+  dragState.ghost.style.display = "none";
+  var target = document.elementFromPoint(ev.clientX, ev.clientY);
+  dragState.ghost.remove();
+  dragState.sourceEl.classList.remove("dragging");
+  var cell = target ? target.closest(".setup-cell") : null;
+  if(cell && !cell.classList.contains("filled")){
+    var idx = Number(cell.dataset.idx);
+    setupCells[idx] = dragState.en;
+    renderSetupGrid();
+    renderPool();
+  }
+  dragState = null;
+}
+
+function confirmCard(){
+  var n = gridSize * gridSize;
+  if(setupCells.filter(function(v){ return v; }).length < n) return;
+  boardWords = setupCells.slice();
+  markedFlags = new Array(n).fill(false);
+  lineHit = new Array(n).fill(false);
+  calledSeen = [];
+  completedLineCount = 0;
+  var lcBadge = document.getElementById("line-count-badge");
+  if(lcBadge){ lcBadge.style.display = "block"; lcBadge.textContent = "🎯 0本"; }
+  syncBingoProgress(0, true);
+  document.getElementById("screen-setup").classList.remove("active");
+  document.getElementById("screen-game").classList.add("active");
+  if(setupPollTimer){ clearTimeout(setupPollTimer); setupPollTimer = null; }
+  renderBoard();
+  pollGame();
+}
+function backToSetup(){
+  if(pollTimer){ clearTimeout(pollTimer); pollTimer = null; }
+  var lcBadge2 = document.getElementById("line-count-badge");
+  if(lcBadge2) lcBadge2.style.display = "none";
+  document.getElementById("screen-game").classList.remove("active");
+  document.getElementById("screen-setup").classList.add("active");
+  resetSetupCells();
+  renderSetupGrid();
+  renderPool();
+  pollSetupSize();
+}
+
+/* ---------- game screen ---------- */
+function renderBoard(){
+  var fs = cellFontSize();
+  var grid = document.getElementById("board-grid");
+  grid.style.gridTemplateColumns = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.style.gridTemplateRows = "repeat(" + gridSize + ", " + fs.cellPx + "px)";
+  grid.innerHTML = "";
+  boardWords.forEach(function(en, idx){
+    var it = findItem(en);
+    var cell = document.createElement("div");
+    var cls = "board-cell";
+    if(markedFlags[idx]) cls += " marked";
+    if(lineHit[idx]) cls += " line";
+    cell.className = cls;
+    cell.innerHTML = iconHtml(it, fs.icon) +
+      '<div class="cell-en" style="font-size:' + fs.en + 'px;">' + en + '</div>' +
+      '<div class="cell-ja" style="font-size:' + fs.ja + 'px;">' + (it ? it.ja : "") + '</div>';
+    grid.appendChild(cell);
+  });
+}
+function renderHistoryStrip(calledWords){
+  var strip = document.getElementById("history-strip");
+  strip.innerHTML = calledWords.slice().reverse().map(function(w){
+    return '<span class="history-chip">' + w + '</span>';
+  }).join("");
+}
+function checkLines(){
+  var n = gridSize;
+  var newlyCompleted = false;
+  var totalCompleted = 0;
+  function markLine(idxs){
+    var allMarked = idxs.every(function(i){ return markedFlags[i]; });
+    if(allMarked){
+      totalCompleted++;
+      idxs.forEach(function(i){ if(!lineHit[i]) newlyCompleted = true; lineHit[i] = true; });
+    }
+  }
+  for(var r = 0; r < n; r++){
+    var row = []; for(var c = 0; c < n; c++) row.push(r * n + c);
+    markLine(row);
+  }
+  for(var c2 = 0; c2 < n; c2++){
+    var col = []; for(var r2 = 0; r2 < n; r2++) col.push(r2 * n + c2);
+    markLine(col);
+  }
+  var diag1 = []; for(var d = 0; d < n; d++) diag1.push(d * n + d);
+  markLine(diag1);
+  var diag2 = []; for(var d2 = 0; d2 < n; d2++) diag2.push(d2 * n + (n - 1 - d2));
+  markLine(diag2);
+  completedLineCount = totalCompleted;
+  updateLineCountBadge();
+  syncBingoProgress(completedLineCount, false);
+  return newlyCompleted;
+}
+function updateLineCountBadge(){
+  var badge = document.getElementById("line-count-badge");
+  if(badge) badge.textContent = "🎯 " + completedLineCount + "本";
+}
+function showBingoOverlay(){
+  var textEl = document.getElementById("bingo-text");
+  if(textEl) textEl.innerHTML = "Happy Halloween!<br>" + completedLineCount + "ラインビンゴ！";
+  document.getElementById("bingo-overlay").classList.add("show");
+}
+function closeBingoOverlay(){
+  document.getElementById("bingo-overlay").classList.remove("show");
+}
+function pollGame(){
+  fetch("/api/bingo/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
+      var called = d.calledWords || [];
+      var newWords = called.slice(calledSeen.length);
+      calledSeen = called.slice();
+      renderHistoryStrip(called);
+      if(called.length > 0){
+        var last = called[called.length - 1];
+        var it = findItem(last);
+        document.getElementById("latest-en").innerHTML = last +
+          ' <button class="speak-btn" onclick="speak(\'' + last + '\')">🔊</button>';
+        document.getElementById("latest-ja").textContent = it ? it.ja : "";
+      }
+      var changed = false;
+      newWords.forEach(function(w){
+        var idx = boardWords.indexOf(w);
+        if(idx >= 0 && !markedFlags[idx]){ markedFlags[idx] = true; changed = true; }
+      });
+      if(newWords.length){
+        speak(newWords[newWords.length - 1]);
+      }
+      if(changed){
+        renderBoard();
+        var completed = checkLines();
+        renderBoard();
+        if(completed) showBingoOverlay();
+      }
+    })
+    .catch(function(){})
+    .finally(function(){ pollTimer = setTimeout(pollGame, 2500); });
+}
+
+/* setup-screen live size polling (in case teacher changes grid size while student is arranging) */
+function pollSetupSize(){
+  fetch("/api/bingo/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var newSize = d.size || 3;
+      if(newSize !== gridSize){
+        gridSize = newSize;
+        document.getElementById("size-label").textContent = "（" + gridSize + "×" + gridSize + "）";
+        resetSetupCells();
+        renderSetupGrid();
+        renderPool();
+      } else {
+        document.getElementById("size-label").textContent = "（" + gridSize + "×" + gridSize + "）";
+      }
+    })
+    .catch(function(){})
+    .finally(function(){ setupPollTimer = setTimeout(pollSetupSize, 3000); });
+}
+
+/* ---------- registration ---------- */
+var capturedPhoto = null;
+var STUDENT_NO_KEY = "hwbingo_student_no";
+var PREV_ID_KEY = "hwbingo_prev_id";
+var DEVICE_KEY = "hwbingo_device";
+var registering = false;
+function getDeviceId(){
+  var d = "";
+  try{ d = localStorage.getItem(DEVICE_KEY) || ""; }catch(e){}
+  if(!d){
+    d = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try{ localStorage.setItem(DEVICE_KEY, d); }catch(e){}
+  }
+  return d;
+}
+var STUDENT_ROLE_KEY = "hwbingo_student_role";
+var isTeacher = false;
+function setTeacherMode(on){
+  isTeacher = !!on;
+  var input = document.getElementById("no-input");
+  var btn = document.getElementById("teacher-btn");
+  input.disabled = isTeacher;
+  input.placeholder = isTeacher ? "先生として さんか" : "れい: 12";
+  if(isTeacher) input.value = "";
+  btn.className = "teacher-toggle" + (isTeacher ? " on" : "");
+  btn.textContent = isTeacher ? "✓ 先生" : "👩‍🏫 先生";
+  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごうを えらんでね";
+  renderNoPick();
+}
+var MAX_NO = 35;
+function renderNoPick(){
+  var box = document.getElementById("no-pick");
+  var input = document.getElementById("no-input");
+  if(!box.children.length){
+    for(var n = 1; n <= MAX_NO; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){
+          input.value = String(num);
+          document.getElementById("reg-error").textContent = "";
+          renderNoPick();
+        };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  var cur = parseInt(input.value, 10);
+  Array.prototype.forEach.call(box.children, function(b){
+    b.className = (!isTeacher && parseInt(b.textContent, 10) === cur) ? "sel" : "";
+  });
+  box.className = "no-pick" + (isTeacher ? " off" : "");
+  if(!isTeacher && cur >= 1){
+    document.getElementById("no-label").textContent = "しゅっせきばんごう: " + cur + "ばん";
+  }
+}
+function toggleTeacher(){ setTeacherMode(!isTeacher); }
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+function getSchoolFromUrl(){
+  var m = location.search.match(/[?&]school=([^&]+)/);
+  return m ? sanitizeSchool(decodeURIComponent(m[1])) : "";
+}
+var GC_KEY = "hwbingo_gc";
+var selGrade = 0, selClass = 0;
+function renderGC(){
+  var gBox = document.getElementById("grade-pick");
+  var cBox = document.getElementById("class-pick");
+  function build(box, max, onPick){
+    if(box.children.length) return;
+    for(var n = 1; n <= max; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){ onPick(num); document.getElementById("reg-error").textContent = ""; renderGC(); };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  build(gBox, 6, function(n){ selGrade = n; });
+  build(cBox, 8, function(n){ selClass = n; });
+  Array.prototype.forEach.call(gBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(cBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selClass ? "sel" : ""; });
+  document.getElementById("room-input").value = (selGrade && selClass) ? makeRoom(getSchoolFromUrl(), selGrade, selClass) : "";
+  document.getElementById("gc-label").textContent = (selGrade && selClass) ? (selGrade + "ねん " + selClass + "くみ") : "なんねん なんくみ？";
+}
+
+function onPhotoSelected(event){
+  var file = event.target.files && event.target.files[0];
+  if(!file) return;
+  var err = document.getElementById("reg-error");
+  err.textContent = "";
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var targetW = 320, targetH = 240;
+      var canvas = document.createElement("canvas");
+      canvas.width = targetW; canvas.height = targetH;
+      var ctx = canvas.getContext("2d");
+      var iw = img.width, ih = img.height;
+      var imgAspect = iw / ih, targetAspect = targetW / targetH;
+      var sx, sy, sw, sh;
+      if(imgAspect > targetAspect){
+        sh = ih; sw = ih * targetAspect; sx = (iw - sw) / 2; sy = 0;
+      } else {
+        sw = iw; sh = iw / targetAspect; sx = 0; sy = (ih - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      capturedPhoto = canvas.toDataURL("image/jpeg", 0.75);
+      document.getElementById("reg-preview").src = capturedPhoto;
+      document.getElementById("reg-preview").style.display = "block";
+      document.getElementById("reg-placeholder").style.display = "none";
+      document.getElementById("reg-capture-btn").style.display = "none";
+      document.getElementById("reg-confirm-btn").style.display = "block";
+      document.getElementById("reg-retake-btn").style.display = "block";
+    };
+    img.onerror = function(){
+      err.textContent = "しゃしんを よみこめませんでした。もう一度 おためしください。";
+    };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){
+    err.textContent = "しゃしんを よみこめませんでした。もう一度 おためしください。";
+  };
+  reader.readAsDataURL(file);
+}
+function retakePhoto(){
+  capturedPhoto = null;
+  document.getElementById("reg-file-input").value = "";
+  document.getElementById("reg-preview").style.display = "none";
+  document.getElementById("reg-placeholder").style.display = "block";
+  document.getElementById("reg-capture-btn").style.display = "block";
+  document.getElementById("reg-confirm-btn").style.display = "none";
+  document.getElementById("reg-retake-btn").style.display = "none";
+}
+function prefillSavedPhoto(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(!photo) return;
+  capturedPhoto = photo;
+  document.getElementById("reg-preview").src = photo;
+  document.getElementById("reg-preview").style.display = "block";
+  document.getElementById("reg-placeholder").style.display = "none";
+  document.getElementById("reg-capture-btn").style.display = "none";
+  document.getElementById("reg-confirm-btn").style.display = "block";
+  document.getElementById("reg-retake-btn").style.display = "block";
+  document.querySelector(".register-sub").textContent = "まえの しゃしんで よければ「これで OK」を おしてね";
+}
+function getRoomForRegister(){
+  var u = getRoomFromUrl();
+  if(u) return u;
+  return document.getElementById("room-input").value;
+}
+function proceedToSetupScreen(){
+  resetSetupCells();
+  renderSetupGrid();
+  renderPool();
+  pollSetupSize();
+}
+function enterGame(room){
+  currentRoom = String(room || "").trim().toLowerCase();
+  localStorage.setItem(ROOM_KEY, currentRoom);
+  document.getElementById("room-tag").textContent = "教室コード: " + currentRoom;
+  document.getElementById("register-overlay").style.display = "none";
+  proceedToSetupScreen();
+}
+function forgetRegistration(){
+  localStorage.removeItem(STUDENT_ID_KEY);
+  studentId = null;
+}
+function needRoom(err){
+  if(!getRoomFromUrl() && !(selGrade && selClass)){
+    err.textContent = "なんねん なんくみ か えらんでね";
+    return true;
+  }
+  return false;
+}
+function confirmPhoto(){
+  if(!capturedPhoto) return;
+  var err = document.getElementById("reg-error");
+  if(needRoom(err)) return;
+  var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
+  if(!isTeacher && !(no >= 1 && no <= 99)){
+    err.textContent = "しゅっせきばんごうを えらんでね";
+    return;
+  }
+  if(registering) return;
+  registering = true;
+  document.getElementById("reg-confirm-btn").disabled = true;
+  err.textContent = "とうろく中...";
+  var room = getRoomForRegister();
+  fetch("/api/bingo/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "" })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d || !d.id) throw new Error("no id");
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      studentId = d.id;
+      localStorage.setItem(STUDENT_ID_KEY, studentId);
+      localStorage.setItem(STUDENT_PHOTO_KEY, capturedPhoto);
+      localStorage.removeItem(PREV_ID_KEY);
+      localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
+      localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
+      if(selGrade && selClass) localStorage.setItem(GC_KEY, selGrade + "-" + selClass);
+      enterGame(room);
+    })
+    .catch(function(){
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
+    });
+}
+function skipRegister(){
+  var err = document.getElementById("reg-error");
+  if(needRoom(err)) return;
+  forgetRegistration();
+  enterGame(getRoomForRegister());
+}
+function syncBingoProgress(lineCount, reset){
+  if(!studentId) return;
+  fetch("/api/bingo/progress", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(reset ? { id: studentId, reset: true } : { id: studentId, lineCount: lineCount })
+  }).catch(function(){});
+}
+
+(function boot(){
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
+  var urlRoom = getRoomFromUrl();
+  if(urlRoom){
+    var badge = document.getElementById("room-badge");
+    badge.textContent = "きょうしつコード: " + urlRoom;
+    badge.style.display = "inline-block";
+  } else {
+    document.getElementById("room-row").style.display = "block";
+    renderGC();
+  }
+  var savedId = localStorage.getItem(STUDENT_ID_KEY);
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  studentId = null;
+  if(savedId && savedRoom && (!urlRoom || String(urlRoom).trim().toLowerCase() === savedRoom)){
+    fetch("/api/bingo/state?room=" + encodeURIComponent(savedRoom) + "&me=" + encodeURIComponent(savedId))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.exists){ studentId = savedId; enterGame(savedRoom); }
+        else { forgetRegistration(); prefillSavedPhoto(); }
+      })
+      .catch(function(){ prefillSavedPhoto(); });
+  } else {
+    prefillSavedPhoto();
+  }
+})();
+</script>
+</body>
+</html>

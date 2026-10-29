@@ -859,6 +859,18 @@ const server = http.createServer(function(req, res){
     serveFile(res, path.join(PUBLIC_DIR, 'bingo-tv.html'), 'text/html; charset=utf-8');
     return;
   }
+  if(req.method === 'GET' && url === '/halloween-bingo'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-bingo.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/halloween-bingo-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-bingo-teacher.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/halloween-bingo-tv'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-bingo-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
 
   if(req.method === 'GET' && url === '/api/state'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));

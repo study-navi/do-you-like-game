@@ -196,6 +196,9 @@
   /* ---- Halloween theme ---- */
   body { background: #F4ECFA !important; }
   .title { background: #2B1B3F; color: #FFB347 !important; border-radius: 16px; padding: 10px 12px; letter-spacing: 1px; }
+  .round-pill { text-align: center; margin: -6px auto 12px; background: #FFF1E0; color: #B85600; border: 1px solid #F5C58A; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; width: fit-content; max-width: 100%; }
+  .round-toast { position: fixed; left: 12px; right: 12px; top: 64px; z-index: 300; background: #2B1B3F; color: #FFB347; border-radius: 16px; padding: 14px 16px; text-align: center; font-weight: 700; font-size: 15px; line-height: 1.5; box-shadow: 0 8px 28px rgba(0,0,0,0.35); display: none; }
+  .round-toast.show { display: block; }
 </style>
 </head>
 <body>
@@ -235,9 +238,11 @@
   </div>
 
 
+<div id="round-toast" class="round-toast"></div>
 <div class="app">
   <div class="title">🎃 ハロウィンビンゴ 👻</div>
   <div class="room-tag" id="room-tag"></div>
+  <div class="round-pill" id="round-pill" style="display:none;"></div>
 
   <div id="screen-setup" class="screen active">
     <div class="setup-card">
@@ -322,7 +327,22 @@ var items = [
   {en:"potion", ja:"まほうのくすり", emoji:"🧪", category:"halloween"},
   {en:"eye", ja:"め", emoji:"👁️", category:"halloween"},
   {en:"fire", ja:"ひ", emoji:"🔥", category:"halloween"},
-  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"}
+  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"},
+  {en:"devil", ja:"あくま", emoji:"👿", category:"halloween"},
+  {en:"dragon", ja:"ドラゴン", emoji:"🐉", category:"halloween"},
+  {en:"wolf", ja:"おおかみ", emoji:"🐺", category:"halloween"},
+  {en:"snake", ja:"へび", emoji:"🐍", category:"halloween"},
+  {en:"frog", ja:"かえる", emoji:"🐸", category:"halloween"},
+  {en:"rat", ja:"ねずみ", emoji:"🐀", category:"halloween"},
+  {en:"alien", ja:"うちゅうじん", emoji:"👽", category:"halloween"},
+  {en:"robot", ja:"ロボット", emoji:"🤖", category:"halloween"},
+  {en:"clown", ja:"ピエロ", emoji:"🤡", category:"halloween"},
+  {en:"wand", ja:"まほうのつえ", emoji:"🪄", category:"halloween"},
+  {en:"crystal ball", ja:"すいしょうだま", emoji:"🔮", category:"halloween"},
+  {en:"key", ja:"かぎ", emoji:"🔑", category:"halloween"},
+  {en:"house", ja:"いえ", emoji:"🏠", category:"halloween"},
+  {en:"donut", ja:"ドーナツ", emoji:"🍩", category:"halloween"},
+  {en:"popcorn", ja:"ポップコーン", emoji:"🍿", category:"halloween"}
 ];
 
 var ROOM_KEY = "hwbingo_student_room";
@@ -342,6 +362,31 @@ var pollTimer = null;
 var setupPollTimer = null;
 var dragState = null;
 var selectedTile = null;
+var knownRound = null;
+var leaveGame = false;
+var ROUND_PLAN = [
+  { size: 3, goal: "1ライン" },
+  { size: 4, goal: "2ライン" },
+  { size: 5, goal: "3ライン" }
+];
+function roundInfo(r){ return ROUND_PLAN[Math.min(Math.max(r, 1), ROUND_PLAN.length) - 1]; }
+function roundText(r){
+  var i = roundInfo(r);
+  return "ラウンド " + r + (r <= ROUND_PLAN.length ? " / " + ROUND_PLAN.length : "（ボーナス）") + "　ゴール: " + i.goal + "（" + i.size + "×" + i.size + "）";
+}
+function updateRoundPill(r){
+  var el = document.getElementById("round-pill");
+  if(!el) return;
+  el.style.display = "block";
+  el.textContent = "🎃 " + roundText(r);
+}
+function announceRound(r){
+  var t = document.getElementById("round-toast");
+  var i = roundInfo(r);
+  t.innerHTML = "🎃 ラウンド " + r + " スタート！<br>" + i.size + "×" + i.size + " の あたらしいカードを つくろう（ゴール: " + i.goal + "）";
+  t.classList.add("show");
+  setTimeout(function(){ t.classList.remove("show"); }, 6000);
+}
 
 function getRoomFromUrl(){
   var m = location.search.match(/[?&]room=([^&]+)/);
@@ -597,6 +642,17 @@ function pollGame(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
+      if(typeof d.round === "number"){
+        if(knownRound === null){ knownRound = d.round; updateRoundPill(d.round); }
+        else if(d.round !== knownRound){
+          knownRound = d.round;
+          updateRoundPill(d.round);
+          announceRound(d.round);
+          leaveGame = true;
+          backToSetup();
+          return;
+        }
+      }
       var called = d.calledWords || [];
       var newWords = called.slice(calledSeen.length);
       calledSeen = called.slice();
@@ -624,7 +680,10 @@ function pollGame(){
       }
     })
     .catch(function(){})
-    .finally(function(){ pollTimer = setTimeout(pollGame, 2500); });
+    .finally(function(){
+      if(leaveGame){ leaveGame = false; return; }
+      pollTimer = setTimeout(pollGame, 2500);
+    });
 }
 
 /* setup-screen live size polling (in case teacher changes grid size while student is arranging) */
@@ -632,6 +691,11 @@ function pollSetupSize(){
   fetch("/api/bingo/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
     .then(function(r){ return r.json(); })
     .then(function(d){
+      if(typeof d.round === "number"){
+        if(knownRound !== null && d.round !== knownRound) announceRound(d.round);
+        knownRound = d.round;
+        updateRoundPill(d.round);
+      }
       var newSize = d.size || 3;
       if(newSize !== gridSize){
         gridSize = newSize;

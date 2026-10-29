@@ -133,6 +133,26 @@
   /* ---- Halloween theme ---- */
   body { background: #F4ECFA !important; }
   .title { background: #2B1B3F; color: #FFB347 !important; border-radius: 16px; padding: 10px 12px; letter-spacing: 1px; }
+  .round-card .round-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
+  .round-card .round-label { font-size: 22px; font-weight: 700; color: #B85600; }
+  .round-card .round-goal { font-size: 14px; color: #5F5E5A; font-weight: 600; }
+  .lesson-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .lesson-timer { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; color: #2B1B3F; }
+  .lesson-btn { font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; }
+  .lesson-bar { height: 8px; border-radius: 999px; background: #EEE6F5; overflow: hidden; margin-bottom: 10px; }
+  .lesson-bar > i { display: block; height: 100%; width: 0; background: #E8710A; }
+  .lesson-plan { list-style: none; padding: 0; margin: 0 0 12px; font-size: 13px; color: #5F5E5A; }
+  .lesson-plan li { padding: 5px 10px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .lesson-plan li.cur { background: #FFF1E0; color: #B85600; font-weight: 700; }
+  .lesson-plan li.done { color: #B4B2A9; text-decoration: line-through; }
+  .nextround-btn { width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px; border: none; background: #2B1B3F; color: #FFB347; cursor: pointer; }
+  .practice-card summary { font-weight: 700; cursor: pointer; font-size: 15px; }
+  .practice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin-top: 12px; }
+  .practice-chip { background: #F4ECFA; border: none; border-radius: 12px; padding: 8px 4px; text-align: center; cursor: pointer; font-family: inherit; }
+  .practice-chip .pe { font-size: 26px; line-height: 1.2; }
+  .practice-chip .pw { font-size: 13px; font-weight: 700; color: #2C2C2A; }
+  .practice-chip .pj { font-size: 10px; color: #888780; }
+  .ranking-total { font-size: 13px; font-weight: 700; color: #B85600; background: #FFF1E0; border-radius: 999px; padding: 3px 10px; }
 </style>
 <script src="/qrcode.js"></script>
 </head>
@@ -184,6 +204,28 @@
     <div id="no-grid" class="no-grid"></div>
     <div class="roster-hint">番号をタップすると「欠席」にできます（もう一度タップで もどす）<button id="absent-clear">欠席をすべて解除</button></div>
   </div>
+
+  <div class="card round-card">
+    <div class="round-head">
+      <span class="round-label" id="round-label">ラウンド 1 / 3</span>
+      <span class="round-goal" id="round-goal"></span>
+    </div>
+    <div class="lesson-row">
+      <span class="lesson-timer" id="lesson-timer">00:00</span>
+      <span style="font-size:12px;color:#888780;">/ 45:00</span>
+      <button class="lesson-btn" id="lesson-start" type="button">▶ 授業スタート</button>
+      <button class="lesson-btn" id="lesson-reset" type="button">タイマーを戻す</button>
+    </div>
+    <div class="lesson-bar"><i id="lesson-bar-fill"></i></div>
+    <ul class="lesson-plan" id="lesson-plan"></ul>
+    <button class="nextround-btn" id="nextround-btn" onclick="nextRound()">次のラウンドへ ▶</button>
+    <div class="size-hint" style="margin-top:8px;">ポイント＝ライン数＋はやくビンゴした3人にボーナス(3・2・1点)。ラウンドが変わると生徒は新しいカードを作ります。</div>
+  </div>
+
+  <details class="card practice-card" id="practice-card">
+    <summary>🔊 単語れんしゅう（はじめの7分：タップで発音）</summary>
+    <div class="practice-grid" id="practice-grid"></div>
+  </details>
 
   <div class="card">
     <div class="size-hint">マスの数（生徒の画面にも反映されます）</div>
@@ -267,13 +309,98 @@ var items = [
   {en:"potion", ja:"まほうのくすり", emoji:"🧪", category:"halloween"},
   {en:"eye", ja:"め", emoji:"👁️", category:"halloween"},
   {en:"fire", ja:"ひ", emoji:"🔥", category:"halloween"},
-  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"}
+  {en:"night", ja:"よる", emoji:"🌃", category:"halloween"},
+  {en:"devil", ja:"あくま", emoji:"👿", category:"halloween"},
+  {en:"dragon", ja:"ドラゴン", emoji:"🐉", category:"halloween"},
+  {en:"wolf", ja:"おおかみ", emoji:"🐺", category:"halloween"},
+  {en:"snake", ja:"へび", emoji:"🐍", category:"halloween"},
+  {en:"frog", ja:"かえる", emoji:"🐸", category:"halloween"},
+  {en:"rat", ja:"ねずみ", emoji:"🐀", category:"halloween"},
+  {en:"alien", ja:"うちゅうじん", emoji:"👽", category:"halloween"},
+  {en:"robot", ja:"ロボット", emoji:"🤖", category:"halloween"},
+  {en:"clown", ja:"ピエロ", emoji:"🤡", category:"halloween"},
+  {en:"wand", ja:"まほうのつえ", emoji:"🪄", category:"halloween"},
+  {en:"crystal ball", ja:"すいしょうだま", emoji:"🔮", category:"halloween"},
+  {en:"key", ja:"かぎ", emoji:"🔑", category:"halloween"},
+  {en:"house", ja:"いえ", emoji:"🏠", category:"halloween"},
+  {en:"donut", ja:"ドーナツ", emoji:"🍩", category:"halloween"},
+  {en:"popcorn", ja:"ポップコーン", emoji:"🍿", category:"halloween"}
 ];
 
 var ROOM_KEY = "hwbingo_teacher_room";
 var currentRoom = "";
 var currentSize = 3;
 var calledWords = [];
+var currentRound = 1;
+var ROUND_PLAN = [
+  { size: 3, goal: "1ライン" },
+  { size: 4, goal: "2ライン" },
+  { size: 5, goal: "3ライン" }
+];
+function roundInfo(r){ return ROUND_PLAN[Math.min(Math.max(r, 1), ROUND_PLAN.length) - 1]; }
+function roundText(r){
+  var i = roundInfo(r);
+  return "ラウンド " + r + (r <= ROUND_PLAN.length ? " / " + ROUND_PLAN.length : "（ボーナス）") + "　ゴール: " + i.goal + "（" + i.size + "×" + i.size + "）";
+}
+var LESSON_TOTAL = 45;
+var LESSON_PLAN = [
+  { from: 0,  to: 7,  label: "導入・単語れんしゅう" },
+  { from: 7,  to: 16, label: "ラウンド1（3×3・1ライン）" },
+  { from: 16, to: 27, label: "ラウンド2（4×4・2ライン）" },
+  { from: 27, to: 40, label: "ラウンド3（5×5・3ライン）" },
+  { from: 40, to: 45, label: "けっか発表・まとめ" }
+];
+function lessonKey(){ return "hwbingo_lesson_start_" + currentRoom; }
+function getLessonStart(){ try{ return parseInt(localStorage.getItem(lessonKey()) || "0", 10) || 0; }catch(e){ return 0; } }
+function setLessonStart(v){ try{ if(v) localStorage.setItem(lessonKey(), String(v)); else localStorage.removeItem(lessonKey()); }catch(e){} }
+function renderLesson(){
+  var start = getLessonStart();
+  var sec = start ? Math.max(0, Math.floor((Date.now() - start) / 1000)) : 0;
+  var min = sec / 60;
+  var mm = Math.floor(sec / 60), ss = sec % 60;
+  document.getElementById("lesson-timer").textContent = (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss;
+  document.getElementById("lesson-bar-fill").style.width = Math.min(100, min / LESSON_TOTAL * 100) + "%";
+  document.getElementById("lesson-start").textContent = start ? "⏱ 計測中" : "▶ 授業スタート";
+  var html = "";
+  LESSON_PLAN.forEach(function(seg){
+    var cls = !start ? "" : (min >= seg.to ? "done" : (min >= seg.from ? "cur" : ""));
+    var remain = (start && cls === "cur") ? "（あと" + Math.max(1, Math.ceil(seg.to - min)) + "分）" : "";
+    html += '<li class="' + cls + '"><span>' + seg.label + remain + '</span><span>' + seg.from + "〜" + seg.to + "分</span></li>";
+  });
+  document.getElementById("lesson-plan").innerHTML = html;
+}
+function renderRound(){
+  document.getElementById("round-label").textContent = "ラウンド " + currentRound + (currentRound <= ROUND_PLAN.length ? " / " + ROUND_PLAN.length : "（ボーナス）");
+  var i = roundInfo(currentRound);
+  document.getElementById("round-goal").textContent = "ゴール: " + i.goal + "（" + i.size + "×" + i.size + "）";
+  var nx = roundInfo(currentRound + 1);
+  document.getElementById("nextround-btn").textContent = currentRound < ROUND_PLAN.length
+    ? "ラウンド" + (currentRound + 1) + "へ ▶（" + nx.size + "×" + nx.size + "・" + nx.goal + "）"
+    : "ボーナスラウンドへ ▶（" + nx.size + "×" + nx.size + "）";
+}
+function nextRound(){
+  var next = currentRound + 1, i = roundInfo(next);
+  if(!confirm("ラウンド" + currentRound + "をおわります。ポイントを集計して、ラウンド" + next + "（" + i.size + "×" + i.size + "）にすすみます。生徒は あたらしいカードを作ります。よろしいですか？")) return;
+  fetch("/api/bingo/newround", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ room: currentRoom, size: i.size })
+  }).then(function(r){ return r.json(); })
+    .then(function(){ fetchState(); });
+}
+window.nextRound = nextRound;
+function buildPractice(){
+  var g = document.getElementById("practice-grid");
+  g.innerHTML = "";
+  items.forEach(function(it){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "practice-chip";
+    b.innerHTML = '<div class="pe">' + it.emoji + '</div><div class="pw">' + it.en + '</div><div class="pj">' + it.ja + '</div>';
+    b.onclick = function(){ speak(it.en); };
+    g.appendChild(b);
+  });
+}
+
 
 function getRoomFromUrl(){
   var m = location.search.match(/[?&]room=([^&]+)/);
@@ -446,6 +573,7 @@ function renderRanking(students){
       photoHtml +
       (s.role === "teacher" ? '<span class="ranking-no teacher">先生</span>' : (s.no ? '<span class="ranking-no">' + s.no + '番</span>' : '')) +
       '<span class="ranking-lines">🎯 ' + s.lineCount + '本</span>' +
+      '<span class="ranking-total">ごうけい ' + ((s.score || 0) + (s.lineCount || 0)) + '点</span>' +
       bingoBadge +
       '<button class="rm-btn2" data-id="' + s.id + '" title="この表示を消す">×</button>' +
       '</div>';
@@ -455,6 +583,7 @@ function renderRanking(students){
 function applyState(d){
   currentSize = d.size || 3;
   calledWords = d.calledWords || [];
+  if(typeof d.round === "number"){ currentRound = d.round; renderRound(); }
   updateSizeButtons();
   renderCurrentWord();
   renderHistory();
@@ -651,6 +780,20 @@ document.getElementById("ranking-list").addEventListener("click", function(e){
   }
 })();
 setInterval(function(){ if(currentRoom) fetchState(); }, 3000);
+buildPractice();
+renderRound();
+renderLesson();
+setInterval(renderLesson, 1000);
+document.getElementById("lesson-start").onclick = function(){
+  if(getLessonStart()) return;
+  setLessonStart(Date.now());
+  renderLesson();
+};
+document.getElementById("lesson-reset").onclick = function(){
+  if(!confirm("授業タイマーを 00:00 にもどします。よろしいですか？")) return;
+  setLessonStart(0);
+  renderLesson();
+};
 </script>
 </body>
 </html>

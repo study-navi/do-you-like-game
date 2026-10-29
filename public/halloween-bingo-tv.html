@@ -46,6 +46,8 @@
     color: #B7B4E0; font-weight: 700; font-size: 16px; cursor: pointer;
   }
   .mode-btn.active { border-color: #FF9F2E; color: #FF9F2E; background: #3D3B6B; }
+  .round-tag { text-align: center; font-size: 26px; font-weight: 700; color: #FF9F2E; margin: -8px 0 22px; }
+  .status .last { color: #B7B4E0; font-weight: 500; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -59,7 +61,9 @@
   </div>
   <div class="title">🎃 ハロウィンビンゴ ランキング 👻</div>
   <div class="room-tag" id="room-tag"></div>
+  <div class="round-tag" id="round-tag"></div>
   <div class="mode-row">
+    <button class="mode-btn" id="mode-btn-total" onclick="setMode('total')">🏆 ごうけい（ラウンド合計）</button>
     <button class="mode-btn" id="mode-btn-bingo" onclick="setMode('bingo')">🏆 はやくビンゴ順</button>
     <button class="mode-btn" id="mode-btn-lines" onclick="setMode('lines')">🎯 ライン数順</button>
   </div>
@@ -91,7 +95,19 @@ var ROOM_KEY = "hwbingo_tv_room";
 var currentRoom = "";
 var pollTimer = null;
 var MODE_KEY = "hwbingo_tv_mode";
-var currentMode = localStorage.getItem(MODE_KEY) || "bingo";
+var currentMode = localStorage.getItem(MODE_KEY) || "total";
+var currentRound = 1;
+var ROUND_PLAN = [
+  { size: 3, goal: "1ライン" },
+  { size: 4, goal: "2ライン" },
+  { size: 5, goal: "3ライン" }
+];
+function roundInfo(r){ return ROUND_PLAN[Math.min(Math.max(r, 1), ROUND_PLAN.length) - 1]; }
+function roundText(r){
+  var i = roundInfo(r);
+  return "ラウンド " + r + (r <= ROUND_PLAN.length ? " / " + ROUND_PLAN.length : "（ボーナス）") + "　ゴール: " + i.goal + "（" + i.size + "×" + i.size + "）";
+}
+
 var lastStudents = [];
 
 function getRoomFromUrl(){
@@ -116,6 +132,7 @@ document.getElementById("room-code-btn").onclick = function(){
 };
 
 function updateModeButtons(){
+  document.getElementById("mode-btn-total").classList.toggle("active", currentMode === "total");
   document.getElementById("mode-btn-bingo").classList.toggle("active", currentMode === "bingo");
   document.getElementById("mode-btn-lines").classList.toggle("active", currentMode === "lines");
 }
@@ -128,7 +145,16 @@ function setMode(mode){
 window.setMode = setMode;
 function sortStudents(students, mode){
   var list = students.slice();
-  if(mode === "lines"){
+  if(mode === "total"){
+    list.sort(function(a, b){
+      var ta = (a.score || 0) + (a.lineCount || 0), tb = (b.score || 0) + (b.lineCount || 0);
+      if(tb !== ta) return tb - ta;
+      if(a.bingoAt && b.bingoAt) return a.bingoAt - b.bingoAt;
+      if(a.bingoAt && !b.bingoAt) return -1;
+      if(!a.bingoAt && b.bingoAt) return 1;
+      return (a.registeredAt || 0) - (b.registeredAt || 0);
+    });
+  } else if(mode === "lines"){
     list.sort(function(a, b){
       if((b.lineCount || 0) !== (a.lineCount || 0)) return (b.lineCount || 0) - (a.lineCount || 0);
       if(a.bingoAt && b.bingoAt) return a.bingoAt - b.bingoAt;
@@ -178,9 +204,12 @@ function render(students){
       '<div class="rank">' + rankLabel + '</div>' +
       (photoSrc(s) ? '<img class="avatar" src="' + photoSrc(s) + '">' : '<div class="avatar-blank">?</div>') +
       '<div class="meta">' +
-        '<div class="status">' + (s.bingoAt ? "🎉 BINGO!" : "") + '</div>' +
+        '<div class="status">' + (s.bingoAt ? "🎉 BINGO!" : "") +
+          (currentMode === "total" ? '<span class="last">このラウンド ' + (s.lineCount || 0) + '本</span>' : '') + '</div>' +
       '</div>' +
-      '<div class="score">' + (s.lineCount || 0) + '<span class="unit"> 本</span></div>';
+      (currentMode === "total"
+        ? '<div class="score">' + ((s.score || 0) + (s.lineCount || 0)) + '<span class="unit"> 点</span></div>'
+        : '<div class="score">' + (s.lineCount || 0) + '<span class="unit"> 本</span></div>');
     board.appendChild(row);
     prevLineCounts[s.id] = s.lineCount || 0;
   });
@@ -191,6 +220,10 @@ function poll(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       lastStudents = d.students || [];
+      if(typeof d.round === "number"){
+        currentRound = d.round;
+        document.getElementById("round-tag").textContent = "🎃 " + roundText(d.round);
+      }
       renderCurrent();
     })
     .catch(function(){})

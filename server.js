@@ -120,6 +120,7 @@ function getBingoRoom(room){
   }
   if(!bingoRooms[room].size) bingoRooms[room].size = 3;
   if(!bingoRooms[room].calledWords) bingoRooms[room].calledWords = [];
+  if(!bingoRooms[room].round) bingoRooms[room].round = 1;
   return bingoRooms[room];
 }
 
@@ -135,6 +136,8 @@ function publicBingoList(room){
       photo: s.photo ? "/api/bingo/photo?id=" + id : null,
       lineCount: s.lineCount || 0,
       bingoAt: s.bingoAt || null,
+      score: s.score || 0,
+      lastPts: s.lastPts || 0,
       registeredAt: s.registeredAt,
       updatedAt: s.updatedAt
     };
@@ -971,7 +974,7 @@ const server = http.createServer(function(req, res){
     const me = getQueryParam(queryString, 'me');
     const b = getBingoRoom(room);
     const exists = !!(bingoStudents[me] && normalizeRoom(bingoStudents[me].room) === room);
-    sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, exists: exists });
+    sendJson(res, 200, { room: room, size: b.size, round: b.round, calledWords: b.calledWords, exists: exists });
     return;
   }
 
@@ -991,7 +994,7 @@ const server = http.createServer(function(req, res){
   if(req.method === 'GET' && url === '/api/bingo/state'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const b = getBingoRoom(room);
-    sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, students: publicBingoList(room) });
+    sendJson(res, 200, { room: room, size: b.size, round: b.round, calledWords: b.calledWords, students: publicBingoList(room) });
     return;
   }
 
@@ -999,7 +1002,7 @@ const server = http.createServer(function(req, res){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);
       const size = (body && [3, 4, 5].indexOf(body.size) >= 0) ? body.size : 3;
-      bingoRooms[room] = { size: size, calledWords: [] };
+      bingoRooms[room] = { size: size, calledWords: [], round: getBingoRoom(room).round };
       saveBingo();
       sendJson(res, 200, { ok: true, room: room, size: size });
     });
@@ -1013,13 +1016,47 @@ const server = http.createServer(function(req, res){
       const b = getBingoRoom(room);
       const remaining = pool.filter(function(w){ return b.calledWords.indexOf(w) < 0; });
       if(remaining.length === 0){
-        sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, done: true });
+        sendJson(res, 200, { room: room, size: b.size, round: b.round, calledWords: b.calledWords, done: true });
         return;
       }
       const pick = remaining[Math.floor(Math.random() * remaining.length)];
       b.calledWords.push(pick);
       saveBingo();
-      sendJson(res, 200, { room: room, size: b.size, calledWords: b.calledWords, word: pick, done: false });
+      sendJson(res, 200, { room: room, size: b.size, round: b.round, calledWords: b.calledWords, word: pick, done: false });
+    });
+    return;
+  }
+
+  // ラウンド制（ハロウィンビンゴ用）: ポイントを集計して次のラウンドへ。生徒の登録は残す。
+  // ラウンドの点数 = ライン数 + はやくビンゴした3人にボーナス(3/2/1点)
+  if(req.method === 'POST' && url === '/api/bingo/newround'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const b = getBingoRoom(room);
+      const ids = Object.keys(bingoStudents).filter(function(id){
+        return normalizeRoom(bingoStudents[id].room) === room;
+      });
+      const ranked = ids.filter(function(id){
+        const s = bingoStudents[id];
+        return s.role !== 'teacher' && s.bingoAt && (s.lineCount || 0) >= 1;
+      }).sort(function(x, y){ return bingoStudents[x].bingoAt - bingoStudents[y].bingoAt; });
+      const bonus = [3, 2, 1];
+      ids.forEach(function(id){
+        const s = bingoStudents[id];
+        if(s.role !== 'teacher'){
+          const pts = (s.lineCount || 0) + (bonus[ranked.indexOf(id)] || 0);
+          s.score = (s.score || 0) + pts;
+          s.lastPts = pts;
+        }
+        s.lineCount = 0;
+        s.bingoAt = null;
+        s.updatedAt = Date.now();
+      });
+      const size = (body && [3, 4, 5].indexOf(body.size) >= 0) ? body.size : b.size;
+      bingoRooms[room] = { size: size, calledWords: [], round: b.round + 1 };
+      saveBingo();
+      saveBingoStudents();
+      sendJson(res, 200, { ok: true, room: room, size: size, round: bingoRooms[room].round });
     });
     return;
   }

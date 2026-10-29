@@ -340,8 +340,8 @@ function hwcShuffle(a){
 function hwcUnique(a){ return a.filter(function(v, i){ return a.indexOf(v) === i; }); }
 
 // 全員ぶんのカードの山をつくる。★レアは少なめ、どのカードも最低1まいは入れる。
-function hwcDeck(total, stage){
-  const cards = hwcSet(stage).cards;
+function hwcDeck(total, stage, regularOnly){
+  const cards = hwcSet(stage).cards.filter(function(c){ return !regularOnly || !c.rare; });
   const n = cards.length;
   if(total < n){
     return hwcShuffle(cards.map(function(c){ return c.id; })).slice(0, total);
@@ -369,7 +369,9 @@ function hwcDeck(total, stage){
 }
 // あとから入った子には、ランダムに配る（★レアは出にくい）
 function hwcRandomHand(stage, size){
-  const cards = hwcSet(stage).cards;
+  const all = hwcSet(stage).cards;
+  const rareCards = all.filter(function(c){ return c.rare; });
+  const cards = rareCards.length ? all.filter(function(c){ return !c.rare; }) : all;
   const w = cards.map(function(c){ return c.rare ? 0.5 : 1; });
   const sw = w.reduce(function(a, b){ return a + b; }, 0);
   const hand = [];
@@ -377,6 +379,9 @@ function hwcRandomHand(stage, size){
     let x = Math.random() * sw, k = 0;
     while(k < cards.length - 1 && x >= w[k]){ x -= w[k]; k++; }
     hand.push(cards[k].id);
+  }
+  if(rareCards.length){
+    hand[Math.floor(Math.random() * size)] = rareCards[Math.floor(Math.random() * rareCards.length)].id;
   }
   return hand;
 }
@@ -386,10 +391,20 @@ function hwcPlayers(room){
 function hwcDealRoom(room){
   const r = getHwcRoom(room);
   const ids = hwcPlayers(room);
-  const deck = hwcDeck(ids.length * r.handSize, r.stage);
+  // 全員に★レアを1まいは ひとつ確定でくばる（のこりは ふつうのカード）
+  const rares = hwcSet(r.stage).cards.filter(function(c){ return c.rare; }).map(function(c){ return c.id; });
+  const nRare = rares.length ? 1 : 0;
+  const deck = hwcDeck(ids.length * (r.handSize - nRare), r.stage, nRare > 0);
+  let rarePool = [];
   ids.forEach(function(id, i){
     const s = hwcStudents[id];
-    s.hand = deck.slice(i * r.handSize, (i + 1) * r.handSize);
+    if(nRare){
+      if(!rarePool.length) rarePool = hwcShuffle(rares.slice());
+      const k = r.handSize - 1;
+      s.hand = hwcShuffle([rarePool.pop()].concat(deck.slice(i * k, (i + 1) * k)));
+    } else {
+      s.hand = deck.slice(i * r.handSize, (i + 1) * r.handSize);
+    }
     s.book = hwcUnique(s.hand);
     if(s.stageDone) delete s.stageDone[r.stage];
     s.swaps = 0;

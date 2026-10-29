@@ -1406,6 +1406,10 @@ const server = http.createServer(function(req, res){
     serveFile(res, path.join(PUBLIC_DIR, 'halloween-card-teacher.html'), 'text/html; charset=utf-8');
     return;
   }
+  if(req.method === 'GET' && url === '/halloween-words'){
+    serveFile(res, path.join(PUBLIC_DIR, 'halloween-words.html'), 'text/html; charset=utf-8');
+    return;
+  }
   if(req.method === 'GET' && url === '/halloween-card-tv'){
     serveFile(res, path.join(PUBLIC_DIR, 'halloween-card-tv.html'), 'text/html; charset=utf-8');
     return;

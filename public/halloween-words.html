@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ハロウィン たんご れんしゅう</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: radial-gradient(circle at 50% 30%, #5A2D8C 0%, #2B1B3F 60%, #140A22 100%); color: #FFB347; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+  header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 14px; }
+  h1 { font-size: clamp(16px, 2.4vw, 26px); margin: 0; }
+  .tabs, .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+  .tab, .tool { background: rgba(255,255,255,.12); color: #FFE9C7; border-radius: 999px; padding: 8px 14px; font-size: clamp(13px, 1.6vw, 18px); font-weight: 700; }
+  .tab.on { background: #E8710A; color: #fff; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 14px 18px; min-height: 0; }
+  /* 大きなカード */
+  .big { display: none; flex-direction: column; align-items: center; width: 100%; }
+  .big.on { display: flex; }
+  .card { position: relative; width: min(86vw, calc(66vh * 0.714), 640px); aspect-ratio: 5 / 7; background: linear-gradient(170deg, #5B3A94, #3B2461); border: 6px solid #CBB7E8; border-radius: 28px; padding: 14px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.5), inset 0 0 0 3px rgba(255,255,255,.18); container-type: inline-size; }
+  .card.rare { border-color: #FFC83D; background: linear-gradient(135deg, #8A5A00 0%, #E8A400 30%, #FFE27A 50%, #E8A400 70%, #8A5A00 100%); animation: glow 2.2s ease-in-out infinite; }
+  @keyframes glow { 0%,100% { box-shadow: 0 0 14px rgba(240,180,41,.6), 0 10px 40px rgba(0,0,0,.5); } 50% { box-shadow: 0 0 40px rgba(255,200,60,1), 0 10px 40px rgba(0,0,0,.5); } }
+  .art { flex: 1; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, #fff 0%, #F1E8FB 70%, #DCCBF2 100%); border-radius: 18px; border: 3px solid rgba(43,27,63,.35); font-size: 62cqw; line-height: 1; cursor: pointer; user-select: none; }
+  .en { margin-top: 12px; background: #2B1B3F; color: #FFB347; border-radius: 14px; text-align: center; font-weight: 900; font-size: 17cqw; padding: 4px 0; white-space: nowrap; overflow: hidden; }
+  .card.rare .en { background: #5A3A00; color: #FFE27A; }
+  .ja { text-align: center; color: #E8DAF5; font-size: 10cqw; font-weight: 700; margin-top: 8px; min-height: 1.3em; }
+  .card.rare .ja { color: #5A3A00; }
+  .rtag { position: absolute; top: 18px; right: 18px; z-index: 3; padding: 2px 12px; border-radius: 8px; background: #D6002B; color: #fff; font-size: 7cqw; font-weight: 900; letter-spacing: 1px; box-shadow: 0 0 0 2px #FFE27A; }
+  .ctrl { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .ctrl button { background: #fff; color: #2B1B3F; border-radius: 999px; padding: 12px 22px; font-size: clamp(15px, 2vw, 24px); font-weight: 800; }
+  .ctrl .main { background: #E8710A; color: #fff; }
+  .count { color: #E8DAF5; font-weight: 700; font-size: clamp(14px, 1.8vw, 22px); min-width: 70px; text-align: center; }
+  /* リスト */
+  .list { display: none; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; width: min(96vw, 1100px); }
+  .list.on { display: grid; }
+  .list .mini { position: relative; aspect-ratio: 5 / 7; background: linear-gradient(170deg, #5B3A94, #3B2461); border: 4px solid #CBB7E8; border-radius: 14px; padding: 5px; display: flex; flex-direction: column; container-type: inline-size; cursor: pointer; }
+  .list .mini.rare { border-color: #FFC83D; background: linear-gradient(135deg, #8A5A00 0%, #E8A400 30%, #FFE27A 50%, #E8A400 70%, #8A5A00 100%); }
+  .list .mini .art { font-size: 56cqw; border-width: 2px; border-radius: 9px; }
+  .list .mini .en { font-size: 14cqw; margin-top: 4px; border-radius: 7px; padding: 1px 0; }
+  .list .mini .ja { font-size: 11cqw; margin-top: 3px; }
+  .list .mini .rtag { font-size: 10cqw; top: 8px; right: 8px; padding: 0 5px; border-radius: 4px; }
+  @media (max-width: 700px) { .list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .hint { color: #E8DAF5; font-size: clamp(13px, 1.5vw, 18px); margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎃 ハロウィン たんご れんしゅう</h1>
+  <div class="tabs">
+    <button class="tab on" data-mode="flash">📇 ひとつずつ</button>
+    <button class="tab" data-mode="quiz">❓ なにかな？</button>
+    <button class="tab" data-mode="list">🗂 ぜんぶ</button>
+  </div>
+  <div class="tools">
+    <button class="tool" id="auto-btn">▶ じどう</button>
+    <button class="tool" id="shuffle-btn">🔀 シャッフル</button>
+    <button class="tool" id="ja-btn">日本語：ひょうじ</button>
+    <button class="tool" id="full-btn">⛶ ぜんがめん</button>
+  </div>
+</header>
+<main>
+  <div class="big on" id="big">
+    <div class="card" id="card">
+      <div class="art" id="art"></div>
+      <div class="en" id="en"></div>
+      <div class="ja" id="ja"></div>
+    </div>
+    <div class="ctrl">
+      <button id="prev">◀ まえ</button>
+      <span class="count" id="count"></span>
+      <button class="main" id="say">🔊 もういちど</button>
+      <button id="reveal" style="display:none;">👀 こたえを みる</button>
+      <button id="next">つぎ ▶</button>
+    </div>
+    <div class="hint" id="hint">カードの絵をタップ／スペースキーで はつおん　←→キーで すすむ</div>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+<script src="/halloween-card-data.js"></script>
+<script>
+var ALL = HWC.sets[3].cards.slice();
+var words = ALL.slice(), idx = 0, mode = "flash", showJa = true, revealed = true, autoTimer = null;
+function $(id){ return document.getElementById(id); }
+function say(t){
+  if(!("speechSynthesis" in window)) return;
+  try{ speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t); u.lang = "en-US"; u.rate = 0.8; speechSynthesis.speak(u); }catch(e){}
+}
+function render(){
+  var c = words[idx];
+  var card = $("card");
+  card.className = "card" + (c.rare ? " rare" : "");
+  card.innerHTML = (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="art" id="art">' + c.emoji + '</div>' +
+    '<div class="en" id="en">' + (mode === "quiz" && !revealed ? "？？？" : c.en) + '</div>' +
+    '<div class="ja" id="ja">' + (showJa && (mode !== "quiz" || revealed) ? c.ja : "　") + '</div>';
+  $("art").onclick = function(){ if(mode === "quiz" && !revealed) reveal(); else say(c.en); };
+  $("count").textContent = (idx + 1) + " / " + words.length;
+  $("reveal").style.display = (mode === "quiz" && !revealed) ? "" : "none";
+  $("say").style.display = (mode === "quiz" && !revealed) ? "none" : "";
+  $("hint").textContent = mode === "quiz" ? "「これは なにかな？」と きいて、みんなで こたえてから 「こたえを みる」" : "カードの絵をタップ／スペースキーで はつおん　←→キーで すすむ";
+}
+function show(i, speak){
+  idx = (i + words.length) % words.length; revealed = (mode !== "quiz"); render();
+  if(speak && mode !== "quiz") say(words[idx].en);
+}
+function reveal(){ revealed = true; render(); say(words[idx].en); }
+function setMode(m){
+  mode = m; stopAuto();
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){ t.classList.toggle("on", t.getAttribute("data-mode") === m); });
+  $("big").classList.toggle("on", m !== "list"); $("list").classList.toggle("on", m === "list");
+  if(m === "list") buildList(); else show(idx, false);
+}
+function buildList(){
+  $("list").innerHTML = words.map(function(c, i){
+    return '<div class="mini' + (c.rare ? " rare" : "") + '" data-i="' + i + '">' + (c.rare ? '<span class="rtag">RARE</span>' : "") +
+      '<div class="art">' + c.emoji + '</div><div class="en">' + c.en + '</div><div class="ja">' + (showJa ? c.ja : "　") + '</div></div>';
+  }).join("");
+}
+$("list").onclick = function(e){
+  var m = e.target.closest(".mini"); if(!m) return;
+  idx = Number(m.getAttribute("data-i")); say(words[idx].en);
+};
+function startAuto(){
+  $("auto-btn").textContent = "⏸ ていし";
+  var step = function(){
+    if(mode === "list") return;
+    if(mode === "quiz"){
+      if(!revealed){ reveal(); } else { show(idx + 1, false); }
+    } else { show(idx + 1, true); }
+  };
+  if(mode === "flash") say(words[idx].en);
+  autoTimer = setInterval(step, 3500);
+}
+function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer = null; } $("auto-btn").textContent = "▶ じどう"; }
+$("auto-btn").onclick = function(){ if(autoTimer) stopAuto(); else startAuto(); };
+$("prev").onclick = function(){ show(idx - 1, true); };
+$("next").onclick = function(){ show(idx + 1, true); };
+$("say").onclick = function(){ say(words[idx].en); };
+$("reveal").onclick = reveal;
+$("shuffle-btn").onclick = function(){
+  for(var i = words.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = words[i]; words[i] = words[j]; words[j] = t; }
+  idx = 0; if(mode === "list") buildList(); else show(0, false);
+};
+$("ja-btn").onclick = function(){ showJa = !showJa; $("ja-btn").textContent = "日本語：" + (showJa ? "ひょうじ" : "かくす"); if(mode === "list") buildList(); else render(); };
+$("full-btn").onclick = function(){
+  try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){}
+};
+Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){ t.onclick = function(){ setMode(t.getAttribute("data-mode")); }; });
+document.addEventListener("keydown", function(e){
+  if(mode === "list") return;
+  if(e.key === "ArrowRight"){ show(idx + 1, true); }
+  else if(e.key === "ArrowLeft"){ show(idx - 1, true); }
+  else if(e.key === " " || e.key === "Enter"){ e.preventDefault(); if(mode === "quiz" && !revealed) reveal(); else say(words[idx].en); }
+});
+show(0, false);
+</script>
+</body>
+</html>

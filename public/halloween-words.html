@@ -14,17 +14,19 @@
   button { font-family: inherit; cursor: pointer; border: none; }
   .tab, .tool { background: rgba(255,255,255,.12); color: #FFE9C7; border-radius: 999px; padding: 8px 14px; font-size: clamp(13px, 1.6vw, 18px); font-weight: 700; }
   .tab.on { background: #E8710A; color: #fff; }
-  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 14px 18px; min-height: 0; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 8px 14px 18px; min-height: 0; }
   /* 大きなカード */
+  .big, .list { margin-top: auto; margin-bottom: auto; }
   .big { display: none; flex-direction: column; align-items: center; width: 100%; }
   .big.on { display: flex; }
   .card { position: relative; width: min(86vw, calc(66vh * 0.714), 640px); aspect-ratio: 5 / 7; background: linear-gradient(170deg, #5B3A94, #3B2461); border: 6px solid #CBB7E8; border-radius: 28px; padding: 14px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.5), inset 0 0 0 3px rgba(255,255,255,.18); container-type: inline-size; }
   .card.rare { border-color: #FFC83D; background: linear-gradient(135deg, #8A5A00 0%, #E8A400 30%, #FFE27A 50%, #E8A400 70%, #8A5A00 100%); animation: glow 2.2s ease-in-out infinite; }
   @keyframes glow { 0%,100% { box-shadow: 0 0 14px rgba(240,180,41,.6), 0 10px 40px rgba(0,0,0,.5); } 50% { box-shadow: 0 0 40px rgba(255,200,60,1), 0 10px 40px rgba(0,0,0,.5); } }
-  .art { flex: 1; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, #fff 0%, #F1E8FB 70%, #DCCBF2 100%); border-radius: 18px; border: 3px solid rgba(43,27,63,.35); font-size: 62cqw; line-height: 1; cursor: pointer; user-select: none; }
-  .en { margin-top: 12px; background: #2B1B3F; color: #FFB347; border-radius: 14px; text-align: center; font-weight: 900; font-size: 17cqw; padding: 4px 0; white-space: nowrap; overflow: hidden; }
+  .art { flex: 1; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, #fff 0%, #F1E8FB 70%, #DCCBF2 100%); border-radius: 18px; border: 3px solid rgba(43,27,63,.35); font-size: 40vw; font-size: 62cqw; line-height: 1; cursor: pointer; user-select: none; overflow: hidden; }
+  .art img { width: 78%; height: 78%; object-fit: contain; pointer-events: none; display: block; }
+  .en { margin-top: 12px; background: #2B1B3F; color: #FFB347; border-radius: 14px; text-align: center; font-weight: 900; font-size: 9vw; font-size: 17cqw; padding: 4px 0; white-space: nowrap; overflow: hidden; }
   .card.rare .en { background: #5A3A00; color: #FFE27A; }
-  .ja { text-align: center; color: #E8DAF5; font-size: 10cqw; font-weight: 700; margin-top: 8px; min-height: 1.3em; }
+  .ja { text-align: center; color: #E8DAF5; font-size: 5vw; font-size: 10cqw; font-weight: 700; margin-top: 8px; min-height: 1.3em; }
   .card.rare .ja { color: #5A3A00; }
   .rtag { position: absolute; top: 18px; right: 18px; z-index: 3; padding: 2px 12px; border-radius: 8px; background: #D6002B; color: #fff; font-size: 7cqw; font-weight: 900; letter-spacing: 1px; box-shadow: 0 0 0 2px #FFE27A; }
   .ctrl { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -36,10 +38,12 @@
   .list.on { display: grid; }
   .list .mini { position: relative; aspect-ratio: 5 / 7; background: linear-gradient(170deg, #5B3A94, #3B2461); border: 4px solid #CBB7E8; border-radius: 14px; padding: 5px; display: flex; flex-direction: column; container-type: inline-size; cursor: pointer; }
   .list .mini.rare { border-color: #FFC83D; background: linear-gradient(135deg, #8A5A00 0%, #E8A400 30%, #FFE27A 50%, #E8A400 70%, #8A5A00 100%); }
-  .list .mini .art { font-size: 56cqw; border-width: 2px; border-radius: 9px; }
-  .list .mini .en { font-size: 14cqw; margin-top: 4px; border-radius: 7px; padding: 1px 0; }
-  .list .mini .ja { font-size: 11cqw; margin-top: 3px; }
+  .list .mini .art img { width: 82%; height: 82%; }
+  .list .mini .art { font-size: 8vw; font-size: 56cqw; border-width: 2px; border-radius: 9px; }
+  .list .mini .en { font-size: 2vw; font-size: 14cqw; margin-top: 4px; border-radius: 7px; padding: 1px 0; }
+  .list .mini .ja { font-size: 1.6vw; font-size: 11cqw; margin-top: 3px; }
   .list .mini .rtag { font-size: 10cqw; top: 8px; right: 8px; padding: 0 5px; border-radius: 4px; }
+  @media (min-width: 1000px) { .list { grid-template-columns: repeat(8, minmax(0, 1fr)); width: min(96vw, 1300px); } }
   @media (max-width: 700px) { .list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .hint { color: #E8DAF5; font-size: clamp(13px, 1.5vw, 18px); margin-top: 8px; text-align: center; }
 </style>
@@ -77,10 +81,17 @@
   </div>
   <div class="list" id="list"></div>
 </main>
+<div style="text-align:center;color:#9C8AB8;font-size:11px;padding:0 0 8px;">イラスト：Twemoji (© Twitter, Inc. and other contributors, CC-BY 4.0)</div>
 <script src="/halloween-card-data.js"></script>
 <script>
 var ALL = HWC.sets[3].cards.slice();
 var words = ALL.slice(), idx = 0, mode = "flash", showJa = true, revealed = true, autoTimer = null;
+function pic(c){ return '<img src="/emoji/' + c.id + '.svg" alt="' + c.en + '" data-e="' + c.emoji + '">'; }
+function fixImgs(){
+  Array.prototype.forEach.call(document.querySelectorAll(".art img"), function(im){
+    im.onerror = function(){ this.replaceWith(document.createTextNode(this.getAttribute("data-e"))); };
+  });
+}
 function $(id){ return document.getElementById(id); }
 function say(t){
   if(!("speechSynthesis" in window)) return;
@@ -90,9 +101,10 @@ function render(){
   var c = words[idx];
   var card = $("card");
   card.className = "card";
-  card.innerHTML = '<div class="art" id="art">' + c.emoji + '</div>' +
+  card.innerHTML = '<div class="art" id="art">' + pic(c) + '</div>' +
     '<div class="en" id="en">' + (mode === "quiz" && !revealed ? "？？？" : c.en) + '</div>' +
     '<div class="ja" id="ja">' + (showJa && (mode !== "quiz" || revealed) ? c.ja : "　") + '</div>';
+  fixImgs();
   $("art").onclick = function(){ if(mode === "quiz" && !revealed) reveal(); else say(c.en); };
   $("count").textContent = (idx + 1) + " / " + words.length;
   $("reveal").style.display = (mode === "quiz" && !revealed) ? "" : "none";
@@ -113,8 +125,9 @@ function setMode(m){
 function buildList(){
   $("list").innerHTML = words.map(function(c, i){
     return '<div class="mini" data-i="' + i + '">' +
-      '<div class="art">' + c.emoji + '</div><div class="en">' + c.en + '</div><div class="ja">' + (showJa ? c.ja : "　") + '</div></div>';
+      '<div class="art">' + pic(c) + '</div><div class="en">' + c.en + '</div><div class="ja">' + (showJa ? c.ja : "　") + '</div></div>';
   }).join("");
+  fixImgs();
 }
 $("list").onclick = function(e){
   var m = e.target.closest(".mini"); if(!m) return;

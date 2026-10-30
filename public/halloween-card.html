@@ -422,6 +422,7 @@
 </div>
 
 <script src="/halloween-card-data.js"></script>
+<script src="/emoji/emo.js"></script>
 <script>
 var HW = window.HWC;
 var ROOM_KEY = "hwcard_student_room";
@@ -516,7 +517,7 @@ function renderBook(d){
     var isNew = got && prevBook && prevBook.indexOf(c.id) < 0;
     return '<div class="slot' + (got ? " got" : "") + (c.rare ? " rare" : "") + (isNew ? " pop" : "") + '" data-en="' + c.en + '">' +
       (c.rare ? '<span class="rtag">RARE</span>' : "") +
-      '<div class="se">' + c.emoji + '</div><div class="sw">' + c.en + '</div><div class="sj">' + (got ? c.ja : "?") + '</div></div>';
+      '<div class="se">' + emo(c.emoji) + '</div><div class="sw">' + c.en + '</div><div class="sj">' + (got ? c.ja : "?") + '</div></div>';
   }).join("");
   prevBook = d.book.slice();
 }
@@ -553,7 +554,7 @@ function showGacha(hand){
       pack.style.display = "none"; grid.style.display = "flex"; title.textContent = "カードを ゲット！"; sub.textContent = "";
       var nodes = cards.map(function(c){
         var d = document.createElement("div"); d.className = "g-card" + (c.rare ? " rare" : "");
-        d.innerHTML = '<div class="g-inner"><div class="g-face g-back">🎃</div><div class="g-face g-front">' + (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="ge">' + c.emoji + '</div><div class="gw">' + c.en + '</div><div class="gj">' + c.ja + '</div></div></div>';
+        d.innerHTML = '<div class="g-inner"><div class="g-face g-back">🎃</div><div class="g-face g-front">' + (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="ge">' + emo(c.emoji) + '</div><div class="gw">' + c.en + '</div><div class="gj">' + c.ja + '</div></div></div>';
         grid.appendChild(d); return d;
       });
       var i = 0;
@@ -597,7 +598,7 @@ function renderHand(d){
   el("hand-row").className = "hand-row" + (d.hand.length > 5 ? " many" : "");
   el("hand-row").innerHTML = d.hand.map(function(id){
     var c = cardOf(id);
-    return '<div class="hcard' + (c.rare ? " rare" : "") + '">' + (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="he">' + c.emoji + '</div><div class="hw">' + c.en + '</div><div class="hj">' + c.ja + '</div></div>';
+    return '<div class="hcard' + (c.rare ? " rare" : "") + '">' + (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="he">' + emo(c.emoji) + '</div><div class="hw">' + c.en + '</div><div class="hj">' + c.ja + '</div></div>';
   }).join("");
 }
 function renderProgress(d){
@@ -628,7 +629,7 @@ function handleNotice(d){
   var who = whoText(n.withRole, n.withNo);
   if(n.kind === "done"){
     var c = cardOf(n.got);
-    toast((n.isNew ? "✨ NEW！ " : "") + c.emoji + " " + c.en + " を ゲット！<br><small>" + who + "と こうかん せいこう</small>", 5000);
+    toast((n.isNew ? "✨ NEW！ " : "") + emo(c.emoji) + " " + c.en + " を ゲット！<br><small>" + who + "と こうかん せいこう</small>", 5000);
     if(n.isNew) speak(c.en);
     resetTrade(); closeTrade();
   } else if(n.kind === "declined"){
@@ -706,12 +707,12 @@ function renderTrade(){
   cards.forEach(function(c){
     var have = me.book.indexOf(c.id) >= 0;
     h += '<button class="wcard' + (c.rare ? " rare" : "") + (have ? " off" : "") + (tWant === c.id ? " sel" : "") + '" data-want="' + c.id + '"' + (have ? " disabled" : "") + '>' + (c.rare ? '<span class="rtag">RARE</span>' : "") +
-      '<div class="we">' + c.emoji + '</div><div class="ww">' + c.en + (have ? " ✓" : "") + '</div></button>';
+      '<div class="we">' + emo(c.emoji) + '</div><div class="ww">' + c.en + (have ? " ✓" : "") + '</div></button>';
   });
   h += '</div><div class="sec-title">③ あげるカード <small>（I have …）</small></div><div class="give-row">';
   me.hand.forEach(function(id, i){
     var c = cardOf(id);
-    h += '<button class="wcard' + (c.rare ? " rare" : "") + (tGive === id ? " sel" : "") + '" style="width:74px;" data-give="' + id + '">' + (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="we">' + c.emoji + '</div><div class="ww">' + c.en + '</div></button>';
+    h += '<button class="wcard' + (c.rare ? " rare" : "") + (tGive === id ? " sel" : "") + '" style="width:74px;" data-give="' + id + '">' + (c.rare ? '<span class="rtag">RARE</span>' : "") + '<div class="we">' + emo(c.emoji) + '</div><div class="ww">' + c.en + '</div></button>';
   });
   h += '</div>';
   var ready = tPartner && tWant && tGive && tWant !== tGive;
@@ -774,10 +775,10 @@ function renderIncoming(inc){
   el("incoming-body").innerHTML = '<div class="inc-box">' +
     '<div class="inc-from">' + (inc.fromPhoto ? '<img src="' + inc.fromPhoto + '">' : '<div class="ph">🙂</div>') + '<span>' + whoText(inc.fromRole, inc.fromNo) + ' から</span></div>' +
     '<div class="inc-q">' + HW.ask(w) + ' <button class="speak-btn" onclick="speak(\'' + HW.ask(w).replace(/'/g, "") + '\')">🔊</button></div>' +
-    '<div class="inc-card"><div class="ie">' + w.emoji + '</div><div class="iw">' + w.en + '</div></div>' +
+    '<div class="inc-card"><div class="ie">' + emo(w.emoji) + '</div><div class="iw">' + w.en + '</div></div>' +
     (inc.haveWant ? "" : '<div class="inc-have">この カードは もっていないよ…</div>') +
     '<div class="inc-q" style="font-size:16px;">' + HW.have(g) + '</div>' +
-    '<div class="inc-card"><div class="ie">' + g.emoji + '</div><div class="iw">' + g.en + '</div>' + (inc.giveIsNew ? '<span class="new">✨ NEW！ ずかんに のるよ</span>' : "") + '</div>' +
+    '<div class="inc-card"><div class="ie">' + emo(g.emoji) + '</div><div class="iw">' + g.en + '</div>' + (inc.giveIsNew ? '<span class="new">✨ NEW！ ずかんに のるよ</span>' : "") + '</div>' +
     '<button class="yes-btn" id="inc-yes"' + (inc.haveWant ? "" : " disabled") + '>Yes, I do! 😊 こうかんする</button>' +
     '<button class="no-btn" id="inc-no">No, I don\'t. 🙏 ごめんね</button>' +
     '</div>';
@@ -1136,6 +1137,8 @@ function skipRegister(){
   .rtag { font-size: 9.5cqw; top: 4px; right: 4px; padding: 1px 4px; }
   .g-front .rtag { font-size: 9.5cqw; }
   .wcard .we, .slot .se, .hcard .he { min-height: 0; }
+  .g-face.g-front > .ge, .g-face.g-front > .gw, .g-face.g-front > .gj { align-self: stretch; }
+  .emo { max-width: 100%; max-height: 100%; }
 </style>
 <button id="wc-fab" type="button">🔊 ことば</button>
 <div id="wc-overlay"><div id="wc-sheet">
@@ -1160,11 +1163,11 @@ function skipRegister(){
     words().forEach(function(w){
       var b = document.createElement("button"); b.type = "button"; b.className = "wc-chip";
       b.className = "wc-chip";
-      b.innerHTML = '<div class="ce">' + w.emoji + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
+      b.innerHTML = '<div class="ce">' + emo(w.emoji) + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
       b.onclick = function(){
         Array.prototype.forEach.call(grid.children, function(x){ x.classList.remove("sel"); });
         b.classList.add("sel");
-        big.innerHTML = '<div class="be">' + w.emoji + '</div><div class="bw">' + w.en + '</div><div class="bj">＝ ' + w.ja + '</div>';
+        big.innerHTML = '<div class="be">' + emo(w.emoji) + '</div><div class="bw">' + w.en + '</div><div class="bj">＝ ' + w.ja + '</div>';
         say(w.en);
       };
       grid.appendChild(b);

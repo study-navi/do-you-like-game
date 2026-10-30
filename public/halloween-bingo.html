@@ -277,6 +277,7 @@
   </div>
 </div>
 
+<script src="/emoji/emo.js"></script>
 <script>
 /* ハロウィンビンゴは通常のビンゴと部屋を分けるため、API の room に hw- を付ける */
 (function(){
@@ -385,7 +386,7 @@ function speak(text){
   }catch(e){}
 }
 function iconHtml(it, size){
-  if(it && it.emoji) return '<span style="font-size:' + Math.round(size * 1.25) + 'px;line-height:1.1;">' + it.emoji + '</span>';
+  if(it && it.emoji) return '<span style="font-size:' + Math.round(size * 1.25) + 'px;line-height:1.1;">' + emo(it.emoji) + '</span>';
   if(!it) return "";
   return it.swatch
     ? '<span style="display:inline-block;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + it.swatch + ';border:1px solid #D3D1C7;"></span>'
@@ -1046,11 +1047,11 @@ function syncBingoProgress(lineCount, reset){
     words().forEach(function(w){
       var b = document.createElement("button"); b.type = "button"; b.className = "wc-chip";
       b.className = "wc-chip";
-      b.innerHTML = '<div class="ce">' + w.emoji + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
+      b.innerHTML = '<div class="ce">' + emo(w.emoji) + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
       b.onclick = function(){
         Array.prototype.forEach.call(grid.children, function(x){ x.classList.remove("sel"); });
         b.classList.add("sel");
-        big.innerHTML = '<div class="be">' + w.emoji + '</div><div class="bw">' + w.en + '</div><div class="bj">＝ ' + w.ja + '</div>';
+        big.innerHTML = '<div class="be">' + emo(w.emoji) + '</div><div class="bw">' + w.en + '</div><div class="bj">＝ ' + w.ja + '</div>';
         say(w.en);
       };
       grid.appendChild(b);

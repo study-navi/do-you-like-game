@@ -1406,8 +1406,8 @@ const server = http.createServer(function(req, res){
     serveFile(res, path.join(PUBLIC_DIR, 'halloween-card-teacher.html'), 'text/html; charset=utf-8');
     return;
   }
-  if(req.method === 'GET' && /^\/emoji\/[a-z0-9-]+\.svg$/.test(url)){
-    serveFile(res, path.join(PUBLIC_DIR, url), 'image/svg+xml');
+  if(req.method === 'GET' && /^\/emoji\/[a-z0-9-]+\.(svg|js)$/.test(url)){
+    serveFile(res, path.join(PUBLIC_DIR, url), url.slice(-3) === '.js' ? 'application/javascript; charset=utf-8' : 'image/svg+xml');
     return;
   }
   if(req.method === 'GET' && url === '/halloween-words'){

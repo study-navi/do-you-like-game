@@ -304,6 +304,7 @@
   </div>
 </div>
 
+<script src="/emoji/emo.js"></script>
 <script>
 var HW = window.HWC;
 var ROOM_KEY = "hwcard_teacher_room";
@@ -461,7 +462,7 @@ function renderBoard(students){
 function renderCounts(d){
   var cards = HW.sets[d.stage].cards;
   el("counts-row").innerHTML = cards.map(function(c){
-    return '<div class="count-chip' + (c.rare ? " rare" : "") + '"><div class="ce">' + c.emoji + '</div><div class="cn">' + (c.rare ? "★" : "") + (d.counts[c.id] || 0) + '</div></div>';
+    return '<div class="count-chip' + (c.rare ? " rare" : "") + '"><div class="ce">' + emo(c.emoji) + '</div><div class="cn">' + (c.rare ? "★" : "") + (d.counts[c.id] || 0) + '</div></div>';
   }).join("");
 }
 function renderControls(){
@@ -552,7 +553,7 @@ function buildPractice(){
     HW.sets[n].cards.forEach(function(c){
       var b = document.createElement("button");
       b.type = "button"; b.className = "practice-chip";
-      b.innerHTML = '<div class="pe">' + c.emoji + '</div><div class="pw">' + (c.rare ? "★" : "") + c.en + '</div><div class="pj">' + c.ja + '</div>';
+      b.innerHTML = '<div class="pe">' + emo(c.emoji) + '</div><div class="pw">' + (c.rare ? "★" : "") + c.en + '</div><div class="pj">' + c.ja + '</div>';
       b.onclick = function(){ speak(HW.ask(c)); };
       g.appendChild(b);
     });
@@ -792,11 +793,11 @@ setInterval(renderLive, 1000);
     words().forEach(function(w){
       var b = document.createElement("button"); b.type = "button"; b.className = "wc-chip";
       b.className = "wc-chip";
-      b.innerHTML = '<div class="ce">' + w.emoji + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
+      b.innerHTML = '<div class="ce">' + emo(w.emoji) + '</div><div class="cw">' + w.en + '</div><div class="cj">' + w.ja + '</div>';
       b.onclick = function(){
         Array.prototype.forEach.call(grid.children, function(x){ x.classList.remove("sel"); });
         b.classList.add("sel");
-        big.innerHTML = '<div class="be">' + w.emoji + '</div><div class="bw">' + w.en + '</div><div class="bj">＝ ' + w.ja + '</div>';
+        big.innerHTML = '<div class="be">' + emo(w.emoji) + '</div><div class="bw">' + w.en + '</div><div class="bj">＝ ' + w.ja + '</div>';
         say(w.en);
       };
       grid.appendChild(b);

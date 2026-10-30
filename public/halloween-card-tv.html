@@ -101,6 +101,7 @@
   <div class="empty" id="empty" style="display:none;">まだ誰も参加していません</div>
 
 <script src="/halloween-card-data.js"></script>
+<script src="/emoji/emo.js"></script>
 <script>
 var HW = window.HWC;
 var ROOM_KEY = "hwcard_tv_room";
@@ -167,7 +168,7 @@ function render(){
   var d = state;
   document.getElementById("sub-line").textContent = d.stage === 3 ? "24しゅるいの カードから " + d.total + "まい あつめよう！" : "ステージ" + d.stage + "：" + d.stageTitle;
   document.getElementById("cards-strip").innerHTML = HW.sets[d.stage].cards.map(function(c){
-    return '<div class="cs' + (c.rare ? " rare" : "") + '"><div class="ce">' + c.emoji + '</div><div class="cw">' + c.en + '</div><div class="cn">' + (c.rare ? "★ " : "") + (d.counts[c.id] || 0) + '</div></div>';
+    return '<div class="cs' + (c.rare ? " rare" : "") + '"><div class="ce">' + emo(c.emoji) + '</div><div class="cw">' + c.en + '</div><div class="cn">' + (c.rare ? "★ " : "") + (d.counts[c.id] || 0) + '</div></div>';
   }).join("");
   var kids = d.students.filter(function(s){ return s.role !== "teacher"; });
   var done = kids.filter(function(s){ return s.done; }).length;

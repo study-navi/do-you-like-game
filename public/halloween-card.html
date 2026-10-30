@@ -388,7 +388,7 @@
       <div class="pc-bar"><i id="pc-fill"></i></div>
     </div>
     <div class="book-grid" id="book-grid"></div>
-    <div class="done-banner" id="done-banner">🏆 ずかん コンプリート！<br>まだの ともだちを たすけよう（ほしいカードを あげよう）</div>
+    <div class="done-banner" id="done-banner">🏆 ずかん コンプリート！<br>まだ こうかん できるよ！ まだの ともだちを たすけよう（ほしいカードを あげよう）</div>
     <button class="trade-btn" id="trade-btn">🤝 こうかんしよう！</button>
     <div class="sec-title">🃏 てふだ <small>（こうかんに つかうカード）</small></div>
     <div class="hand-row" id="hand-row"></div>
@@ -607,7 +607,7 @@ function renderProgress(d){
   el("pc-fill").style.width = (d.book.length / d.total * 100) + "%";
   var done = !!d.done;
   el("done-banner").style.display = done ? "block" : "none";
-  el("trade-btn").style.display = done ? "none" : "block";
+  el("trade-btn").style.display = "block";
 }
 function renderElapsed(){
   if(!me || !me.dealtAt){ el("elapsed").textContent = ""; return; }

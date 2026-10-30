@@ -199,6 +199,19 @@
   .round-pill { text-align: center; margin: -6px auto 12px; background: #FFF1E0; color: #B85600; border: 1px solid #F5C58A; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; width: fit-content; max-width: 100%; }
   .round-toast { position: fixed; left: 12px; right: 12px; top: 64px; z-index: 300; background: #2B1B3F; color: #FFB347; border-radius: 16px; padding: 14px 16px; text-align: center; font-weight: 700; font-size: 15px; line-height: 1.5; box-shadow: 0 8px 28px rgba(0,0,0,0.35); display: none; }
   .round-toast.show { display: block; }
+
+  /* 単語がよばれたとき：英語で言えたらとじる */
+  #call-overlay { position: fixed; inset: 0; z-index: 700; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px; background: radial-gradient(circle at 50% 30%, #5A2D8C 0%, #2B1B3F 65%, #140A22 100%); color: #FFB347; text-align: center; }
+  #call-overlay.show { display: flex; }
+  #call-overlay .co-title { font-size: 18px; font-weight: 800; margin-bottom: 12px; color: #E8DAF5; }
+  #call-overlay .co-card { width: min(78vw, 56vh * 0.714, 340px); aspect-ratio: 5 / 7; background: linear-gradient(170deg, #5B3A94, #3B2461); border: 5px solid #CBB7E8; border-radius: 22px; padding: 10px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.5); container-type: inline-size; animation: coPop .45s ease-out; }
+  @keyframes coPop { 0% { transform: scale(.6) rotate(-4deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+  #call-overlay .co-art { flex: 1; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, #fff 0%, #F1E8FB 70%, #DCCBF2 100%); border-radius: 14px; border: 2px solid rgba(43,27,63,.35); font-size: 60cqw; line-height: 1; }
+  #call-overlay .co-en { margin-top: 8px; background: #2B1B3F; border-radius: 10px; font-size: 16cqw; font-weight: 900; padding: 3px 0; }
+  #call-overlay .co-ja { margin-top: 6px; color: #E8DAF5; font-size: 9cqw; font-weight: 700; }
+  #call-overlay .co-say { margin-top: 14px; font-size: 16px; font-weight: 800; color: #E8DAF5; }
+  #call-overlay .co-btn { margin-top: 12px; padding: 16px 30px; border: none; border-radius: 999px; background: #E8710A; color: #fff; font-size: 20px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 14px rgba(232,113,10,.5); }
+  #call-overlay .co-listen { margin-top: 10px; padding: 8px 18px; border: none; border-radius: 999px; background: rgba(255,255,255,.15); color: #FFE9C7; font-size: 14px; font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -269,6 +282,18 @@
   </div>
 </div>
 
+
+<div id="call-overlay">
+  <div class="co-title">🎃 つぎの たんごは…</div>
+  <div class="co-card">
+    <div class="co-art" id="co-art"></div>
+    <div class="co-en" id="co-en"></div>
+    <div class="co-ja" id="co-ja"></div>
+  </div>
+  <div class="co-say">📣 こえに だして 英語で いってみよう！</div>
+  <button class="co-listen" id="co-listen" type="button">🔊 おてほんを きく</button>
+  <button class="co-btn" id="co-ok" type="button">英語で言えた！</button>
+</div>
 <div id="bingo-overlay" class="bingo-overlay">
   <div class="bingo-card">
     <div class="bingo-emoji">🎃</div>
@@ -528,6 +553,7 @@ function confirmCard(){
   markedFlags = new Array(n).fill(false);
   lineHit = new Array(n).fill(false);
   calledSeen = [];
+  callPollReady = false;
   completedLineCount = 0;
   var lcBadge = document.getElementById("line-count-badge");
   if(lcBadge){ lcBadge.style.display = "block"; lcBadge.textContent = "🎯 0本"; }
@@ -608,6 +634,24 @@ function updateLineCountBadge(){
   var badge = document.getElementById("line-count-badge");
   if(badge) badge.textContent = "🎯 " + completedLineCount + "本";
 }
+
+/* ===== 単語がよばれたら、カードを大きく出して、英語で言えたら とじる ===== */
+var callOpen = false, pendingBingo = false, callPollReady = false, callWord = "";
+function showCall(word){
+  var it = findItem(word);
+  callWord = word; callOpen = true;
+  document.getElementById("co-art").innerHTML = it ? emo(it.emoji) : "";
+  document.getElementById("co-en").textContent = word;
+  document.getElementById("co-ja").textContent = it ? it.ja : "";
+  document.getElementById("call-overlay").classList.add("show");
+  speak(word);
+}
+document.getElementById("co-listen").onclick = function(){ speak(callWord); };
+document.getElementById("co-ok").onclick = function(){
+  document.getElementById("call-overlay").classList.remove("show");
+  callOpen = false;
+  if(pendingBingo){ pendingBingo = false; showBingoOverlay(); }
+};
 function showBingoOverlay(){
   var textEl = document.getElementById("bingo-text");
   if(textEl) textEl.innerHTML = "Happy Halloween!<br>" + completedLineCount + "ラインビンゴ！";
@@ -648,14 +692,15 @@ function pollGame(){
         var idx = boardWords.indexOf(w);
         if(idx >= 0 && !markedFlags[idx]){ markedFlags[idx] = true; changed = true; }
       });
-      if(newWords.length){
-        speak(newWords[newWords.length - 1]);
-      }
+      var showCardNow = newWords.length && callPollReady;
+      if(newWords.length && !callPollReady){ /* さいしょの同期のときは、カードを出さない */ }
+      callPollReady = true;
+      if(showCardNow){ showCall(newWords[newWords.length - 1]); }
       if(changed){
         renderBoard();
         var completed = checkLines();
         renderBoard();
-        if(completed) showBingoOverlay();
+        if(completed){ if(callOpen) pendingBingo = true; else showBingoOverlay(); }
       }
     })
     .catch(function(){})

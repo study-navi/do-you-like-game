@@ -293,6 +293,103 @@ function publicAlphabetList(room){
 
 
 /* ============================================================
+ * アルファベット なかまわけ（大文字を自分でグループ分けして、みんなに共有するゲーム）
+ *   /sort（生徒用）/sort-teacher（先生用）/sort-tv（TV用）
+ *   room -> { phase: 'making' | 'open', spotlight: 生徒id|null, hideTitles: bool }
+ *   生徒 -> { shared: { at, groups:[{name, letters:[A-Z]}] } | null, likes:[いいねした生徒id] }
+ * ============================================================ */
+const SORT_ROOMS_FILE = path.join(__dirname, 'sort_rooms.json');
+const SORT_STUDENTS_FILE = path.join(__dirname, 'sort_students.json');
+let sortRooms = {};
+let sortStudents = {};
+function loadSort(){
+  try{ sortRooms = JSON.parse(fs.readFileSync(SORT_ROOMS_FILE, 'utf8')); }catch(e){ sortRooms = {}; }
+  try{ sortStudents = JSON.parse(fs.readFileSync(SORT_STUDENTS_FILE, 'utf8')); }catch(e){ sortStudents = {}; }
+}
+function saveSortRooms(){
+  try{ fs.writeFileSync(SORT_ROOMS_FILE, JSON.stringify(sortRooms)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+function saveSortStudents(){
+  try{ fs.writeFileSync(SORT_STUDENTS_FILE, JSON.stringify(sortStudents)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+loadSort();
+
+function getSortRoom(room){
+  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: false };
+  const r = sortRooms[room];
+  if(r.phase !== 'open') r.phase = 'making';
+  if(!r.spotlight || !sortStudents[r.spotlight] || normalizeRoom(sortStudents[r.spotlight].room) !== room || !sortStudents[r.spotlight].shared) r.spotlight = null;
+  r.hideTitles = !!r.hideTitles;
+  return r;
+}
+
+const SORT_MAX_GROUPS = 8;
+function cleanSortGroups(raw){
+  if(!Array.isArray(raw)) return null;
+  const used = {};
+  const out = [];
+  raw.slice(0, SORT_MAX_GROUPS).forEach(function(g){
+    if(!g || typeof g !== 'object') return;
+    const name = String(typeof g.name === 'string' ? g.name : '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 24);
+    const letters = [];
+    (Array.isArray(g.letters) ? g.letters : []).forEach(function(L){
+      if(typeof L === 'string' && /^[A-Z]$/.test(L) && !used[L]){ used[L] = true; letters.push(L); }
+    });
+    if(letters.length) out.push({ name: name, letters: letters });
+  });
+  return out.length ? out : null;
+}
+
+function sortPlayers(room){
+  return Object.keys(sortStudents).filter(function(id){ return normalizeRoom(sortStudents[id].room) === room; });
+}
+
+function publicSortItem(id, me){
+  const s = sortStudents[id];
+  const likes = Array.isArray(s.likes) ? s.likes : [];
+  return {
+    id: id,
+    no: s.no || null,
+    role: s.role || 'student',
+    photo: s.photo ? '/api/sort/photo?id=' + id : null,
+    groups: s.shared ? s.shared.groups : [],
+    sharedAt: s.shared ? s.shared.at : null,
+    likes: likes.length,
+    liked: !!(me && likes.indexOf(me) >= 0)
+  };
+}
+
+function publicSortState(room, me){
+  const r = getSortRoom(room);
+  const ids = sortPlayers(room);
+  const shared = ids.filter(function(id){ return !!sortStudents[id].shared; });
+  const out = {
+    room: room,
+    phase: r.phase,
+    spotlight: r.spotlight,
+    hideTitles: r.hideTitles,
+    total: ids.length,
+    sharedCount: shared.length
+  };
+  if(me){
+    const st = sortStudents[me];
+    out.exists = !!(st && normalizeRoom(st.room) === room);
+    out.me = out.exists ? publicSortItem(me, me) : null;
+    // 先生が ひらくまでは、ほかの人の わけかたは 見えない（じぶんの ぶんだけ）
+    out.items = (r.phase === 'open') ? shared.map(function(id){ return publicSortItem(id, me); }) : [];
+  } else {
+    out.items = shared.map(function(id){ return publicSortItem(id, ''); });
+    out.students = ids.map(function(id){
+      const s = sortStudents[id];
+      return { id: id, no: s.no || null, role: s.role || 'student', photo: s.photo ? '/api/sort/photo?id=' + id : null, shared: !!s.shared, registeredAt: s.registeredAt };
+    }).sort(function(a, b){ return (a.registeredAt || 0) - (b.registeredAt || 0); });
+  }
+  out.items.sort(function(a, b){ return (b.sharedAt || 0) - (a.sharedAt || 0); });
+  return out;
+}
+
+
+/* ============================================================
  * ハロウィン カードあつめ（交換して「ずかん」をコンプリートするゲーム）
  *   /halloween-card（生徒用）/halloween-card-teacher（先生用）/halloween-card-tv（TV用）
  *   room -> { phase: 'waiting' | 'playing', stage: 1|2, handSize: 3|4|5, dealtAt }
@@ -2041,6 +2138,180 @@ const server = http.createServer(function(req, res){
       s.updatedAt = Date.now();
       saveAlphabetStudents();
       sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  /* ---------- アルファベット なかまわけ ---------- */
+  if(req.method === 'GET' && url === '/sort'){
+    serveFile(res, path.join(PUBLIC_DIR, 'sort.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/sort-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'sort-teacher.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  if(req.method === 'GET' && url === '/sort-tv'){
+    serveFile(res, path.join(PUBLIC_DIR, 'sort-tv.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/sort/photo'){
+    const st = sortStudents[getQueryParam(queryString, 'id')];
+    const m = st && typeof st.photo === 'string' ? st.photo.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+    if(!m){ sendJson(res, 404, { error: 'not found' }); return; }
+    const buf = Buffer.from(m[2], 'base64');
+    res.writeHead(200, { 'Content-Type': m[1], 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=604800, immutable', 'Access-Control-Allow-Origin': '*' });
+    res.end(buf);
+    return;
+  }
+
+  if(req.method === 'GET' && url === '/api/sort/state'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = getQueryParam(queryString, 'me');
+    sendJson(res, 200, publicSortState(room, me));
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/register'){
+    readJsonBody(req, function(body){
+      if(!body){ sendJson(res, 400, { error: 'invalid body' }); return; }
+      const room = normalizeRoom(body.room);
+      let keep = null;
+      const old = typeof body.replaceId === 'string' ? sortStudents[body.replaceId] : null;
+      if(old && normalizeRoom(old.room) === room){
+        if(body.inherit !== false) keep = { shared: old.shared || null, likes: old.likes || [] };
+        delete sortStudents[body.replaceId];
+      }
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
+      if(deviceId){
+        Object.keys(sortStudents).forEach(function(k){
+          if(sortStudents[k].deviceId === deviceId && normalizeRoom(sortStudents[k].room) === room) delete sortStudents[k];
+        });
+      }
+      const id = crypto.randomBytes(4).toString('hex');
+      sortStudents[id] = {
+        id: id,
+        room: room,
+        deviceId: deviceId,
+        role: body.role === 'teacher' ? 'teacher' : 'student',
+        no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
+        photo: typeof body.photo === 'string' ? body.photo : null,
+        shared: keep ? keep.shared : null,
+        likes: keep ? keep.likes : [],
+        registeredAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      if(old && body.inherit !== false){
+        // 古い id への「いいね」「スポットライト」を、新しい id に ひきつぐ
+        Object.keys(sortStudents).forEach(function(k){
+          const arr = sortStudents[k].likes;
+          if(Array.isArray(arr)){ const i = arr.indexOf(body.replaceId); if(i >= 0) arr[i] = id; }
+        });
+        const r = sortRooms[room];
+        if(r && r.spotlight === body.replaceId) r.spotlight = id;
+        saveSortRooms();
+      }
+      saveSortStudents();
+      sendJson(res, 200, { id: id, room: room });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/share'){
+    readJsonBody(req, function(body){
+      const st = body && sortStudents[body.id];
+      if(!st){ sendJson(res, 404, { error: 'unknown student' }); return; }
+      const groups = cleanSortGroups(body.groups);
+      if(!groups){ sendJson(res, 400, { error: 'no groups' }); return; }
+      st.shared = { at: Date.now(), groups: groups };
+      st.updatedAt = Date.now();
+      saveSortStudents();
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/unshare'){
+    readJsonBody(req, function(body){
+      const st = body && sortStudents[body.id];
+      if(st){
+        st.shared = null;
+        st.likes = [];
+        st.updatedAt = Date.now();
+        saveSortStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/like'){
+    readJsonBody(req, function(body){
+      const me = body && sortStudents[body.me];
+      const target = body && sortStudents[body.target];
+      if(!me || !target || body.me === body.target || !target.shared || normalizeRoom(me.room) !== normalizeRoom(target.room)){
+        sendJson(res, 400, { error: 'invalid' });
+        return;
+      }
+      if(!Array.isArray(target.likes)) target.likes = [];
+      const i = target.likes.indexOf(body.me);
+      if(i >= 0) target.likes.splice(i, 1); else target.likes.push(body.me);
+      saveSortStudents();
+      sendJson(res, 200, { ok: true, liked: i < 0, likes: target.likes.length });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/phase'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getSortRoom(room);
+      r.phase = (body && body.phase === 'open') ? 'open' : 'making';
+      saveSortRooms();
+      sendJson(res, 200, { ok: true, phase: r.phase });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/spotlight'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getSortRoom(room);
+      if(body && Object.prototype.hasOwnProperty.call(body, 'id')){
+        const id = typeof body.id === 'string' ? body.id : '';
+        r.spotlight = (id && sortStudents[id] && normalizeRoom(sortStudents[id].room) === room && sortStudents[id].shared) ? id : null;
+      }
+      if(body && typeof body.hideTitles === 'boolean') r.hideTitles = body.hideTitles;
+      saveSortRooms();
+      sendJson(res, 200, { ok: true, spotlight: r.spotlight, hideTitles: r.hideTitles });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/remove'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const id = body && typeof body.id === 'string' ? body.id : '';
+      if(id && sortStudents[id] && normalizeRoom(sortStudents[id].room) === room){
+        delete sortStudents[id];
+        saveSortStudents();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/reset'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      Object.keys(sortStudents).forEach(function(id){
+        if(normalizeRoom(sortStudents[id].room) === room) delete sortStudents[id];
+      });
+      sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: false };
+      saveSortStudents();
+      saveSortRooms();
+      sendJson(res, 200, { ok: true, room: room });
     });
     return;
   }

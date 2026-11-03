@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>アルファベット なかまわけ - ALPHABET</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.46.0/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 16px; touch-action: manipulation;
+  }
+  .app { max-width: 520px; margin: 0 auto; }
+  .title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 2px; }
+  .room-tag { text-align: center; font-size: 12px; color: #888780; margin-bottom: 16px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* setup screen */
+  .setup-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .setup-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 12px; }
+  .random-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #185FA5; color: #FFFFFF; cursor: pointer; margin-bottom: 4px;
+  }
+  .or-sep { text-align: center; font-size: 12px; color: #B4B2A9; margin: 10px 0; }
+  .setup-grid-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .setup-grid { display: grid; gap: 6px; }
+  .setup-cell {
+    background: #F1EFE8; border: 2px dashed #D3D1C7; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; padding: 4px; overflow: hidden;
+  }
+  .setup-cell.filled { border-style: solid; border-color: #A9C23F; background: #F3F8E4; }
+  .setup-cell .cell-en { font-weight: 700; }
+  .setup-cell .cell-ja { color: #888780; }
+  .fill-count { text-align: center; font-size: 13px; color: #5F5E5A; margin-bottom: 10px; }
+  .pool-title { font-size: 13px; font-weight: 600; color: #5F5E5A; margin-bottom: 8px; }
+  .pool-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; min-height: 44px; }
+  .pool-tile {
+    background: #EEEDFE; border-radius: 12px; padding: 6px 12px; font-size: 18px; font-weight: 700; min-width: 44px; justify-content: center;
+    color: #534AB7; cursor: grab; display: flex; align-items: center; gap: 6px; touch-action: none;
+  }
+  .pool-tile.selected { outline: 3px solid #534AB7; }
+  .pool-tile.dragging { opacity: 0.35; }
+  .drag-ghost {
+    position: fixed; z-index: 999; pointer-events: none; background: #534AB7; color: #FFFFFF;
+    border-radius: 12px; padding: 8px 14px; font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+  .confirm-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #A9C23F; color: #FFFFFF; cursor: pointer; margin-top: 6px;
+  }
+  .confirm-btn:disabled { background: #D3D1C7; cursor: default; }
+  .size-note { text-align: center; font-size: 12px; color: #B4B2A9; margin-bottom: 10px; }
+
+  /* game screen */
+  .word-banner {
+    background: #FFFFFF; border-radius: 18px; padding: 16px; text-align: center; margin-bottom: 14px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  }
+  .word-banner .label { font-size: 11px; color: #B4B2A9; margin-bottom: 4px; }
+  .word-banner .en { font-size: 64px; line-height: 1.1; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .word-banner .ja { font-size: 13px; color: #888780; margin-top: 2px; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 30px; height: 30px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .board-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .board-grid { display: grid; gap: 6px; }
+  .board-cell {
+    background: #FFFFFF; border: 2px solid #E6E4DA; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 4px; overflow: hidden; position: relative;
+  }
+  .board-cell.marked { background: #E1F5EE; border-color: #1D9E75; }
+  .board-cell.marked::after {
+    content: "✓"; position: absolute; top: 2px; right: 5px; color: #0F6E56; font-weight: 700; font-size: 13px;
+  }
+  .board-cell.line { background: #FDF3D8; border-color: #F0B429; }
+  .board-cell .cell-en { font-weight: 700; }
+  .board-cell .cell-ja { color: #888780; }
+  .history-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
+  .history-chip {
+    flex: 0 0 auto; background: #F1EFE8; border-radius: 999px; padding: 5px 12px; font-size: 12px; color: #5F5E5A;
+  }
+  .redo-btn {
+    width: 100%; padding: 10px; font-size: 13px; border-radius: 999px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; cursor: pointer;
+  }
+
+  .bingo-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  }
+  .bingo-overlay.show { display: flex; }
+  .bingo-card { background: #FFFFFF; border-radius: 22px; padding: 30px 24px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .bingo-emoji { font-size: 50px; margin-bottom: 8px; }
+  .bingo-text { font-size: 26px; font-weight: 700; color: #185FA5; margin-bottom: 16px; }
+  .bingo-close { padding: 10px 26px; border-radius: 999px; border: none; background: #185FA5; color: #FFFFFF; font-weight: 600; cursor: pointer; }
+
+  .room-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .room-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .room-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  .room-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .room-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #D3D1C7; font-size: 16px; box-sizing: border-box; text-align: center; margin-bottom: 14px; }
+  .room-start-btn { width: 100%; padding: 12px; border-radius: 999px; border: 2px solid #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .line-count-badge {
+    position: fixed; top: 12px; right: 12px; background: #185FA5; color: #FFFFFF;
+    padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 14px; z-index: 60;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .register-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55); display: none;
+    align-items: center; justify-content: center; padding: 16px; z-index: 110;
+  }
+  .register-card { background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+  .register-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .register-sub { font-size: 13px; color: #888780; margin-bottom: 16px; }
+  .reg-frame {
+    width: 140px; height: 140px; border-radius: 50%; background: #F1EFE8; border: 3px dashed #D3D1C7;
+    margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 40px;
+  }
+  .reg-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .reg-btn-primary, .reg-btn-secondary {
+    padding: 12px 20px; border-radius: 999px; border: none; font-weight: 700; font-size: 14px;
+    cursor: pointer; margin-bottom: 10px; width: 100%;
+  }
+  .reg-btn-primary { background: #185FA5; color: #FFFFFF; }
+  .reg-btn-secondary { background: #EEEDFE; color: #534AB7; }
+  .reg-skip-btn {
+    display: block; width: 100%; padding: 8px; border: none; background: none; color: #B4B2A9;
+    font-size: 12px; text-decoration: underline; cursor: pointer; margin-top: 6px;
+  }
+  /* ---- registration overlay ---- */
+  .register-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .register-card {
+    background: #FFFFFF; border-radius: 20px; padding: 24px; width: 100%; max-width: 420px;
+    text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  }
+  .register-title { font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .register-sub { font-size: 13px; color: #888780; margin-bottom: 14px; }
+  .reg-frame {
+    width: 100%; aspect-ratio: 4 / 3; background: #F1EFE8; border-radius: 16px;
+    overflow: hidden; margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .reg-frame video, .reg-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .register-actions { display: flex; flex-direction: column; gap: 10px; }
+  .reg-btn-primary {
+    padding: 14px; font-size: 16px; border-radius: 999px; font-weight: 600;
+    border: 2px solid #7F77DD; color: #534AB7; background: #EEEDFE;
+  }
+  .reg-btn-confirm {
+    padding: 14px; font-size: 16px; border-radius: 999px; font-weight: 600;
+    border: 2px solid #1D9E75; color: #0F6E56; background: #E1F5EE;
+  }
+  .reg-btn-secondary {
+    padding: 10px; font-size: 14px; border-radius: 999px; font-weight: 500;
+    border: 1px solid #D3D1C7; color: #5F5E5A; background: #FFFFFF;
+  }
+  .reg-error { color: #993C1D; font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .no-flex { display: flex; gap: 8px; }
+  .teacher-toggle {
+    flex: 0 0 auto; padding: 0 14px; border-radius: 10px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; font-size: 14px; font-weight: 600;
+  }
+  .teacher-toggle.on { background: #EEEDFE; border-color: #7F77DD; color: #534AB7; }
+  .register-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .no-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; }
+  .no-pick button {
+    padding: 9px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 17px; font-weight: 700; color: #2C2C2A; transition: transform 0.1s;
+  }
+  .no-pick button:active { transform: scale(0.92); }
+  .no-pick button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .no-pick.off { opacity: 0.3; pointer-events: none; }
+  #teacher-btn { width: 100%; padding: 10px 14px; }
+  .gc-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .gc-name { flex: 0 0 34px; font-size: 13px; color: #5F5E5A; font-weight: 600; }
+  .gc-pick { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .gc-pick button {
+    padding: 8px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 16px; font-weight: 700; color: #2C2C2A;
+  }
+  .gc-pick button.sel { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+  .reg-skip { margin-top: 14px; font-size: 12px; color: #B4B2A9; background: none; border: none; text-decoration: underline; }
+
+  /* ---- initial card game ---- */
+  .step-card { background: #FFFFFF; border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .step-hint { font-size: 14px; color: #5F5E5A; text-align: center; margin-bottom: 4px; }
+  .step-example { font-size: 12px; color: #888780; text-align: center; margin-bottom: 14px; }
+  .relogin-wrap { text-align: center; margin: 4px 0 24px; }
+  .relogin-link { background: none; border: none; color: #888780; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 8px 12px; }
+  .name-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .name-wrap { flex: 1; min-width: 0; text-align: center; }
+  .kana-input { width: 100%; padding: 10px 8px; font-size: 18px; border-radius: 10px; border: 2px solid #D3D1C7; text-align: center; font-family: inherit; user-select: text; -webkit-user-select: text; }
+  .kana-input:focus { outline: none; border-color: #185FA5; }
+  .kana-msg { min-height: 18px; font-size: 12px; margin-top: 4px; color: #0F6E56; font-weight: 700; }
+  .kana-msg.err { color: #993C1D; }
+  .slot-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 14px; }
+  .slot-wrap { text-align: center; }
+  .slot-label { font-size: 12px; color: #5F5E5A; margin-bottom: 6px; font-weight: 600; }
+  .icard {
+    width: 92px; height: 112px; border-radius: 6px; background: #FFF3B0; border: 2px solid #F0D94F;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.12); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 58px; font-weight: 700; color: #2C2C2A; position: relative; line-height: 1;
+  }
+  .icard small { font-size: 11px; font-weight: 600; color: #888780; margin-top: 6px; }
+  .icard.empty { background: #FFFFFF; border: 2px dashed #D3D1C7; box-shadow: none; color: #D3D1C7; }
+  .icard.active { border-color: #185FA5; border-style: solid; box-shadow: 0 0 0 3px #B5D4F4; }
+  .icard.match { background: #E1F5EE; border-color: #1D9E75; }
+  .icard.match::after { content: "✓"; position: absolute; top: 3px; right: 7px; color: #0F6E56; font-size: 16px; }
+  .icard.pick { border-color: #D85A30; box-shadow: 0 0 0 3px #F5C4B3; }
+  .icard.mine { background: #EEEDFE; border-color: #AFA9EC; }
+  .keypad { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 14px; }
+  .keypad button {
+    padding: 10px 0; border-radius: 10px; border: 1px solid #D3D1C7; background: #FFFFFF;
+    font-size: 20px; font-weight: 700; color: #2C2C2A; cursor: pointer;
+  }
+  .keypad button:active { transform: scale(0.92); }
+  .keypad button.sel { background: #185FA5; border-color: #185FA5; color: #FFFFFF; }
+  .main-btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 999px;
+    border: none; background: #185FA5; color: #FFFFFF; cursor: pointer;
+  }
+  .main-btn:disabled { background: #D3D1C7; cursor: default; }
+  .sub-btn {
+    width: 100%; padding: 10px; font-size: 13px; border-radius: 999px; border: 1px solid #D3D1C7;
+    background: #FFFFFF; color: #5F5E5A; cursor: pointer; margin-top: 10px;
+  }
+  .wait-msg { text-align: center; font-size: 16px; font-weight: 600; color: #534AB7; margin: 6px 0 4px; }
+  .wait-sub { text-align: center; font-size: 12px; color: #888780; }
+  .target-from { text-align: center; margin-bottom: 8px; }
+  .target-from img { width: 96px; height: 72px; object-fit: contain; border-radius: 6px; background: #F1EFE8; border: 1px solid #E6E4DA; }
+  .lap-badge { display: inline-block; background: #FDF3D8; color: #854F0B; border-radius: 999px; padding: 2px 12px; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .section-title { font-size: 13px; color: #5F5E5A; font-weight: 700; margin: 4px 0 8px; text-align: center; }
+  .card-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 16px; }
+  .ask-box { background: #F7F6F1; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: center; }
+  .ask-title { font-size: 12px; color: #888780; margin-bottom: 6px; }
+  .ask-line { font-size: 22px; font-weight: 700; color: #185FA5; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0; }
+  .ask-ans { font-size: 12px; color: #5F5E5A; margin-top: 6px; }
+  .speak-btn {
+    border: none; background: #EEEDFE; color: #534AB7; width: 30px; height: 30px;
+    border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; flex: 0 0 auto; cursor: pointer;
+  }
+  .xchg-overlay {
+    position: fixed; inset: 0; background: rgba(44,44,42,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 150; padding: 16px;
+  }
+  .xchg-overlay.show { display: flex; }
+  .xchg-card { background: #FFFFFF; border-radius: 22px; padding: 22px 18px; width: 100%; max-width: 420px; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .xchg-q { font-size: 15px; font-weight: 700; text-align: center; margin: 4px 0 10px; }
+  .peer-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+  .peer-grid button { padding: 6px 2px; line-height: 1.15; min-height: 50px; }
+  .peer-grid button small { display: block; font-size: 10px; font-weight: 600; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .peer-grid button.teacher { grid-column: span 2; font-size: 15px; }
+  .peer-grid button.hot { box-shadow: 0 0 0 3px #F5C4B3; }
+  .reg-name-box { background: #F7F6F1; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left; }
+  .reg-name-box .reg-q { font-size: 14px; font-weight: 700; color: #2C2C2A; margin-bottom: 8px; }
+  .reg-locked { opacity: 0.35; pointer-events: none; }
+  .reg-lock-note { font-size: 12px; color: #993C1D; font-weight: 700; margin: -6px 0 10px; text-align: center; }
+  .target-name { font-size: 20px; font-weight: 700; color: #185FA5; margin-top: 4px; }
+  .target-name small { font-size: 12px; color: #888780; font-weight: 600; margin-left: 4px; }
+  .hint-btn { width: 100%; padding: 12px; font-size: 15px; font-weight: 700; border-radius: 999px; border: 2px solid #F0B429; background: #FDF3D8; color: #854F0B; cursor: pointer; margin-bottom: 10px; }
+  .quiz-btn { width: 100%; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 999px; border: 1px solid #AFA9EC; background: #EEEDFE; color: #534AB7; cursor: pointer; margin-top: 10px; }
+  .hint-group { background: #FDF8E6; border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+  .hint-group-title { font-size: 14px; font-weight: 700; color: #854F0B; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .hint-group-title .hl { font-size: 26px; color: #2C2C2A; }
+  .hint-people { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hint-person { background: #FFFFFF; border: 1px solid #F0D94F; border-radius: 10px; padding: 6px 10px; font-size: 15px; font-weight: 700; }
+  .hint-person small { color: #888780; font-weight: 600; margin-left: 4px; }
+  .hint-note { font-size: 12px; color: #888780; text-align: center; margin: 4px 0 8px; }
+  .quiz-bar { height: 12px; border-radius: 999px; background: #E6E4DA; overflow: hidden; margin: 6px 0 12px; }
+  .quiz-bar > div { height: 100%; width: 100%; background: #1D9E75; transition: width 0.25s linear, background 0.25s; }
+  .quiz-bar > div.low { background: #D85A30; }
+  .quiz-pt { text-align: center; font-size: 30px; font-weight: 700; color: #854F0B; margin: 2px 0; }
+  .quiz-top { background: #F7F6F1; border-radius: 12px; padding: 8px 12px; margin: 8px 0 12px; font-size: 14px; }
+  .quiz-top div { display: flex; justify-content: space-between; padding: 2px 0; }
+  .quiz-letters { display: flex; gap: 14px; justify-content: center; margin: 8px 0 6px; }
+  .quiz-q { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+  .quiz-prog { font-size: 12px; color: #888780; text-align: center; }
+  .quiz-choices { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .quiz-choice { padding: 14px 10px; font-size: 18px; font-weight: 700; border-radius: 14px; border: 2px solid #D3D1C7; background: #FFFFFF; color: #2C2C2A; cursor: pointer; font-family: inherit; }
+  .quiz-choice.ok { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+  .quiz-choice.ng { background: #FBE9E4; border-color: #D85A30; color: #993C1D; }
+  .quiz-result { text-align: center; font-size: 16px; font-weight: 700; min-height: 24px; margin-bottom: 8px; }
+  .quiz-photo { display: block; margin: 0 auto 8px; width: 120px; height: 90px; object-fit: contain; border-radius: 8px; background: #F1EFE8; border: 1px solid #E6E4DA; }
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #2C2C2A; color: #FFFFFF; padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; z-index: 300; display: none; max-width: 90vw; text-align: center; }
+  .toast.show { display: block; }
+  .xchg-preview { text-align: center; font-size: 18px; font-weight: 700; color: #993C1D; min-height: 26px; margin-bottom: 10px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab { flex: 1; padding: 12px 6px; font-size: 14px; font-weight: 700; border-radius: 14px; border: 2px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .tab.active { border-color: #185FA5; background: #E6F1FB; color: #185FA5; }
+  .tab-n { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: #D85A30; color: #FFFFFF; font-size: 12px; }
+  .tab-n:empty { display: none; }
+  .tray { display: flex; flex-wrap: wrap; gap: 8px; min-height: 56px; margin-bottom: 8px; }
+  .ltile {
+    width: 48px; height: 54px; border-radius: 12px; background: #FFF3B0; border: 2px solid #F0D94F;
+    display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #2C2C2A;
+    cursor: pointer; font-family: inherit; padding: 0; box-shadow: 1px 3px 6px rgba(0,0,0,0.1);
+  }
+  .ltile:active { transform: scale(0.93); }
+  .ltile.sel { background: #FFFFFF; border-color: #185FA5; box-shadow: 0 0 0 3px #B5D4F4; transform: translateY(-3px); }
+  .tray-empty { color: #B4B2A9; font-size: 13px; align-self: center; }
+  .tray-actions { display: flex; align-items: center; gap: 10px; }
+  .mini-btn { padding: 6px 14px; font-size: 12px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .sel-count { font-size: 13px; font-weight: 700; color: #185FA5; }
+  .group-card { background: #FFFFFF; border-radius: 18px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); border-left: 8px solid var(--gc); }
+  .group-top { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .group-no { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; background: var(--gc); color: #FFFFFF; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .group-name { flex: 1; min-width: 0; padding: 10px; font-size: 16px; border-radius: 10px; border: 2px solid #D3D1C7; font-family: inherit; user-select: text; -webkit-user-select: text; }
+  .group-name:focus { outline: none; border-color: var(--gc); }
+  .group-del { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #E9B9A8; background: #FFFFFF; color: #993C1D; font-size: 16px; line-height: 1; cursor: pointer; }
+  .group-letters { display: flex; flex-wrap: wrap; gap: 6px; min-height: 46px; margin-bottom: 10px; padding: 6px; border-radius: 12px; background: var(--gb); }
+  .gchip { width: 40px; height: 44px; border-radius: 10px; background: #FFFFFF; border: 2px solid var(--gc); color: #2C2C2A; font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; padding: 0; }
+  .gchip:active { transform: scale(0.93); }
+  .group-empty { color: #B4B2A9; font-size: 12px; align-self: center; padding-left: 4px; }
+  .put-btn { width: 100%; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 999px; border: 2px solid var(--gc); background: #FFFFFF; color: var(--gc); cursor: pointer; font-family: inherit; }
+  .put-btn:disabled { border-color: #D3D1C7; color: #B4B2A9; cursor: default; }
+  .add-group-btn { width: 100%; padding: 12px; font-size: 14px; font-weight: 700; border-radius: 999px; border: 2px dashed #B4B2A9; background: transparent; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .add-group-btn:disabled { opacity: 0.4; cursor: default; }
+  .share-state { text-align: center; font-size: 14px; font-weight: 700; color: #0F6E56; min-height: 20px; margin-bottom: 6px; }
+  .gallery-note { text-align: center; font-size: 15px; font-weight: 700; color: #534AB7; margin: 24px 0; line-height: 1.7; }
+  .gallery-note:empty { display: none; }
+  .g-card { background: #FFFFFF; border-radius: 18px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .g-card.mine { border: 2px solid #AFA9EC; }
+  .g-card.spot { border: 3px solid #F0B429; background: #FFFBEE; }
+  .g-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .g-photo { width: 64px; height: 48px; border-radius: 6px; object-fit: contain; background: #F1EFE8; border: 1px solid #E6E4DA; flex: 0 0 auto; }
+  .g-photo-blank { width: 64px; height: 48px; border-radius: 6px; background: #F1EFE8; display: flex; align-items: center; justify-content: center; font-size: 20px; flex: 0 0 auto; }
+  .g-who { font-size: 16px; font-weight: 700; flex: 1; }
+  .g-badge { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: #EEEDFE; color: #534AB7; }
+  .g-badge.spot { background: #FDF3D8; color: #854F0B; }
+  .g-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: var(--gb); border-left: 6px solid var(--gc); margin-bottom: 8px; }
+  .g-title { font-size: 14px; font-weight: 700; color: var(--gc); flex: 1 1 100%; }
+  .g-letters { display: flex; flex-wrap: wrap; gap: 4px; }
+  .g-letters span { width: 30px; height: 34px; border-radius: 8px; background: #FFFFFF; border: 2px solid var(--gc); font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .g-actions { display: flex; gap: 8px; margin-top: 6px; }
+  .g-actions button { flex: 1; padding: 10px 6px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .g-actions button.liked { background: #FDF3D8; border-color: #F0B429; color: #854F0B; }
+  .g-actions button:disabled { opacity: 0.4; cursor: default; }
+</style>
+</head>
+<body>
+  <div id="register-overlay" class="register-overlay">
+    <div class="register-card">
+      <div class="register-title">📷 なまえカードを うつしてね</div>
+      <div class="register-sub">ネームカードに なまえを かいて、しゃしんを とってください</div>
+      <div id="room-badge" style="font-size:13px;color:#185FA5;background:#E6F1FB;border-radius:999px;padding:6px 14px;margin-bottom:14px;display:none;"></div>
+      <div id="room-row" style="margin-bottom:14px;display:none;text-align:left;">
+        <label id="gc-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">なんねん なんくみ？</label>
+        <input type="hidden" id="room-input" value="">
+        <div class="gc-line"><span class="gc-name">ねん</span><div id="grade-pick" class="gc-pick"></div></div>
+        <div class="gc-line"><span class="gc-name">くみ</span><div id="class-pick" class="gc-pick"></div></div>
+      </div>
+      <div id="no-row" style="margin-bottom:14px;text-align:left;">
+        <label id="no-label" style="font-size:14px;color:#5F5E5A;display:block;margin-bottom:8px;font-weight:600;">しゅっせきばんごうを えらんでね</label>
+        <input type="hidden" id="no-input" value="">
+        <div id="no-pick" class="no-pick"></div>
+        <button type="button" id="teacher-btn" class="teacher-toggle" onclick="toggleTeacher()">👩‍🏫 先生</button>
+      </div>
+      <div class="reg-frame" id="reg-frame">
+        <div id="reg-placeholder" style="color:#B4B2A9;font-size:13px;padding:0 16px;text-align:center;">まだ しゃしんが ありません</div>
+        <img id="reg-preview" style="display:none;">
+      </div>
+      <input type="file" id="reg-file-input" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoSelected(event)">
+      <div class="register-actions">
+        <button id="reg-capture-btn" class="reg-btn-primary" onclick="document.getElementById('reg-file-input').click()">
+          <i class="ti ti-camera" style="vertical-align:-3px;margin-right:6px;"></i>しゃしんを とる
+        </button>
+        <button id="reg-confirm-btn" class="reg-btn-confirm" style="display:none;" onclick="confirmKeep()">これで OK</button>
+        <button id="reg-retake-btn" class="reg-btn-secondary" style="display:none;" onclick="retakePhoto()">とりなおす</button>
+      </div>
+      <div class="reg-error" id="reg-error"></div>
+      <div id="relogin-actions" style="display:none;">
+        <button class="reg-btn-secondary" style="width:100%;margin-bottom:8px;" onclick="confirmAsOther()">べつの人として ログイン（カードは ひきつぎません）</button>
+        <button class="reg-btn-secondary" style="width:100%;" onclick="cancelRelogin()">もどる</button>
+      </div>
+    </div>
+  </div>
+
+
+
+
+
+<div class="app">
+  <div class="title">🔤 アルファベット なかまわけ</div>
+  <div class="room-tag" id="room-tag"></div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-make" onclick="showView('make')">✏️ つくる</button>
+    <button class="tab" id="tab-gallery" onclick="showView('gallery')">👀 みんなの わけかた <span class="tab-n" id="tab-n"></span></button>
+  </div>
+
+  <div id="view-make" class="screen active">
+    <div class="step-card">
+      <div class="step-hint">大文字を なかまわけ しよう！</div>
+      <div class="step-example">① ABCから もじを えらぶ<br>② グループの「ここに いれる」を おす<br>③ グループの なまえ（わけた ルール）を かく<br>れい: 「まっすぐの せんだけ」「まるが ある」</div>
+      <div class="pool-title" id="tray-title">まだ グループに はいっていない もじ</div>
+      <div class="tray" id="tray"></div>
+      <div class="tray-actions">
+        <button class="mini-btn" onclick="clearSel()">えらびなおす</button>
+        <span class="sel-count" id="sel-count"></span>
+      </div>
+    </div>
+
+    <div id="groups"></div>
+    <button class="add-group-btn" id="add-group-btn" onclick="addGroup()">＋ グループを ふやす</button>
+
+    <div class="step-card" style="margin-top:14px;">
+      <div class="share-state" id="share-state"></div>
+      <div class="kana-msg err" id="share-note" style="text-align:center;margin-bottom:6px;"></div>
+      <button class="main-btn" id="share-btn" onclick="shareNow()" disabled>📤 みんなに みせる</button>
+      <button class="sub-btn" id="unshare-btn" style="display:none;" onclick="unshareNow()">みせるのを やめる</button>
+    </div>
+  </div>
+
+  <div id="view-gallery" class="screen">
+    <div id="gallery-note" class="gallery-note"></div>
+    <div id="gallery"></div>
+  </div>
+</div>
+
+<div class="relogin-wrap"><button class="relogin-link" onclick="startRelogin()">🔑 ログインしなおす</button></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+var GCOL = ["#185FA5", "#1D9E75", "#D85A30", "#7F77DD", "#B7791F", "#B8458A", "#3B8E9E", "#6B7D1F"];
+var GBG = ["#E6F1FB", "#E1F5EE", "#FBEAE3", "#EEEDFE", "#FAF0D7", "#F9E6F0", "#E3F2F5", "#EEF3D8"];
+var MAX_GROUPS = 8;
+
+var ROOM_KEY = "sort_student_room";
+var currentRoom = "";
+var STUDENT_ID_KEY = "sort_student_id";
+var STUDENT_PHOTO_KEY = "sort_student_photo";
+var studentId = localStorage.getItem(STUDENT_ID_KEY) || null;
+var pollTimer = null;
+
+var meState = null;       // { id, groups, likes, sharedAt }
+var draft = null;         // [{ name, letters:[] }]
+var selected = [];
+var viewName = "make";
+var lastState = null;
+var galleryKey = "";
+var shareDirty = false;
+
+function getRoomFromUrl(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function esc(t){
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+}
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+}
+function draftKey(){ return "sort_draft_" + currentRoom; }
+function saveDraft(){
+  try{ localStorage.setItem(draftKey(), JSON.stringify(draft)); }catch(e){}
+}
+function loadDraft(){
+  try{
+    var d = JSON.parse(localStorage.getItem(draftKey()) || "null");
+    if(Array.isArray(d) && d.length){
+      return d.slice(0, MAX_GROUPS).map(function(g){
+        return { name: String((g && g.name) || "").slice(0, 24), letters: (g && Array.isArray(g.letters) ? g.letters : []).filter(function(L){ return LETTERS.indexOf(L) >= 0; }) };
+      });
+    }
+  }catch(e){}
+  return null;
+}
+function emptyDraft(){ return [{ name: "", letters: [] }, { name: "", letters: [] }]; }
+function placedSet(){
+  var o = {};
+  draft.forEach(function(g){ g.letters.forEach(function(L){ o[L] = true; }); });
+  return o;
+}
+
+/* ---------- ① つくる ---------- */
+function renderMake(){
+  if(!draft) return;
+  var placed = placedSet();
+  selected = selected.filter(function(L){ return !placed[L]; });
+  var tray = document.getElementById("tray");
+  var free = LETTERS.filter(function(L){ return !placed[L]; });
+  tray.innerHTML = free.length ? "" : '<span class="tray-empty">ぜんぶの もじを グループに いれたよ！</span>';
+  free.forEach(function(L){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "ltile" + (selected.indexOf(L) >= 0 ? " sel" : "");
+    b.textContent = L;
+    b.onclick = function(){ toggleSel(L); };
+    tray.appendChild(b);
+  });
+  document.getElementById("sel-count").textContent = selected.length ? ("えらんだ もじ: " + selected.join(" ")) : "";
+  var box = document.getElementById("groups");
+  box.innerHTML = "";
+  draft.forEach(function(g, gi){
+    var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
+    var card = document.createElement("div");
+    card.className = "group-card";
+    card.style.setProperty("--gc", c);
+    card.style.setProperty("--gb", bg);
+    var top = document.createElement("div");
+    top.className = "group-top";
+    top.innerHTML = '<div class="group-no">' + (gi + 1) + '</div>';
+    var inp = document.createElement("input");
+    inp.type = "text";
+    inp.className = "group-name";
+    inp.maxLength = 24;
+    inp.placeholder = "グループの なまえ（わけた ルール）";
+    inp.value = g.name;
+    inp.autocomplete = "off";
+    inp.oninput = function(){ g.name = inp.value; saveDraft(); updateShareBtn(); };
+    top.appendChild(inp);
+    if(draft.length > 1){
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "group-del";
+      del.textContent = "×";
+      del.title = "このグループを けす";
+      del.onclick = function(){ removeGroup(gi); };
+      top.appendChild(del);
+    }
+    card.appendChild(top);
+    var letters = document.createElement("div");
+    letters.className = "group-letters";
+    if(!g.letters.length){
+      letters.innerHTML = '<span class="group-empty">もじを えらんで「ここに いれる」を おしてね</span>';
+    }
+    g.letters.forEach(function(L){
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "gchip";
+      chip.textContent = L;
+      chip.title = "タップで もどす";
+      chip.onclick = function(){ returnLetter(gi, L); };
+      letters.appendChild(chip);
+    });
+    card.appendChild(letters);
+    var put = document.createElement("button");
+    put.type = "button";
+    put.className = "put-btn";
+    put.disabled = !selected.length;
+    put.textContent = selected.length ? ("⬇ ここに いれる（" + selected.join(" ") + "）") : "⬇ ここに いれる";
+    put.onclick = function(){ putSelected(gi); };
+    card.appendChild(put);
+    box.appendChild(card);
+  });
+  document.getElementById("add-group-btn").disabled = draft.length >= MAX_GROUPS;
+  updateShareBtn();
+}
+function toggleSel(L){
+  var i = selected.indexOf(L);
+  if(i >= 0) selected.splice(i, 1); else selected.push(L);
+  renderMake();
+}
+function clearSel(){ selected = []; renderMake(); }
+function putSelected(gi){
+  if(!selected.length) return;
+  selected.forEach(function(L){ draft[gi].letters.push(L); });
+  draft[gi].letters.sort();
+  selected = [];
+  shareDirty = true;
+  saveDraft();
+  renderMake();
+}
+function returnLetter(gi, L){
+  var i = draft[gi].letters.indexOf(L);
+  if(i >= 0) draft[gi].letters.splice(i, 1);
+  shareDirty = true;
+  saveDraft();
+  renderMake();
+}
+function addGroup(){
+  if(draft.length >= MAX_GROUPS) return;
+  draft.push({ name: "", letters: [] });
+  saveDraft();
+  renderMake();
+}
+function removeGroup(gi){
+  var g = draft[gi];
+  if(g.letters.length || g.name){
+    if(!confirm("このグループを けしますか？（もじは もどります）")) return;
+  }
+  draft.splice(gi, 1);
+  if(!draft.length) draft = emptyDraft();
+  shareDirty = true;
+  saveDraft();
+  renderMake();
+}
+function sharePayload(){
+  return draft.filter(function(g){ return g.letters.length; }).map(function(g){
+    return { name: String(g.name || "").trim(), letters: g.letters.slice() };
+  });
+}
+function shareProblem(){
+  var gs = sharePayload();
+  if(!gs.length) return "もじを グループに いれてね";
+  for(var i = 0; i < gs.length; i++){
+    if(!gs[i].name) return "なまえが ない グループが あるよ（わけた ルールを かいてね）";
+  }
+  if(!gs.some(function(g){ return g.letters.length >= 2; })) return "2もじ いじょうの グループを つくってね";
+  return "";
+}
+function updateShareBtn(){
+  var btn = document.getElementById("share-btn");
+  var problem = shareProblem();
+  btn.disabled = !!problem;
+  btn.textContent = (meState && meState.sharedAt) ? "📤 つくりなおして おくる" : "📤 みんなに みせる";
+  document.getElementById("share-note").textContent = problem;
+  var st = document.getElementById("share-state");
+  if(meState && meState.sharedAt){
+    st.textContent = "✓ みんなに みせています" + (meState.likes ? "　👍 " + meState.likes : "");
+  } else {
+    st.textContent = "";
+  }
+  document.getElementById("unshare-btn").style.display = (meState && meState.sharedAt) ? "block" : "none";
+}
+function shareNow(){
+  if(!studentId || shareProblem()) return;
+  var btn = document.getElementById("share-btn");
+  btn.disabled = true;
+  fetch("/api/sort/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId, groups: sharePayload() })
+  }).then(function(r){ if(!r.ok) throw new Error("x"); return r.json(); })
+    .then(function(){
+      shareDirty = false;
+      toast("みんなに みせたよ！");
+      pollGame();
+    })
+    .catch(function(){ toast("おくれませんでした。もういちど おしてね"); })
+    .finally(function(){ updateShareBtn(); });
+}
+function unshareNow(){
+  if(!studentId) return;
+  if(!confirm("みんなに みせるのを やめますか？（もらった 👍 も きえます）")) return;
+  fetch("/api/sort/unshare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: studentId })
+  }).then(function(){ toast("みせるのを やめたよ"); pollGame(); }).catch(function(){});
+}
+
+/* ---------- ② みんなの わけかた ---------- */
+function showView(name){
+  viewName = name;
+  document.getElementById("view-make").classList.toggle("active", name === "make");
+  document.getElementById("view-gallery").classList.toggle("active", name === "gallery");
+  document.getElementById("tab-make").classList.toggle("active", name === "make");
+  document.getElementById("tab-gallery").classList.toggle("active", name === "gallery");
+  if(name === "gallery"){ galleryKey = ""; renderGallery(); }
+  window.scrollTo(0, 0);
+}
+function groupsHtml(groups, hideTitles){
+  return groups.map(function(g, gi){
+    var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
+    return '<div class="g-group" style="--gc:' + c + ';--gb:' + bg + '">' +
+      '<div class="g-title">' + (hideTitles ? "？？？ （どんな ルールかな？）" : esc(g.name || "（なまえなし）")) + '</div>' +
+      '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
+  }).join("");
+}
+function renderGallery(){
+  var d = lastState;
+  var note = document.getElementById("gallery-note");
+  var box = document.getElementById("gallery");
+  if(!d){ return; }
+  if(d.phase !== "open"){
+    note.innerHTML = "👀 先生が「みんなの わけかたを ひらく」まで<br>ちょっと まっててね<br><small style='font-weight:400;color:#888780;'>じぶんの わけかたは「つくる」で みせておこう</small>";
+    box.innerHTML = "";
+    galleryKey = "closed";
+    return;
+  }
+  var items = d.items || [];
+  note.textContent = items.length ? "" : "まだ だれも みせていません";
+  var key = JSON.stringify([d.spotlight, d.hideTitles, items.map(function(it){ return [it.id, it.sharedAt, it.likes, it.liked]; })]);
+  if(key === galleryKey) return;
+  galleryKey = key;
+  var y = window.scrollY;
+  box.innerHTML = "";
+  items.forEach(function(it){
+    var mine = it.id === studentId;
+    var spot = d.spotlight === it.id;
+    var card = document.createElement("div");
+    card.className = "g-card" + (mine ? " mine" : "") + (spot ? " spot" : "");
+    card.innerHTML =
+      '<div class="g-head">' +
+        (it.photo ? '<img class="g-photo" src="' + it.photo + '" alt="">' : '<div class="g-photo-blank">🙂</div>') +
+        '<div class="g-who">' + (it.role === "teacher" ? "先生" : (it.no ? it.no + "ばん" : "?")) + ' の わけかた</div>' +
+        (spot ? '<span class="g-badge spot">⭐ TVに でているよ</span>' : '') +
+        (mine ? '<span class="g-badge">きみの</span>' : '') +
+      '</div>' +
+      groupsHtml(it.groups || [], spot && d.hideTitles && !mine) +
+      '<div class="g-actions">' +
+        '<button class="like-btn' + (it.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-id="' + it.id + '">👍 なるほど！ ' + (it.likes || 0) + '</button>' +
+        (mine ? '' : '<button class="copy-btn" data-id="' + it.id + '">📋 まねして つくる</button>') +
+      '</div>';
+    box.appendChild(card);
+  });
+  window.scrollTo(0, y);
+}
+document.getElementById("gallery").addEventListener("click", function(e){
+  var like = e.target.closest ? e.target.closest(".like-btn") : null;
+  if(like && !like.disabled){
+    var id = like.getAttribute("data-id");
+    fetch("/api/sort/like", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ me: studentId, target: id })
+    }).then(function(){ pollGame(); }).catch(function(){});
+    return;
+  }
+  var cp = e.target.closest ? e.target.closest(".copy-btn") : null;
+  if(cp){
+    var tid = cp.getAttribute("data-id");
+    var it = ((lastState && lastState.items) || []).filter(function(x){ return x.id === tid; })[0];
+    if(!it) return;
+    var hasWork = draft && draft.some(function(g){ return g.letters.length; });
+    if(hasWork && !confirm("いま つくっている わけかたは きえます。まねして つくりますか？")) return;
+    draft = (it.groups || []).slice(0, MAX_GROUPS).map(function(g){ return { name: g.name || "", letters: g.letters.slice() }; });
+    selected = [];
+    shareDirty = true;
+    saveDraft();
+    renderMake();
+    showView("make");
+    toast("まねして つくったよ！ なおして みせてみよう");
+  }
+});
+
+/* ---------- ポーリング ---------- */
+function pollGame(){
+  if(pollTimer) clearTimeout(pollTimer);
+  fetch("/api/sort/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
+      lastState = d;
+      meState = d.me ? { id: d.me.id, groups: d.me.groups || [], likes: d.me.likes || 0, sharedAt: d.me.sharedAt || null } : null;
+      if(!draft){
+        draft = (meState && meState.groups.length) ? meState.groups.map(function(g){ return { name: g.name || "", letters: g.letters.slice() }; }) : emptyDraft();
+        saveDraft();
+        renderMake();
+      } else {
+        updateShareBtn();
+      }
+      var n = document.getElementById("tab-n");
+      n.textContent = (d.phase === "open" && d.items && d.items.length) ? String(d.items.length) : "";
+      if(viewName === "gallery") renderGallery();
+    })
+    .catch(function(){})
+    .finally(function(){ pollTimer = setTimeout(pollGame, viewName === "gallery" ? 2500 : 4000); });
+}
+
+/* ---------- registration ---------- */
+var capturedPhoto = null;
+var STUDENT_NO_KEY = "sort_student_no";
+var PREV_ID_KEY = "sort_prev_id";
+var DEVICE_KEY = "sort_device";
+var registering = false;
+var inheritNext = true;   // ログインしなおすとき、カードを ひきつぐ
+var reloginMode = false;
+function getDeviceId(){
+  var d = "";
+  try{ d = localStorage.getItem(DEVICE_KEY) || ""; }catch(e){}
+  if(!d){
+    d = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    try{ localStorage.setItem(DEVICE_KEY, d); }catch(e){}
+  }
+  return d;
+}
+var STUDENT_ROLE_KEY = "sort_student_role";
+var isTeacher = false;
+function setTeacherMode(on){
+  isTeacher = !!on;
+  var input = document.getElementById("no-input");
+  var btn = document.getElementById("teacher-btn");
+  input.disabled = isTeacher;
+  input.placeholder = isTeacher ? "先生として さんか" : "れい: 12";
+  if(isTeacher) input.value = "";
+  btn.className = "teacher-toggle" + (isTeacher ? " on" : "");
+  btn.textContent = isTeacher ? "✓ 先生" : "👩‍🏫 先生";
+  document.getElementById("no-label").textContent = isTeacher ? "先生として さんかします（写真で 区別します）" : "しゅっせきばんごうを えらんでね";
+  renderNoPick();
+}
+var MAX_NO = 35;
+function renderNoPick(){
+  var box = document.getElementById("no-pick");
+  var input = document.getElementById("no-input");
+  if(!box.children.length){
+    for(var n = 1; n <= MAX_NO; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){
+          input.value = String(num);
+          document.getElementById("reg-error").textContent = "";
+          renderNoPick();
+        };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  var cur = parseInt(input.value, 10);
+  Array.prototype.forEach.call(box.children, function(b){
+    b.className = (!isTeacher && parseInt(b.textContent, 10) === cur) ? "sel" : "";
+  });
+  box.className = "no-pick" + (isTeacher ? " off" : "");
+  if(!isTeacher && cur >= 1){
+    document.getElementById("no-label").textContent = "しゅっせきばんごう: " + cur + "ばん";
+  }
+}
+function toggleTeacher(){ setTeacherMode(!isTeacher); }
+function sanitizeSchool(v){ return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + "-" : "") + g + "-" + c; }
+function getSchoolFromUrl(){
+  var m = location.search.match(/[?&]school=([^&]+)/);
+  return m ? sanitizeSchool(decodeURIComponent(m[1])) : "";
+}
+var GC_KEY = "sort_gc";
+var selGrade = 0, selClass = 0;
+function renderGC(){
+  var gBox = document.getElementById("grade-pick");
+  var cBox = document.getElementById("class-pick");
+  function build(box, max, onPick){
+    if(box.children.length) return;
+    for(var n = 1; n <= max; n++){
+      (function(num){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = num;
+        b.onclick = function(){ onPick(num); document.getElementById("reg-error").textContent = ""; renderGC(); };
+        box.appendChild(b);
+      })(n);
+    }
+  }
+  build(gBox, 6, function(n){ selGrade = n; });
+  build(cBox, 8, function(n){ selClass = n; });
+  Array.prototype.forEach.call(gBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selGrade ? "sel" : ""; });
+  Array.prototype.forEach.call(cBox.children, function(b){ b.className = parseInt(b.textContent, 10) === selClass ? "sel" : ""; });
+  document.getElementById("room-input").value = (selGrade && selClass) ? makeRoom(getSchoolFromUrl(), selGrade, selClass) : "";
+  document.getElementById("gc-label").textContent = (selGrade && selClass) ? (selGrade + "ねん " + selClass + "くみ") : "なんねん なんくみ？";
+}
+
+function onPhotoSelected(event){
+  var file = event.target.files && event.target.files[0];
+  if(!file) return;
+  var err = document.getElementById("reg-error");
+  err.textContent = "";
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var targetW = 320, targetH = 240;
+      var canvas = document.createElement("canvas");
+      canvas.width = targetW; canvas.height = targetH;
+      var ctx = canvas.getContext("2d");
+      var iw = img.width, ih = img.height;
+      var imgAspect = iw / ih, targetAspect = targetW / targetH;
+      var sx, sy, sw, sh;
+      if(imgAspect > targetAspect){
+        sh = ih; sw = ih * targetAspect; sx = (iw - sw) / 2; sy = 0;
+      } else {
+        sw = iw; sh = iw / targetAspect; sx = 0; sy = (ih - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      capturedPhoto = canvas.toDataURL("image/jpeg", 0.75);
+      document.getElementById("reg-preview").src = capturedPhoto;
+      document.getElementById("reg-preview").style.display = "block";
+      document.getElementById("reg-placeholder").style.display = "none";
+      document.getElementById("reg-capture-btn").style.display = "none";
+      document.getElementById("reg-confirm-btn").style.display = "block";
+      document.getElementById("reg-retake-btn").style.display = "block";
+    };
+    img.onerror = function(){
+      err.textContent = "しゃしんを よみこめませんでした。もう一度 おためしください。";
+    };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){
+    err.textContent = "しゃしんを よみこめませんでした。もう一度 おためしください。";
+  };
+  reader.readAsDataURL(file);
+}
+function retakePhoto(){
+  capturedPhoto = null;
+  document.getElementById("reg-file-input").value = "";
+  document.getElementById("reg-preview").style.display = "none";
+  document.getElementById("reg-placeholder").style.display = "block";
+  document.getElementById("reg-capture-btn").style.display = "block";
+  document.getElementById("reg-confirm-btn").style.display = "none";
+  document.getElementById("reg-retake-btn").style.display = "none";
+}
+function prefillSavedPhoto(){
+  var photo = localStorage.getItem(STUDENT_PHOTO_KEY);
+  if(!photo) return;
+  capturedPhoto = photo;
+  document.getElementById("reg-preview").src = photo;
+  document.getElementById("reg-preview").style.display = "block";
+  document.getElementById("reg-placeholder").style.display = "none";
+  document.getElementById("reg-capture-btn").style.display = "none";
+  document.getElementById("reg-confirm-btn").style.display = "block";
+  document.getElementById("reg-retake-btn").style.display = "block";
+  document.querySelector(".register-sub").textContent = "まえの しゃしんで よければ「これで OK」を おしてね";
+}
+function getRoomForRegister(){
+  var u = getRoomFromUrl();
+  if(u) return u;
+  return document.getElementById("room-input").value;
+}
+function proceedToSetupScreen(){
+  draft = loadDraft();
+  if(draft) renderMake();
+  pollGame();
+}
+function resetClientGameState(){
+  meState = null; draft = null; selected = []; lastState = null; galleryKey = ""; shareDirty = false;
+  document.getElementById("relogin-actions").style.display = "none";
+  reloginMode = false;
+  inheritNext = true;
+  showView("make");
+}
+function enterGame(room){
+  resetClientGameState();
+  currentRoom = String(room || "").trim().toLowerCase();
+  localStorage.setItem(ROOM_KEY, currentRoom);
+  document.getElementById("room-tag").textContent = "教室コード: " + currentRoom;
+  document.getElementById("register-overlay").style.display = "none";
+  proceedToSetupScreen();
+}
+function forgetRegistration(){
+  localStorage.removeItem(STUDENT_ID_KEY);
+  studentId = null;
+}
+function needRoom(err){
+  if(!getRoomFromUrl() && !(selGrade && selClass)){
+    err.textContent = "なんねん なんくみ か えらんでね";
+    return true;
+  }
+  return false;
+}
+function confirmPhoto(){
+  if(!capturedPhoto) return;
+  var err = document.getElementById("reg-error");
+  if(needRoom(err)) return;
+  var no = isTeacher ? null : parseInt(document.getElementById("no-input").value, 10);
+  if(!isTeacher && !(no >= 1 && no <= 99)){
+    err.textContent = "しゅっせきばんごうを えらんでね";
+    return;
+  }
+  if(registering) return;
+  registering = true;
+  document.getElementById("reg-confirm-btn").disabled = true;
+  err.textContent = "とうろく中...";
+  var room = getRoomForRegister();
+  fetch("/api/sort/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room: room, photo: capturedPhoto, no: no, role: isTeacher ? "teacher" : "student", deviceId: getDeviceId(), replaceId: localStorage.getItem(PREV_ID_KEY) || "", inherit: inheritNext })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d || !d.id) throw new Error("no id");
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      studentId = d.id;
+      localStorage.setItem(STUDENT_ID_KEY, studentId);
+      localStorage.setItem(STUDENT_PHOTO_KEY, capturedPhoto);
+      localStorage.removeItem(PREV_ID_KEY);
+      localStorage.setItem(STUDENT_NO_KEY, no ? String(no) : "");
+      localStorage.setItem(STUDENT_ROLE_KEY, isTeacher ? "teacher" : "student");
+      if(selGrade && selClass) localStorage.setItem(GC_KEY, selGrade + "-" + selClass);
+      enterGame(d.room || room);
+    })
+    .catch(function(){
+      registering = false;
+      document.getElementById("reg-confirm-btn").disabled = false;
+      err.textContent = "先生のサーバーに つなげませんでした。Wi-Fiを かくにんしてください。";
+    });
+}
+/* ---------- いつでも ログインしなおす ---------- */
+function startRelogin(){
+  if(!studentId && !localStorage.getItem(STUDENT_ID_KEY)) return;
+  reloginMode = true;
+  inheritNext = true;
+  try{ localStorage.setItem(PREV_ID_KEY, studentId || localStorage.getItem(STUDENT_ID_KEY) || ""); }catch(e){}
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
+  if(document.getElementById("room-row").style.display === "block") renderGC();
+  renderNoPick();
+  capturedPhoto = null;
+  retakePhoto();
+  prefillSavedPhoto();
+  document.getElementById("reg-error").textContent = "";
+  document.getElementById("relogin-actions").style.display = "block";
+  document.getElementById("register-overlay").style.display = "flex";
+}
+function cancelRelogin(){
+  reloginMode = false;
+  inheritNext = true;
+  try{ localStorage.removeItem(PREV_ID_KEY); }catch(e){}
+  document.getElementById("relogin-actions").style.display = "none";
+  document.getElementById("register-overlay").style.display = "none";
+}
+function confirmKeep(){
+  inheritNext = true;
+  confirmPhoto();
+}
+function confirmAsOther(){
+  inheritNext = false;
+  confirmPhoto();
+}
+
+(function boot(){
+  document.getElementById("no-input").value = localStorage.getItem(STUDENT_NO_KEY) || "";
+  var gc = (localStorage.getItem(GC_KEY) || "").split("-");
+  selGrade = parseInt(gc[0], 10) || 0;
+  selClass = parseInt(gc[1], 10) || 0;
+  setTeacherMode(localStorage.getItem(STUDENT_ROLE_KEY) === "teacher");
+  var urlRoom = getRoomFromUrl();
+  if(urlRoom){
+    var badge = document.getElementById("room-badge");
+    badge.textContent = "きょうしつコード: " + urlRoom;
+    badge.style.display = "inline-block";
+  } else {
+    document.getElementById("room-row").style.display = "block";
+    renderGC();
+  }
+  var savedId = localStorage.getItem(STUDENT_ID_KEY);
+  var savedRoom = localStorage.getItem(ROOM_KEY) || "";
+  studentId = null;
+  if(savedId && savedRoom && (!urlRoom || String(urlRoom).trim().toLowerCase() === savedRoom)){
+    fetch("/api/sort/state?room=" + encodeURIComponent(savedRoom) + "&me=" + encodeURIComponent(savedId))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.exists){ studentId = savedId; enterGame(savedRoom); }
+        else { forgetRegistration(); prefillSavedPhoto(); }
+      })
+      .catch(function(){ prefillSavedPhoto(); });
+  } else {
+    prefillSavedPhoto();
+  }
+})();
+</script>
+</body>
+</html>

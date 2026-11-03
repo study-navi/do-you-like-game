@@ -23,7 +23,9 @@
   .who { font-size: 26px; font-weight: 700; flex: 1; }
   .likes { font-size: 22px; font-weight: 700; color: #F6C453; }
   .grp { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--gb); border-left: 8px solid var(--gc); margin-bottom: 8px; }
-  .grp-title { font-size: 18px; font-weight: 700; color: #2C2C2A; flex: 1 1 100%; }
+  .card .grp { margin-bottom: 0; }
+  .card .letters span { width: 44px; height: 52px; font-size: 30px; }
+  .grp-title { font-size: 22px; font-weight: 700; color: #2C2C2A; flex: 1 1 100%; }
   .letters { display: flex; flex-wrap: wrap; gap: 5px; }
   .likes-inline { font-size: 15px; color: #854F0B; font-weight: 700; margin-left: 8px; }
   .spot-prog { text-align: center; font-size: 30px; font-weight: 700; color: #B7B4E0; margin-bottom: 8px; }
@@ -153,9 +155,9 @@ function render(d){
   }
   var picks = d.picks || [];
   var picked = picks.length > 0;
+  // 生徒ごとではなく、グループ1つずつを 独立した カードで 出す
   var cards = [];
   if(picked){
-    // ピックアップしたグループだけを、1つずつの カードで 出す
     picks.forEach(function(q){
       var it = items.filter(function(x){ return x.id === q.sid; })[0];
       if(!it) return;
@@ -163,29 +165,22 @@ function render(d){
       it.groups.forEach(function(g, i){ if(g.gid === q.gid) gi = i; });
       if(gi >= 0) cards.push({ it: it, g: it.groups[gi], gi: gi });
     });
+  } else {
+    items.forEach(function(it){
+      it.groups.forEach(function(g, gi){ cards.push({ it: it, g: g, gi: gi }); });
+    });
   }
-  empty.style.display = (picked ? cards.length : items.length) ? "none" : "block";
+  empty.style.display = cards.length ? "none" : "block";
   empty.textContent = picked ? "ピックアップした グループが ありません" : "まだ だれも みせていません";
-  if(picked){
-    grid.innerHTML = cards.map(function(c){
-      var stamp = c.g.gid + c.g.at;
-      var fresh = !firstLoad && !seen[stamp];
-      return '<div class="card' + (fresh ? " flash" : "") + '">' +
-        '<div class="head">' + avatar(c.it) + '<div class="who">' + who(c.it) + '</div></div>' +
-        groupBlock(c.g, c.gi, hideAll, false) + '</div>';
-    }).join("");
-    cards.forEach(function(c){ seen[c.g.gid + c.g.at] = true; });
-    firstLoad = false;
-    return;
-  }
-  grid.innerHTML = items.map(function(it){
-    var stamp = it.id + ":" + it.groups.map(function(g){ return g.gid + g.at; }).join(",");
+  grid.innerHTML = cards.map(function(c){
+    var stamp = c.g.gid + c.g.at;
     var fresh = !firstLoad && !seen[stamp];
-    return '<div class="card' + (fresh ? " flash" : "") + '">' +
-      '<div class="head">' + avatar(it) + '<div class="who">' + who(it) + '</div></div>' +
-      it.groups.map(function(g, gi){ return groupBlock(g, gi, hideAll, false); }).join("") + '</div>';
+    var head = c.it.anon ? "" :
+      '<div class="head">' + avatar(c.it) + '<div class="who">' + who(c.it) + '</div></div>';
+    return '<div class="card' + (fresh ? " flash" : "") + '">' + head +
+      groupBlock(c.g, c.gi, hideAll, false) + '</div>';
   }).join("");
-  items.forEach(function(it){ seen[it.id + ":" + it.groups.map(function(g){ return g.gid + g.at; }).join(",")] = true; });
+  cards.forEach(function(c){ seen[c.g.gid + c.g.at] = true; });
   firstLoad = false;
 }
 function poll(){

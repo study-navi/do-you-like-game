@@ -115,17 +115,19 @@ function render(d){
   tag.textContent = d.phase === "open"
     ? "みんなの わけかた　（" + items.length + " にん）"
     : "いま みんなで かんがえ中…　みせた人 " + (d.sharedCount || 0) + " / " + (d.total || 0) + " 人";
-  var key = JSON.stringify([d.phase, d.spotlight, d.hideTitles, items.map(function(x){ return [x.id, x.sharedAt, x.likes]; })]);
+  var key = JSON.stringify([d.phase, d.spotlight, d.hideTitles, d.revealed, items.map(function(x){ return [x.id, x.sharedAt, x.likes]; })]);
   if(key === lastKey) return;
   lastKey = key;
 
   var spot = document.getElementById("spot");
+  var hideAll = !!d.hideTitles;
+  var hideSpot = hideAll && !d.revealed;
   if(spotItem){
     spot.innerHTML =
       '<div class="spot-top">' + avatar(spotItem) + '<div class="spot-who">' + who(spotItem) + ' の わけかた</div>' +
       (spotItem.likes ? '<div class="spot-likes">👍 ' + spotItem.likes + '</div>' : '') + '</div>' +
-      (d.hideTitles ? '<div class="spot-quiz">🙈 どんな ルールで わけたのかな？ かんがえてみよう！</div>' : '') +
-      '<div class="spot-groups">' + groupsHtml(spotItem.groups, d.hideTitles) + '</div>';
+      (hideSpot ? '<div class="spot-quiz">🙈 どんな ルールで わけたのかな？ かんがえてみよう！</div>' : '<div class="spot-quiz">✅ こたえ</div>') +
+      '<div class="spot-groups">' + groupsHtml(spotItem.groups, hideSpot) + '</div>';
     spot.className = "show";
   } else {
     spot.className = "";
@@ -147,7 +149,7 @@ function render(d){
     return '<div class="card' + (fresh ? " flash" : "") + '">' +
       '<div class="head">' + avatar(it) + '<div class="who">' + who(it) + '</div>' +
       (it.likes ? '<div class="likes">👍 ' + it.likes + '</div>' : '') + '</div>' +
-      groupsHtml(it.groups, false) + '</div>';
+      groupsHtml(it.groups, hideAll) + '</div>';
   }).join("");
   items.forEach(function(it){ seen[it.id + ":" + it.sharedAt] = true; });
   firstLoad = false;

@@ -295,7 +295,7 @@ function publicAlphabetList(room){
 /* ============================================================
  * アルファベット なかまわけ（大文字を自分でグループ分けして、みんなに共有するゲーム）
  *   /sort（生徒用）/sort-teacher（先生用）/sort-tv（TV用）
- *   room -> { phase: 'making' | 'open', spotlight: 生徒id|null, hideTitles: bool }
+ *   room -> { phase: 'making' | 'open', spotlight: 生徒id|null, hideTitles: bool（ほかの人のグループ名を かくす／初期ON）, revealed: bool（スポットライト中の1人だけ名前を出す） }
  *   生徒 -> { shared: { at, groups:[{name, letters:[A-Z]}] } | null, likes:[いいねした生徒id] }
  * ============================================================ */
 const SORT_ROOMS_FILE = path.join(__dirname, 'sort_rooms.json');
@@ -315,11 +315,13 @@ function saveSortStudents(){
 loadSort();
 
 function getSortRoom(room){
-  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: false };
+  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: true, revealed: false };
   const r = sortRooms[room];
   if(r.phase !== 'open') r.phase = 'making';
   if(!r.spotlight || !sortStudents[r.spotlight] || normalizeRoom(sortStudents[r.spotlight].room) !== room || !sortStudents[r.spotlight].shared) r.spotlight = null;
-  r.hideTitles = !!r.hideTitles;
+  r.hideTitles = r.hideTitles !== false;
+  if(!r.spotlight) r.revealed = false;
+  r.revealed = !!r.revealed;
   return r;
 }
 
@@ -368,6 +370,7 @@ function publicSortState(room, me){
     phase: r.phase,
     spotlight: r.spotlight,
     hideTitles: r.hideTitles,
+    revealed: r.revealed,
     total: ids.length,
     sharedCount: shared.length
   };
@@ -2280,11 +2283,14 @@ const server = http.createServer(function(req, res){
       const r = getSortRoom(room);
       if(body && Object.prototype.hasOwnProperty.call(body, 'id')){
         const id = typeof body.id === 'string' ? body.id : '';
-        r.spotlight = (id && sortStudents[id] && normalizeRoom(sortStudents[id].room) === room && sortStudents[id].shared) ? id : null;
+        const next = (id && sortStudents[id] && normalizeRoom(sortStudents[id].room) === room && sortStudents[id].shared) ? id : null;
+        if(next !== r.spotlight) r.revealed = false;
+        r.spotlight = next;
       }
+      if(body && typeof body.reveal === 'boolean') r.revealed = !!r.spotlight && body.reveal;
       if(body && typeof body.hideTitles === 'boolean') r.hideTitles = body.hideTitles;
       saveSortRooms();
-      sendJson(res, 200, { ok: true, spotlight: r.spotlight, hideTitles: r.hideTitles });
+      sendJson(res, 200, { ok: true, spotlight: r.spotlight, hideTitles: r.hideTitles, revealed: r.revealed });
     });
     return;
   }
@@ -2308,7 +2314,7 @@ const server = http.createServer(function(req, res){
       Object.keys(sortStudents).forEach(function(id){
         if(normalizeRoom(sortStudents[id].room) === room) delete sortStudents[id];
       });
-      sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: false };
+      sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: true, revealed: false };
       saveSortStudents();
       saveSortRooms();
       sendJson(res, 200, { ok: true, room: room });

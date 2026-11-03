@@ -241,6 +241,10 @@
       ④ 気になる分け方は「TVに出す」で大きく映せます。「タイトルをかくす」で ルールあてクイズにもなります
     </div>
     <button class="next-btn" id="phase-btn" onclick="togglePhase()">みんなの わけかたを ひらく</button>
+    <div class="qz-row" style="margin-top:12px;">
+      <button id="hide-btn" onclick="toggleHide()">🙈 グループの なまえを かくす</button>
+    </div>
+    <div class="size-hint" id="hide-desc" style="margin-top:6px;"></div>
     <div class="progress-text" id="progress-text"></div>
   </div>
 
@@ -249,7 +253,7 @@
     <div class="spot-bar" id="spot-bar" style="display:none;">
       ⭐ いま TVに出している分け方があります
       <div class="qz-row">
-        <button id="hide-btn" onclick="toggleHide()">🙈 タイトルを かくす（ルールあてクイズ）</button>
+        <button id="reveal-btn" onclick="toggleReveal()">✅ こたえを みせる（タイトルを出す）</button>
         <button onclick="clearSpot()">TVの ⭐ を やめる</button>
       </div>
     </div>
@@ -380,7 +384,16 @@ function renderItems(d){
   var box = document.getElementById("items-list");
   var spotBar = document.getElementById("spot-bar");
   spotBar.style.display = d.spotlight ? "block" : "none";
-  document.getElementById("hide-btn").className = d.hideTitles ? "on" : "";
+  var hb = document.getElementById("hide-btn");
+  hb.className = d.hideTitles ? "on" : "";
+  hb.textContent = d.hideTitles ? "🙈 グループの なまえを かくしています（タップで 出す）" : "👀 グループの なまえを 出しています（タップで かくす）";
+  document.getElementById("hide-desc").textContent = d.hideTitles
+    ? "生徒・TVには、ほかの人のグループの なまえが ？？？ と出ます（自分のは見えます）。「TVに出す」→「こたえを みせる」で、1人ずつ ルールあてクイズができます。"
+    : "ほかの人の グループの なまえも、そのまま見えています。";
+  var rb = document.getElementById("reveal-btn");
+  rb.className = d.revealed ? "on" : "";
+  rb.textContent = d.revealed ? "🙈 また かくす" : "✅ こたえを みせる（タイトルを出す）";
+  rb.style.display = d.hideTitles ? "" : "none";
   var notYet = (d.students || []).filter(function(s){ return !s.shared; }).map(whoLabel);
   document.getElementById("not-yet").textContent = (d.students || []).length && notYet.length ? "まだ みせていない: " + notYet.join("、") : "";
   if(!items.length){
@@ -440,13 +453,14 @@ function post(path, body){
 }
 function togglePhase(){ post("phase", { phase: (lastState && lastState.phase === "open") ? "making" : "open" }); }
 function toggleHide(){ post("spotlight", { hideTitles: !(lastState && lastState.hideTitles) }); }
+function toggleReveal(){ post("spotlight", { reveal: !(lastState && lastState.revealed) }); }
 function clearSpot(){ post("spotlight", { id: null }); }
 function resetGame(){
   if(!confirm("生徒の登録と わけかたを ぜんぶ リセットしますか？（生徒の画面は登録画面にもどります）")) return;
   clearAbsent();
   post("reset", {});
 }
-window.togglePhase = togglePhase; window.toggleHide = toggleHide; window.clearSpot = clearSpot; window.resetGame = resetGame;
+window.togglePhase = togglePhase; window.toggleHide = toggleHide; window.toggleReveal = toggleReveal; window.clearSpot = clearSpot; window.resetGame = resetGame;
 document.getElementById("items-list").addEventListener("click", function(e){
   var sp = e.target.closest ? e.target.closest(".spot-btn") : null;
   if(sp){

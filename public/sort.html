@@ -690,7 +690,7 @@ function renderGallery(){
   }
   var items = d.items || [];
   note.textContent = items.length ? "" : "まだ だれも みせていません";
-  var key = JSON.stringify([d.spotlight, d.hideTitles, items.map(function(it){ return [it.id, it.sharedAt, it.likes, it.liked]; })]);
+  var key = JSON.stringify([d.spotlight, d.hideTitles, d.revealed, items.map(function(it){ return [it.id, it.sharedAt, it.likes, it.liked]; })]);
   if(key === galleryKey) return;
   galleryKey = key;
   var y = window.scrollY;
@@ -707,7 +707,7 @@ function renderGallery(){
         (spot ? '<span class="g-badge spot">⭐ TVに でているよ</span>' : '') +
         (mine ? '<span class="g-badge">きみの</span>' : '') +
       '</div>' +
-      groupsHtml(it.groups || [], spot && d.hideTitles && !mine) +
+      groupsHtml(it.groups || [], d.hideTitles && !mine && !(spot && d.revealed)) +
       '<div class="g-actions">' +
         '<button class="like-btn' + (it.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-id="' + it.id + '">👍 なるほど！ ' + (it.likes || 0) + '</button>' +
         (mine ? '' : '<button class="copy-btn" data-id="' + it.id + '">📋 まねして つくる</button>') +

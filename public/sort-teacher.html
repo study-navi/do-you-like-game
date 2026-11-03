@@ -167,7 +167,7 @@
   .item-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .item-head .ranking-photo { width: 64px; height: 48px; }
   .item-likes { font-size: 13px; font-weight: 700; color: #854F0B; background: #FDF3D8; border-radius: 999px; padding: 2px 10px; }
-  .item-actions { display: flex; gap: 8px; margin-top: 6px; }
+  .item-actions { display: flex; gap: 8px; margin: 2px 0 10px; }
   .item-actions button { flex: 1; padding: 9px 6px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; font-size: 13px; font-weight: 700; cursor: pointer; }
   .item-actions button.on { background: #F0B429; border-color: #F0B429; color: #FFFFFF; }
   .item-actions button.rm { flex: 0 0 44px; color: #993C1D; border-color: #E9B9A8; }
@@ -236,9 +236,9 @@
     </div>
     <div class="phase-steps">
       ① 生徒が大文字（A〜Z）を、自分で考えたルールでグループに分ける<br>
-      ② 分けたら「みんなに みせる」を押して共有（グループの名前＝分けたルール）<br>
-      ③ 下のボタンで「みんなの わけかた」を開くと、生徒の画面でほかの人の分け方が見られます（👍 なるほど！／まねして つくる）<br>
-      ④ 気になる分け方は「TVに出す」で大きく映せます。「タイトルをかくす」で ルールあてクイズにもなります
+      ② できたグループから「みんなに みせる」を押して共有（グループの名前＝分けたルール。グループごとに みせる／やめる）<br>
+      ③ 下のボタンで「みんなの わけかたを ひらく」と、生徒の画面で ほかの人の分け方が見られます。このとき 出席番号と写真は伏せて「だれかの わけかた」と出ます。グループの名前も ？？？ です（👍 なるほど！／まねして つくる）<br>
+      ④ さいごに「🎯 クイズ」で、いいねが多いグループだけを TVに1つずつ出します。「こたえを みせる」でグループの名前が出て、発表した人の出席番号と写真も TVに出ます
     </div>
     <button class="next-btn" id="phase-btn" onclick="togglePhase()">みんなの わけかたを ひらく</button>
     <div class="qz-row" style="margin-top:12px;">
@@ -248,15 +248,33 @@
     <div class="progress-text" id="progress-text"></div>
   </div>
 
-  <div class="card">
-    <div class="history-title">みんなの わけかた</div>
-    <div class="spot-bar" id="spot-bar" style="display:none;">
-      ⭐ いま TVに出している分け方があります
+  <div class="card" id="quiz-card">
+    <div class="history-title">🎯 最後の クイズ（いいねが おおい グループだけ）</div>
+    <div class="size-hint">いいねが 多い グループを 何問か えらんで、TVに 1つずつ 出します。人気の いちばん 少ないものから 出して、さいごが いちばん 人気です。</div>
+    <div class="qz-row" id="qz-count">
+      <button class="qz-sec" data-n="3" onclick="quizCount(3)">3もん</button>
+      <button class="qz-sec active" data-n="5" onclick="quizCount(5)">5もん</button>
+      <button class="qz-sec" data-n="8" onclick="quizCount(8)">8もん</button>
+      <button class="qz-sec" data-n="12" onclick="quizCount(12)">12もん</button>
+    </div>
+    <button class="next-btn" id="qz-start" style="margin-top:10px;" onclick="quizStart()">▶ クイズを はじめる</button>
+    <div class="spot-bar" id="spot-bar" style="display:none;margin-top:12px;">
+      <div id="spot-info"></div>
+      <div class="qz-row" id="qz-nav" style="display:none;">
+        <button onclick="quizStep(-1)">◀ まえ</button>
+        <button onclick="quizStep(1)">つぎ ▶</button>
+      </div>
       <div class="qz-row">
         <button id="reveal-btn" onclick="toggleReveal()">✅ こたえを みせる（タイトルを出す）</button>
-        <button onclick="clearSpot()">TVの ⭐ を やめる</button>
+        <button onclick="quizStop()">TVの ⭐ を やめる</button>
       </div>
     </div>
+    <div class="history-title" style="margin-top:14px;">いいね ランキング</div>
+    <div class="qz-rank" id="rank-list"><span class="ranking-empty">まだ いいねは ありません</span></div>
+  </div>
+
+  <div class="card">
+    <div class="history-title">みんなの わけかた</div>
     <div class="not-yet" id="not-yet"></div>
     <div id="items-list"><span class="ranking-empty">まだ だれも みせていません</span></div>
   </div>
@@ -371,29 +389,23 @@ function esc(t){
 var GCOL = ["#185FA5", "#1D9E75", "#D85A30", "#7F77DD", "#B7791F", "#B8458A", "#3B8E9E", "#6B7D1F"];
 var GBG = ["#E6F1FB", "#E1F5EE", "#FBEAE3", "#EEEDFE", "#FAF0D7", "#F9E6F0", "#E3F2F5", "#EEF3D8"];
 var lastState = null;
+var quizN = 5;
 function whoLabel(x){ return x.role === "teacher" ? "先生" : (x.no ? x.no + "番" : "?"); }
-function groupsHtml(groups){
-  return (groups || []).map(function(g, gi){
-    return '<div class="g-group" style="--gc:' + GCOL[gi % GCOL.length] + ';--gb:' + GBG[gi % GBG.length] + '">' +
-      '<div class="g-title">' + esc(g.name || "（なまえなし）") + '</div>' +
-      '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
-  }).join("");
+function isSpot(d, sid, gid){ return !!(d.spot && d.spot.sid === sid && d.spot.gid === gid); }
+function groupBlock(g, gi, spot){
+  return '<div class="g-group" style="--gc:' + GCOL[gi % GCOL.length] + ';--gb:' + GBG[gi % GBG.length] + (spot ? ';outline:3px solid #F0B429' : '') + '">' +
+    '<div class="g-title">' + esc(g.name || "（なまえなし）") + (g.likes ? ' <span class="item-likes">👍 ' + g.likes + '</span>' : '') + '</div>' +
+    '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
+}
+function findGroup(d, sid, gid){
+  var it = (d.items || []).filter(function(x){ return x.id === sid; })[0];
+  if(!it) return null;
+  var g = it.groups.filter(function(x){ return x.gid === gid; })[0];
+  return g ? { item: it, group: g } : null;
 }
 function renderItems(d){
   var items = d.items || [];
   var box = document.getElementById("items-list");
-  var spotBar = document.getElementById("spot-bar");
-  spotBar.style.display = d.spotlight ? "block" : "none";
-  var hb = document.getElementById("hide-btn");
-  hb.className = d.hideTitles ? "on" : "";
-  hb.textContent = d.hideTitles ? "🙈 グループの なまえを かくしています（タップで 出す）" : "👀 グループの なまえを 出しています（タップで かくす）";
-  document.getElementById("hide-desc").textContent = d.hideTitles
-    ? "生徒・TVには、ほかの人のグループの なまえが ？？？ と出ます（自分のは見えます）。「TVに出す」→「こたえを みせる」で、1人ずつ ルールあてクイズができます。"
-    : "ほかの人の グループの なまえも、そのまま見えています。";
-  var rb = document.getElementById("reveal-btn");
-  rb.className = d.revealed ? "on" : "";
-  rb.textContent = d.revealed ? "🙈 また かくす" : "✅ こたえを みせる（タイトルを出す）";
-  rb.style.display = d.hideTitles ? "" : "none";
   var notYet = (d.students || []).filter(function(s){ return !s.shared; }).map(whoLabel);
   document.getElementById("not-yet").textContent = (d.students || []).length && notYet.length ? "まだ みせていない: " + notYet.join("、") : "";
   if(!items.length){
@@ -403,17 +415,29 @@ function renderItems(d){
   box.innerHTML = items.map(function(it){
     var ph = photoSrc(it);
     var photoHtml = ph ? '<img class="ranking-photo" src="' + ph + '">' : '<span class="ranking-photo ranking-photo-placeholder">🙂</span>';
-    var spot = d.spotlight === it.id;
-    return '<div class="item-card' + (spot ? " spot" : "") + '">' +
+    return '<div class="item-card">' +
       '<div class="item-head">' + photoHtml +
         '<span class="ranking-no' + (it.role === "teacher" ? " teacher" : "") + '">' + whoLabel(it) + '</span>' +
-        (it.likes ? '<span class="item-likes">👍 ' + it.likes + '</span>' : '') +
+        '<button class="rm-btn2" data-id="' + it.id + '" title="この人の表示を消す">×</button>' +
       '</div>' +
-      groupsHtml(it.groups) +
-      '<div class="item-actions">' +
-        '<button class="spot-btn' + (spot ? " on" : "") + '" data-id="' + it.id + '">' + (spot ? "⭐ TVに出しています（はずす）" : "⭐ TVに出す") + '</button>' +
-        '<button class="rm rm-btn2" data-id="' + it.id + '" title="この表示を消す">×</button>' +
-      '</div></div>';
+      it.groups.map(function(g, gi){
+        var spot = isSpot(d, it.id, g.gid);
+        return groupBlock(g, gi, spot) +
+          '<div class="item-actions"><button class="spot-btn' + (spot ? " on" : "") + '" data-sid="' + it.id + '" data-gid="' + g.gid + '">' + (spot ? "⭐ TVに出しています（はずす）" : "⭐ TVに出す") + '</button></div>';
+      }).join("") +
+      '</div>';
+  }).join("");
+}
+function renderRank(d){
+  var rows = [];
+  (d.items || []).forEach(function(it){
+    it.groups.forEach(function(g, gi){ if(g.likes > 0) rows.push({ it: it, g: g, gi: gi }); });
+  });
+  rows.sort(function(a, b){ return b.g.likes - a.g.likes || a.g.at - b.g.at; });
+  var box = document.getElementById("rank-list");
+  if(!rows.length){ box.innerHTML = '<span class="ranking-empty">まだ いいねは ありません</span>'; return; }
+  box.innerHTML = rows.slice(0, 12).map(function(r, i){
+    return '<div><span>' + (i + 1) + '. ' + whoLabel(r.it) + '　' + esc(r.g.name || "（なまえなし）") + '　<small style="color:#888780">' + r.g.letters.join("") + '</small></span><b>👍 ' + r.g.likes + '</b></div>';
   }).join("");
 }
 function applyState(d){
@@ -433,10 +457,30 @@ function applyState(d){
     btn.textContent = "みんなの わけかたを ひらく";
     btn.style.background = "#185FA5";
   }
-  sub.textContent = "みせた人 " + shared + " / " + total + " 人";
+  sub.textContent = "みせた人 " + shared + " / " + total + " 人　（みせているグループ " + (d.groupCount || 0) + "こ）";
   document.getElementById("progress-text").textContent = (shared < total && total > 0 && d.phase !== "open") ? "みんな みせおわってから ひらくと、じっくり くらべられます" : "";
+  var hb = document.getElementById("hide-btn");
+  hb.className = d.hideTitles ? "on" : "";
+  hb.textContent = d.hideTitles ? "🙈 グループの なまえを かくしています（タップで 出す）" : "👀 グループの なまえを 出しています（タップで かくす）";
+  document.getElementById("hide-desc").textContent = d.hideTitles
+    ? "生徒・TVには、ほかの人のグループの なまえが ？？？ と出ます（自分のは見えます）。"
+    : "ほかの人の グループの なまえも、そのまま見えています。";
+  // クイズ・TV表示
+  var bar = document.getElementById("spot-bar");
+  var cur = d.spot ? findGroup(d, d.spot.sid, d.spot.gid) : null;
+  bar.style.display = cur ? "block" : "none";
+  if(cur){
+    document.getElementById("spot-info").innerHTML = (d.quiz ? '<b>🎯 もんだい ' + (d.quiz.i + 1) + ' / ' + d.quiz.n + '</b>　' : '⭐ ') +
+      'TVに出している: ' + whoLabel(cur.item) + '　' + esc(cur.group.name || "（なまえなし）") + '　👍 ' + cur.group.likes;
+    document.getElementById("qz-nav").style.display = d.quiz ? "flex" : "none";
+  }
+  var rb = document.getElementById("reveal-btn");
+  rb.className = d.revealed ? "on" : "";
+  rb.textContent = d.revealed ? "🙈 また かくす" : "✅ こたえを みせる（タイトルを出す）";
+  document.getElementById("qz-start").textContent = d.quiz ? "▶ クイズを はじめなおす（いいね上位 " + quizN + "もん）" : "▶ クイズを はじめる（いいね上位 " + quizN + "もん）";
   if(d.students){ renderRoster(d.students); }
   renderItems(d);
+  renderRank(d);
 }
 function fetchState(){
   fetch("/api/sort/state?room=" + encodeURIComponent(currentRoom))
@@ -447,30 +491,44 @@ function fetchState(){
 function post(path, body){
   body.room = currentRoom;
   return fetch("/api/sort/" + path, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) })
-    .then(function(r){ return r.json(); })
-    .then(function(){ fetchState(); })
-    .catch(function(){ alert("先生のサーバーに つなげませんでした。"); });
+    .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+    .then(function(x){ fetchState(); return x; })
+    .catch(function(){ alert("先生のサーバーに つなげませんでした。"); return { ok: false, j: {} }; });
 }
 function togglePhase(){ post("phase", { phase: (lastState && lastState.phase === "open") ? "making" : "open" }); }
 function toggleHide(){ post("spotlight", { hideTitles: !(lastState && lastState.hideTitles) }); }
 function toggleReveal(){ post("spotlight", { reveal: !(lastState && lastState.revealed) }); }
-function clearSpot(){ post("spotlight", { id: null }); }
+function quizCount(n){
+  quizN = n;
+  Array.prototype.forEach.call(document.querySelectorAll("#qz-count .qz-sec"), function(b){ b.classList.toggle("active", parseInt(b.getAttribute("data-n"), 10) === n); });
+  if(lastState) applyState(lastState);
+}
+function quizStart(){
+  if(lastState && lastState.quiz && !confirm("いまの クイズを やめて、はじめなおしますか？")) return;
+  post("quiz-start", { count: quizN }).then(function(x){
+    if(!x.ok) alert("いいねの ついた グループが まだ ありません。みんなの わけかたを ひらいて、👍 を おしてもらいましょう。");
+  });
+}
+function quizStep(dir){ post("quiz-step", { dir: dir }); }
+function quizStop(){ post("quiz-stop", {}); }
 function resetGame(){
   if(!confirm("生徒の登録と わけかたを ぜんぶ リセットしますか？（生徒の画面は登録画面にもどります）")) return;
   clearAbsent();
   post("reset", {});
 }
-window.togglePhase = togglePhase; window.toggleHide = toggleHide; window.toggleReveal = toggleReveal; window.clearSpot = clearSpot; window.resetGame = resetGame;
+window.togglePhase = togglePhase; window.toggleHide = toggleHide; window.toggleReveal = toggleReveal; window.resetGame = resetGame;
+window.quizCount = quizCount; window.quizStart = quizStart; window.quizStep = quizStep; window.quizStop = quizStop;
 document.getElementById("items-list").addEventListener("click", function(e){
   var sp = e.target.closest ? e.target.closest(".spot-btn") : null;
   if(sp){
-    var id = sp.getAttribute("data-id");
-    post("spotlight", { id: (lastState && lastState.spotlight === id) ? null : id });
+    var sid = sp.getAttribute("data-sid"), gid = sp.getAttribute("data-gid");
+    var same = lastState && lastState.spot && lastState.spot.sid === sid && lastState.spot.gid === gid;
+    post("spotlight", same ? { sid: null } : { sid: sid, gid: gid });
     return;
   }
   var btn = e.target.closest ? e.target.closest(".rm-btn2") : null;
   if(!btn) return;
-  if(!confirm("この分け方を 消しますか？\n（その端末は 登録画面にもどります）")) return;
+  if(!confirm("この人の分け方を ぜんぶ 消しますか？\n（その端末は 登録画面にもどります）")) return;
   post("remove", { id: btn.getAttribute("data-id") });
 });
 

@@ -293,10 +293,12 @@ function publicAlphabetList(room){
 
 
 /* ============================================================
- * アルファベット なかまわけ（大文字を自分でグループ分けして、みんなに共有するゲーム）
+ * アルファベット なかまわけ（大文字を自分でグループ分けして、グループごとにみんなに共有するゲーム）
  *   /sort（生徒用）/sort-teacher（先生用）/sort-tv（TV用）
- *   room -> { phase: 'making' | 'open', spotlight: 生徒id|null, hideTitles: bool（ほかの人のグループ名を かくす／初期ON）, revealed: bool（スポットライト中の1人だけ名前を出す） }
- *   生徒 -> { shared: { at, groups:[{name, letters:[A-Z]}] } | null, likes:[いいねした生徒id] }
+ *   room -> { phase: 'making' | 'open', hideTitles: bool（ほかの人のグループ名を かくす／初期ON）,
+ *             spot: {sid, gid} | null（TVに出しているグループ）, revealed: bool（spotのグループ名を出す）,
+ *             queue: [{sid, gid}] | null（いいね上位のクイズ）, qi: 出題中の番号 }
+ *   生徒 -> { groups: [{ gid, name, letters:[A-Z], at, likes:[いいねした生徒id] }]（みせているグループ） }
  * ============================================================ */
 const SORT_ROOMS_FILE = path.join(__dirname, 'sort_rooms.json');
 const SORT_STUDENTS_FILE = path.join(__dirname, 'sort_students.json');
@@ -305,6 +307,17 @@ let sortStudents = {};
 function loadSort(){
   try{ sortRooms = JSON.parse(fs.readFileSync(SORT_ROOMS_FILE, 'utf8')); }catch(e){ sortRooms = {}; }
   try{ sortStudents = JSON.parse(fs.readFileSync(SORT_STUDENTS_FILE, 'utf8')); }catch(e){ sortStudents = {}; }
+  // 古い形式（まとめて共有）からの引きつぎ
+  Object.keys(sortStudents).forEach(function(id){
+    const s = sortStudents[id];
+    if(!Array.isArray(s.groups)){
+      s.groups = (s.shared && Array.isArray(s.shared.groups) ? s.shared.groups : []).map(function(g){
+        return { gid: crypto.randomBytes(4).toString('hex'), name: g.name || '', letters: g.letters || [], at: s.shared.at || Date.now(), likes: [] };
+      });
+    }
+    delete s.shared; delete s.likes;
+  });
+  Object.keys(sortRooms).forEach(function(k){ delete sortRooms[k].spotlight; });
 }
 function saveSortRooms(){
   try{ fs.writeFileSync(SORT_ROOMS_FILE, JSON.stringify(sortRooms)); }catch(e){ console.error('保存に失敗しました:', e.message); }
@@ -314,32 +327,45 @@ function saveSortStudents(){
 }
 loadSort();
 
+const SORT_MAX_GROUPS = 8;
+function sortFindGroup(room, sid, gid){
+  const s = sortStudents[sid];
+  if(!s || normalizeRoom(s.room) !== room || !Array.isArray(s.groups)) return null;
+  for(let i = 0; i < s.groups.length; i++){ if(s.groups[i].gid === gid) return s.groups[i]; }
+  return null;
+}
 function getSortRoom(room){
-  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: true, revealed: false };
+  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', hideTitles: true, spot: null, revealed: false, queue: null, qi: 0 };
   const r = sortRooms[room];
   if(r.phase !== 'open') r.phase = 'making';
-  if(!r.spotlight || !sortStudents[r.spotlight] || normalizeRoom(sortStudents[r.spotlight].room) !== room || !sortStudents[r.spotlight].shared) r.spotlight = null;
   r.hideTitles = r.hideTitles !== false;
-  if(!r.spotlight) r.revealed = false;
+  if(Array.isArray(r.queue)){
+    const cur = r.queue[r.qi || 0];
+    r.queue = r.queue.filter(function(q){ return !!sortFindGroup(room, q.sid, q.gid); });
+    if(!r.queue.length) r.queue = null;
+    else if(cur){
+      const idx = r.queue.findIndex(function(q){ return q.sid === cur.sid && q.gid === cur.gid; });
+      r.qi = idx >= 0 ? idx : Math.min(r.qi || 0, r.queue.length - 1);
+    }
+  } else { r.queue = null; }
+  if(r.queue){ r.spot = { sid: r.queue[r.qi].sid, gid: r.queue[r.qi].gid }; }
+  if(!r.spot || !sortFindGroup(room, r.spot.sid, r.spot.gid)){ r.spot = null; }
+  if(!r.spot) r.revealed = false;
   r.revealed = !!r.revealed;
   return r;
 }
 
-const SORT_MAX_GROUPS = 8;
-function cleanSortGroups(raw){
-  if(!Array.isArray(raw)) return null;
-  const used = {};
-  const out = [];
-  raw.slice(0, SORT_MAX_GROUPS).forEach(function(g){
-    if(!g || typeof g !== 'object') return;
-    const name = String(typeof g.name === 'string' ? g.name : '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 24);
-    const letters = [];
-    (Array.isArray(g.letters) ? g.letters : []).forEach(function(L){
-      if(typeof L === 'string' && /^[A-Z]$/.test(L) && !used[L]){ used[L] = true; letters.push(L); }
-    });
-    if(letters.length) out.push({ name: name, letters: letters });
+function cleanSortGroup(raw){
+  if(!raw || typeof raw !== 'object') return null;
+  const gid = typeof raw.gid === 'string' && /^[a-z0-9]{4,20}$/.test(raw.gid) ? raw.gid : '';
+  if(!gid) return null;
+  const name = String(typeof raw.name === 'string' ? raw.name : '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 24);
+  const letters = [];
+  (Array.isArray(raw.letters) ? raw.letters : []).forEach(function(L){
+    if(typeof L === 'string' && /^[A-Z]$/.test(L) && letters.indexOf(L) < 0) letters.push(L);
   });
-  return out.length ? out : null;
+  if(!letters.length) return null;
+  return { gid: gid, name: name, letters: letters };
 }
 
 function sortPlayers(room){
@@ -348,44 +374,71 @@ function sortPlayers(room){
 
 function publicSortItem(id, me){
   const s = sortStudents[id];
-  const likes = Array.isArray(s.likes) ? s.likes : [];
+  const groups = (s.groups || []).map(function(g){
+    const likes = Array.isArray(g.likes) ? g.likes : [];
+    return { gid: g.gid, name: g.name, letters: g.letters, at: g.at, likes: likes.length, liked: !!(me && likes.indexOf(me) >= 0) };
+  });
+  let latest = 0;
+  groups.forEach(function(g){ if(g.at > latest) latest = g.at; });
   return {
     id: id,
     no: s.no || null,
     role: s.role || 'student',
     photo: s.photo ? '/api/sort/photo?id=' + id : null,
-    groups: s.shared ? s.shared.groups : [],
-    sharedAt: s.shared ? s.shared.at : null,
-    likes: likes.length,
-    liked: !!(me && likes.indexOf(me) >= 0)
+    groups: groups,
+    sharedAt: latest || null
   };
 }
 
-function publicSortState(room, me){
+function sortRanking(room){
+  const list = [];
+  sortPlayers(room).forEach(function(sid){
+    (sortStudents[sid].groups || []).forEach(function(g){
+      list.push({ sid: sid, gid: g.gid, likes: (g.likes || []).length, at: g.at || 0 });
+    });
+  });
+  list.sort(function(a, b){ return b.likes - a.likes || a.at - b.at; });
+  return list;
+}
+
+function publicSortState(room, me, anon){
   const r = getSortRoom(room);
   const ids = sortPlayers(room);
-  const shared = ids.filter(function(id){ return !!sortStudents[id].shared; });
+  const sharers = ids.filter(function(id){ return (sortStudents[id].groups || []).length > 0; });
+  let groupCount = 0;
+  sharers.forEach(function(id){ groupCount += sortStudents[id].groups.length; });
   const out = {
     room: room,
     phase: r.phase,
-    spotlight: r.spotlight,
     hideTitles: r.hideTitles,
+    spot: r.spot,
     revealed: r.revealed,
+    quiz: r.queue ? { n: r.queue.length, i: r.qi } : null,
     total: ids.length,
-    sharedCount: shared.length
+    sharedCount: sharers.length,
+    groupCount: groupCount
   };
   if(me){
     const st = sortStudents[me];
     out.exists = !!(st && normalizeRoom(st.room) === room);
     out.me = out.exists ? publicSortItem(me, me) : null;
     // 先生が ひらくまでは、ほかの人の わけかたは 見えない（じぶんの ぶんだけ）
-    out.items = (r.phase === 'open') ? shared.map(function(id){ return publicSortItem(id, me); }) : [];
+    out.items = (r.phase === 'open') ? sharers.map(function(id){ return publicSortItem(id, me); }) : [];
   } else {
-    out.items = shared.map(function(id){ return publicSortItem(id, ''); });
+    out.items = sharers.map(function(id){ return publicSortItem(id, ''); });
     out.students = ids.map(function(id){
       const s = sortStudents[id];
-      return { id: id, no: s.no || null, role: s.role || 'student', photo: s.photo ? '/api/sort/photo?id=' + id : null, shared: !!s.shared, registeredAt: s.registeredAt };
+      return { id: id, no: s.no || null, role: s.role || 'student', photo: s.photo ? '/api/sort/photo?id=' + id : null, shared: (s.groups || []).length > 0, registeredAt: s.registeredAt };
     }).sort(function(a, b){ return (a.registeredAt || 0) - (b.registeredAt || 0); });
+  }
+  // せんにゅうかん をなくすため、みせる段階では 出席番号・写真を ふせる（自分のぶんと、TVに出している発表のぶんは 出す）
+  if(me || anon){
+    out.items = out.items.map(function(it){
+      const own = !!me && it.id === me;
+      const presenting = !!(r.spot && r.spot.sid === it.id);
+      if(own || presenting) return it;
+      return { id: it.id, no: null, role: 'student', photo: null, anon: true, groups: it.groups, sharedAt: it.sharedAt };
+    });
   }
   out.items.sort(function(a, b){ return (b.sharedAt || 0) - (a.sharedAt || 0); });
   return out;
@@ -2172,7 +2225,7 @@ const server = http.createServer(function(req, res){
   if(req.method === 'GET' && url === '/api/sort/state'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const me = getQueryParam(queryString, 'me');
-    sendJson(res, 200, publicSortState(room, me));
+    sendJson(res, 200, publicSortState(room, me, getQueryParam(queryString, 'view') === 'tv'));
     return;
   }
 
@@ -2183,7 +2236,7 @@ const server = http.createServer(function(req, res){
       let keep = null;
       const old = typeof body.replaceId === 'string' ? sortStudents[body.replaceId] : null;
       if(old && normalizeRoom(old.room) === room){
-        if(body.inherit !== false) keep = { shared: old.shared || null, likes: old.likes || [] };
+        if(body.inherit !== false) keep = { groups: old.groups || [] };
         delete sortStudents[body.replaceId];
       }
       const deviceId = typeof body.deviceId === 'string' ? body.deviceId.slice(0, 40) : '';
@@ -2200,20 +2253,23 @@ const server = http.createServer(function(req, res){
         role: body.role === 'teacher' ? 'teacher' : 'student',
         no: (body.role !== 'teacher' && typeof body.no === 'number' && body.no >= 1 && body.no <= 99) ? Math.floor(body.no) : null,
         photo: typeof body.photo === 'string' ? body.photo : null,
-        shared: keep ? keep.shared : null,
-        likes: keep ? keep.likes : [],
+        groups: keep ? keep.groups : [],
         registeredAt: Date.now(),
         updatedAt: Date.now()
       };
       if(old && body.inherit !== false){
-        // 古い id への「いいね」「スポットライト」を、新しい id に ひきつぐ
+        // 古い id への「いいね」「スポットライト」「クイズ」を、新しい id に ひきつぐ
         Object.keys(sortStudents).forEach(function(k){
-          const arr = sortStudents[k].likes;
-          if(Array.isArray(arr)){ const i = arr.indexOf(body.replaceId); if(i >= 0) arr[i] = id; }
+          (sortStudents[k].groups || []).forEach(function(g){
+            if(Array.isArray(g.likes)){ const i = g.likes.indexOf(body.replaceId); if(i >= 0) g.likes[i] = id; }
+          });
         });
         const r = sortRooms[room];
-        if(r && r.spotlight === body.replaceId) r.spotlight = id;
-        saveSortRooms();
+        if(r){
+          if(r.spot && r.spot.sid === body.replaceId) r.spot.sid = id;
+          if(Array.isArray(r.queue)) r.queue.forEach(function(q){ if(q.sid === body.replaceId) q.sid = id; });
+          saveSortRooms();
+        }
       }
       saveSortStudents();
       sendJson(res, 200, { id: id, room: room });
@@ -2221,13 +2277,23 @@ const server = http.createServer(function(req, res){
     return;
   }
 
-  if(req.method === 'POST' && url === '/api/sort/share'){
+  // グループを 1つずつ みんなに みせる（おくりなおすと、なかみが かわったときは いいねが リセット）
+  if(req.method === 'POST' && url === '/api/sort/share-group'){
     readJsonBody(req, function(body){
       const st = body && sortStudents[body.id];
       if(!st){ sendJson(res, 404, { error: 'unknown student' }); return; }
-      const groups = cleanSortGroups(body.groups);
-      if(!groups){ sendJson(res, 400, { error: 'no groups' }); return; }
-      st.shared = { at: Date.now(), groups: groups };
+      const g = cleanSortGroup(body.group);
+      if(!g){ sendJson(res, 400, { error: 'invalid group' }); return; }
+      if(!Array.isArray(st.groups)) st.groups = [];
+      const cur = st.groups.filter(function(x){ return x.gid === g.gid; })[0];
+      if(cur){
+        const changed = cur.name !== g.name || cur.letters.join('') !== g.letters.join('');
+        cur.name = g.name; cur.letters = g.letters;
+        if(changed){ cur.likes = []; cur.at = Date.now(); }
+      } else {
+        if(st.groups.length >= SORT_MAX_GROUPS){ sendJson(res, 400, { error: 'too many' }); return; }
+        st.groups.push({ gid: g.gid, name: g.name, letters: g.letters, at: Date.now(), likes: [] });
+      }
       st.updatedAt = Date.now();
       saveSortStudents();
       sendJson(res, 200, { ok: true });
@@ -2235,12 +2301,11 @@ const server = http.createServer(function(req, res){
     return;
   }
 
-  if(req.method === 'POST' && url === '/api/sort/unshare'){
+  if(req.method === 'POST' && url === '/api/sort/unshare-group'){
     readJsonBody(req, function(body){
       const st = body && sortStudents[body.id];
-      if(st){
-        st.shared = null;
-        st.likes = [];
+      if(st && Array.isArray(st.groups)){
+        st.groups = st.groups.filter(function(g){ return g.gid !== body.gid; });
         st.updatedAt = Date.now();
         saveSortStudents();
       }
@@ -2252,16 +2317,16 @@ const server = http.createServer(function(req, res){
   if(req.method === 'POST' && url === '/api/sort/like'){
     readJsonBody(req, function(body){
       const me = body && sortStudents[body.me];
-      const target = body && sortStudents[body.target];
-      if(!me || !target || body.me === body.target || !target.shared || normalizeRoom(me.room) !== normalizeRoom(target.room)){
+      const g = body && me ? sortFindGroup(normalizeRoom(me.room), body.target, body.gid) : null;
+      if(!me || !g || body.me === body.target){
         sendJson(res, 400, { error: 'invalid' });
         return;
       }
-      if(!Array.isArray(target.likes)) target.likes = [];
-      const i = target.likes.indexOf(body.me);
-      if(i >= 0) target.likes.splice(i, 1); else target.likes.push(body.me);
+      if(!Array.isArray(g.likes)) g.likes = [];
+      const i = g.likes.indexOf(body.me);
+      if(i >= 0) g.likes.splice(i, 1); else g.likes.push(body.me);
       saveSortStudents();
-      sendJson(res, 200, { ok: true, liked: i < 0, likes: target.likes.length });
+      sendJson(res, 200, { ok: true, liked: i < 0, likes: g.likes.length });
     });
     return;
   }
@@ -2277,20 +2342,73 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  // TVに出すグループ・タイトルのかくす／出す
   if(req.method === 'POST' && url === '/api/sort/spotlight'){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);
       const r = getSortRoom(room);
-      if(body && Object.prototype.hasOwnProperty.call(body, 'id')){
-        const id = typeof body.id === 'string' ? body.id : '';
-        const next = (id && sortStudents[id] && normalizeRoom(sortStudents[id].room) === room && sortStudents[id].shared) ? id : null;
-        if(next !== r.spotlight) r.revealed = false;
-        r.spotlight = next;
+      if(body && Object.prototype.hasOwnProperty.call(body, 'sid')){
+        const next = (typeof body.sid === 'string' && typeof body.gid === 'string' && sortFindGroup(room, body.sid, body.gid)) ? { sid: body.sid, gid: body.gid } : null;
+        const same = next && r.spot && r.spot.sid === next.sid && r.spot.gid === next.gid;
+        if(!same) r.revealed = false;
+        r.spot = next;
+        r.queue = null; r.qi = 0; // 1つだけ出すときは、クイズは おわる
       }
-      if(body && typeof body.reveal === 'boolean') r.revealed = !!r.spotlight && body.reveal;
       if(body && typeof body.hideTitles === 'boolean') r.hideTitles = body.hideTitles;
+      if(body && typeof body.reveal === 'boolean') r.revealed = !!r.spot && body.reveal;
       saveSortRooms();
-      sendJson(res, 200, { ok: true, spotlight: r.spotlight, hideTitles: r.hideTitles, revealed: r.revealed });
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  // いいねが多いグループだけで 最後のクイズ
+  if(req.method === 'POST' && url === '/api/sort/quiz-start'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getSortRoom(room);
+      const count = Math.max(1, Math.min(20, parseInt(body && body.count, 10) || 5));
+      const rank = sortRanking(room).filter(function(x){ return x.likes >= 1; });
+      if(!rank.length){ sendJson(res, 400, { error: 'no likes' }); return; }
+      let cut = rank.length <= count ? rank.length : count;
+      // 同じいいね数は、まとめて入れる（20こまで）
+      while(cut < rank.length && cut < 20 && rank[cut].likes === rank[cut - 1].likes) cut++;
+      r.queue = rank.slice(0, cut).map(function(x){ return { sid: x.sid, gid: x.gid }; });
+      // 出題は、いいねの少ない順から（さいごが いちばん 人気）
+      r.queue.reverse();
+      r.qi = 0;
+      r.spot = { sid: r.queue[0].sid, gid: r.queue[0].gid };
+      r.revealed = false;
+      r.hideTitles = true;
+      saveSortRooms();
+      sendJson(res, 200, { ok: true, n: r.queue.length });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/quiz-step'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getSortRoom(room);
+      if(r.queue){
+        const d = (body && body.dir === -1) ? -1 : 1;
+        const next = Math.max(0, Math.min(r.queue.length - 1, (r.qi || 0) + d));
+        if(next !== r.qi){ r.qi = next; r.revealed = false; }
+        r.spot = { sid: r.queue[r.qi].sid, gid: r.queue[r.qi].gid };
+        saveSortRooms();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/quiz-stop'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getSortRoom(room);
+      r.queue = null; r.qi = 0; r.spot = null; r.revealed = false;
+      saveSortRooms();
+      sendJson(res, 200, { ok: true });
     });
     return;
   }
@@ -2314,7 +2432,7 @@ const server = http.createServer(function(req, res){
       Object.keys(sortStudents).forEach(function(id){
         if(normalizeRoom(sortStudents[id].room) === room) delete sortStudents[id];
       });
-      sortRooms[room] = { phase: 'making', spotlight: null, hideTitles: true, revealed: false };
+      sortRooms[room] = { phase: 'making', hideTitles: true, spot: null, revealed: false, queue: null, qi: 0 };
       saveSortStudents();
       saveSortRooms();
       sendJson(res, 200, { ok: true, room: room });

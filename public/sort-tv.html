@@ -25,6 +25,8 @@
   .grp { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--gb); border-left: 8px solid var(--gc); margin-bottom: 8px; }
   .grp-title { font-size: 18px; font-weight: 700; color: #2C2C2A; flex: 1 1 100%; }
   .letters { display: flex; flex-wrap: wrap; gap: 5px; }
+  .likes-inline { font-size: 15px; color: #854F0B; font-weight: 700; margin-left: 8px; }
+  .spot-prog { text-align: center; font-size: 30px; font-weight: 700; color: #B7B4E0; margin-bottom: 8px; }
   .letters span { width: 36px; height: 42px; border-radius: 8px; background: #FFFFFF; border: 3px solid var(--gc); color: #2C2C2A; font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .empty { text-align: center; font-size: 26px; color: #B7B4E0; margin-top: 80px; line-height: 1.8; }
   #spot { position: fixed; inset: 0; background: #1B1A2E; z-index: 50; display: none; padding: 30px 50px; overflow: auto; }
@@ -34,7 +36,8 @@
   .spot-top .avatar-blank { width: 150px; height: 113px; font-size: 40px; }
   .spot-who { font-size: 56px; font-weight: 700; }
   .spot-likes { font-size: 36px; font-weight: 700; color: #F6C453; }
-  .spot-groups { max-width: 1300px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 18px; }
+  .spot-groups { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 18px; }
+  .spot-groups .likes-inline { font-size: 30px; }
   .spot-groups .grp { padding: 16px 22px; margin-bottom: 0; border-left-width: 14px; }
   .spot-groups .grp-title { font-size: 40px; }
   .spot-groups .letters { gap: 10px; }
@@ -97,37 +100,42 @@ document.getElementById("room-code-btn").onclick = function(){
   if(!v) return;
   startWithRoom(v);
 };
-function who(it){ return it.role === "teacher" ? "先生" : (it.no ? it.no + "ばん" : "?"); }
+function who(it){ return it.anon ? "だれかの わけかた" : (it.role === "teacher" ? "先生" : (it.no ? it.no + "ばん" : "?")); }
 function avatar(it){
-  return it.photo ? '<img class="avatar" src="' + it.photo + '" alt="">' : '<div class="avatar-blank">🙂</div>';
+  return it.photo ? '<img class="avatar" src="' + it.photo + '" alt="">' : '<div class="avatar-blank">' + (it.anon ? "👤" : "🙂") + '</div>';
 }
-function groupsHtml(groups, hide){
-  return (groups || []).map(function(g, gi){
-    return '<div class="grp" style="--gc:' + GCOL[gi % GCOL.length] + ';--gb:' + GBG[gi % GBG.length] + '">' +
-      '<div class="grp-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + '</div>' +
-      '<div class="letters">' + (g.letters || []).map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
-  }).join("");
+function groupBlock(g, gi, hide, big){
+  return '<div class="grp" style="--gc:' + GCOL[gi % GCOL.length] + ';--gb:' + GBG[gi % GBG.length] + '">' +
+    '<div class="grp-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + (g.likes ? ' <span class="likes-inline">👍 ' + g.likes + '</span>' : '') + '</div>' +
+    '<div class="letters">' + (g.letters || []).map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
 }
 function render(d){
   var items = d.items || [];
-  var spotItem = d.spotlight ? items.filter(function(x){ return x.id === d.spotlight; })[0] : null;
+  var spotItem = null, spotGroup = null, spotIdx = 0;
+  if(d.spot){
+    spotItem = items.filter(function(x){ return x.id === d.spot.sid; })[0] || null;
+    if(spotItem){
+      spotItem.groups.forEach(function(g, i){ if(g.gid === d.spot.gid){ spotGroup = g; spotIdx = i; } });
+    }
+  }
   var tag = document.getElementById("phase-tag");
   tag.textContent = d.phase === "open"
-    ? "みんなの わけかた　（" + items.length + " にん）"
+    ? "みんなの わけかた　（" + (d.groupCount || 0) + " こ）"
     : "いま みんなで かんがえ中…　みせた人 " + (d.sharedCount || 0) + " / " + (d.total || 0) + " 人";
-  var key = JSON.stringify([d.phase, d.spotlight, d.hideTitles, d.revealed, items.map(function(x){ return [x.id, x.sharedAt, x.likes]; })]);
+  var key = JSON.stringify([d.phase, d.spot, d.hideTitles, d.revealed, d.quiz, items.map(function(x){ return [x.id, x.no, x.groups.map(function(g){ return [g.gid, g.at, g.likes]; })]; })]);
   if(key === lastKey) return;
   lastKey = key;
 
-  var spot = document.getElementById("spot");
   var hideAll = !!d.hideTitles;
   var hideSpot = hideAll && !d.revealed;
-  if(spotItem){
+  var spot = document.getElementById("spot");
+  if(spotItem && spotGroup){
     spot.innerHTML =
+      (d.quiz ? '<div class="spot-prog">🎯 もんだい ' + (d.quiz.i + 1) + ' / ' + d.quiz.n + '</div>' : '') +
       '<div class="spot-top">' + avatar(spotItem) + '<div class="spot-who">' + who(spotItem) + ' の わけかた</div>' +
-      (spotItem.likes ? '<div class="spot-likes">👍 ' + spotItem.likes + '</div>' : '') + '</div>' +
+      (spotGroup.likes ? '<div class="spot-likes">👍 ' + spotGroup.likes + '</div>' : '') + '</div>' +
       (hideSpot ? '<div class="spot-quiz">🙈 どんな ルールで わけたのかな？ かんがえてみよう！</div>' : '<div class="spot-quiz">✅ こたえ</div>') +
-      '<div class="spot-groups">' + groupsHtml(spotItem.groups, hideSpot) + '</div>';
+      '<div class="spot-groups">' + groupBlock(spotGroup, spotIdx, hideSpot, true) + '</div>';
     spot.className = "show";
   } else {
     spot.className = "";
@@ -139,23 +147,23 @@ function render(d){
   if(d.phase !== "open"){
     grid.innerHTML = "";
     empty.style.display = "block";
-    empty.innerHTML = "✏️ じぶんで かんがえて、グループに わけよう！<br>できたら「みんなに みせる」を おしてね";
+    empty.innerHTML = "✏️ じぶんで かんがえて、グループに わけよう！<br>できた グループから「みんなに みせる」を おしてね";
     return;
   }
   empty.style.display = items.length ? "none" : "block";
   empty.textContent = "まだ だれも みせていません";
   grid.innerHTML = items.map(function(it){
-    var fresh = !firstLoad && !seen[it.id + ":" + it.sharedAt];
+    var stamp = it.id + ":" + it.groups.map(function(g){ return g.gid + g.at; }).join(",");
+    var fresh = !firstLoad && !seen[stamp];
     return '<div class="card' + (fresh ? " flash" : "") + '">' +
-      '<div class="head">' + avatar(it) + '<div class="who">' + who(it) + '</div>' +
-      (it.likes ? '<div class="likes">👍 ' + it.likes + '</div>' : '') + '</div>' +
-      groupsHtml(it.groups, hideAll) + '</div>';
+      '<div class="head">' + avatar(it) + '<div class="who">' + who(it) + '</div></div>' +
+      it.groups.map(function(g, gi){ return groupBlock(g, gi, hideAll, false); }).join("") + '</div>';
   }).join("");
-  items.forEach(function(it){ seen[it.id + ":" + it.sharedAt] = true; });
+  items.forEach(function(it){ seen[it.id + ":" + it.groups.map(function(g){ return g.gid + g.at; }).join(",")] = true; });
   firstLoad = false;
 }
 function poll(){
-  fetch("/api/sort/state?room=" + encodeURIComponent(currentRoom))
+  fetch("/api/sort/state?view=tv&room=" + encodeURIComponent(currentRoom))
     .then(function(r){ return r.json(); })
     .then(render)
     .catch(function(){})

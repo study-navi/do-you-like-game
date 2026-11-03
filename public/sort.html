@@ -348,6 +348,19 @@
   .g-actions button { flex: 1; padding: 10px 6px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
   .g-actions button.liked { background: #FDF3D8; border-color: #F0B429; color: #854F0B; }
   .g-actions button:disabled { opacity: 0.4; cursor: default; }
+  .gshare { margin-top: 8px; }
+  .gshare-note { font-size: 12px; color: #993C1D; min-height: 16px; text-align: center; margin-bottom: 4px; }
+  .gshare-row { display: flex; gap: 8px; }
+  .share-btn { flex: 1; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 999px; border: none; background: #185FA5; color: #FFFFFF; cursor: pointer; font-family: inherit; }
+  .share-btn:disabled { background: #D3D1C7; cursor: default; }
+  .share-btn.done { background: #E1F5EE; color: #0F6E56; border: 2px solid #1D9E75; }
+  .unshare-btn { flex: 0 0 auto; padding: 10px 14px; font-size: 12px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .g-mini { display: flex; gap: 8px; margin: 2px 0 10px; }
+  .g-mini button { flex: 1; padding: 8px 6px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .g-mini button.liked { background: #FDF3D8; border-color: #F0B429; color: #854F0B; }
+  .g-mini button:disabled { opacity: 0.4; cursor: default; }
+  .g-group.spot { outline: 3px solid #F0B429; }
+  .spot-tag { font-size: 11px; font-weight: 700; color: #854F0B; background: #FDF3D8; border-radius: 999px; padding: 2px 10px; }
 </style>
 </head>
 <body>
@@ -392,6 +405,7 @@
 
 
 
+
 <div class="app">
   <div class="title">🔤 アルファベット なかまわけ</div>
   <div class="room-tag" id="room-tag"></div>
@@ -404,7 +418,7 @@
   <div id="view-make" class="screen active">
     <div class="step-card">
       <div class="step-hint">大文字を なかまわけ しよう！</div>
-      <div class="step-example">① ABCから もじを えらぶ<br>② グループの「ここに いれる」を おす<br>③ グループの なまえ（わけた ルール）を かく<br>れい: 「まっすぐの せんだけ」「まるが ある」</div>
+      <div class="step-example">① ABCから もじを えらぶ<br>② グループの「ここに いれる」を おす<br>③ グループの なまえ（わけた ルール）を かく<br>④ できた グループから「みんなに みせる」を おす<br>れい: 「まっすぐの せんだけ」「まるが ある」</div>
       <div class="pool-title" id="tray-title">まだ グループに はいっていない もじ</div>
       <div class="tray" id="tray"></div>
       <div class="tray-actions">
@@ -416,12 +430,7 @@
     <div id="groups"></div>
     <button class="add-group-btn" id="add-group-btn" onclick="addGroup()">＋ グループを ふやす</button>
 
-    <div class="step-card" style="margin-top:14px;">
-      <div class="share-state" id="share-state"></div>
-      <div class="kana-msg err" id="share-note" style="text-align:center;margin-bottom:6px;"></div>
-      <button class="main-btn" id="share-btn" onclick="shareNow()" disabled>📤 みんなに みせる</button>
-      <button class="sub-btn" id="unshare-btn" style="display:none;" onclick="unshareNow()">みせるのを やめる</button>
-    </div>
+    <div class="share-state" id="share-state"></div>
   </div>
 
   <div id="view-gallery" class="screen">
@@ -447,13 +456,14 @@ var STUDENT_PHOTO_KEY = "sort_student_photo";
 var studentId = localStorage.getItem(STUDENT_ID_KEY) || null;
 var pollTimer = null;
 
-var meState = null;       // { id, groups, likes, sharedAt }
-var draft = null;         // [{ name, letters:[] }]
+var meState = null;       // { id, groups:[{gid,name,letters,likes}] }  ← みんなに みせているグループ
+var draft = null;         // [{ gid, name, letters:[] }]
 var selected = [];
 var viewName = "make";
 var lastState = null;
 var galleryKey = "";
-var shareDirty = false;
+var mergedFromServer = false;
+var shareEls = [];
 
 function getRoomFromUrl(){
   var m = location.search.match(/[?&]room=([^&]+)/);
@@ -469,6 +479,12 @@ function toast(msg){
   clearTimeout(toast._t);
   toast._t = setTimeout(function(){ t.classList.remove("show"); }, 2200);
 }
+function newGid(){
+  var s = "";
+  for(var i = 0; i < 8; i++) s += "abcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 36));
+  return s;
+}
+function newGroup(){ return { gid: newGid(), name: "", letters: [] }; }
 function draftKey(){ return "sort_draft_" + currentRoom; }
 function saveDraft(){
   try{ localStorage.setItem(draftKey(), JSON.stringify(draft)); }catch(e){}
@@ -478,17 +494,26 @@ function loadDraft(){
     var d = JSON.parse(localStorage.getItem(draftKey()) || "null");
     if(Array.isArray(d) && d.length){
       return d.slice(0, MAX_GROUPS).map(function(g){
-        return { name: String((g && g.name) || "").slice(0, 24), letters: (g && Array.isArray(g.letters) ? g.letters : []).filter(function(L){ return LETTERS.indexOf(L) >= 0; }) };
+        return {
+          gid: (g && typeof g.gid === "string" && /^[a-z0-9]{4,20}$/.test(g.gid)) ? g.gid : newGid(),
+          name: String((g && g.name) || "").slice(0, 24),
+          letters: (g && Array.isArray(g.letters) ? g.letters : []).filter(function(L){ return LETTERS.indexOf(L) >= 0; })
+        };
       });
     }
   }catch(e){}
   return null;
 }
-function emptyDraft(){ return [{ name: "", letters: [] }, { name: "", letters: [] }]; }
+function emptyDraft(){ return [newGroup(), newGroup()]; }
 function placedSet(){
   var o = {};
   draft.forEach(function(g){ g.letters.forEach(function(L){ o[L] = true; }); });
   return o;
+}
+function sharedOf(gid){
+  var list = (meState && meState.groups) || [];
+  for(var i = 0; i < list.length; i++){ if(list[i].gid === gid) return list[i]; }
+  return null;
 }
 
 /* ---------- ① つくる ---------- */
@@ -510,6 +535,7 @@ function renderMake(){
   document.getElementById("sel-count").textContent = selected.length ? ("えらんだ もじ: " + selected.join(" ")) : "";
   var box = document.getElementById("groups");
   box.innerHTML = "";
+  shareEls = [];
   draft.forEach(function(g, gi){
     var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
     var card = document.createElement("div");
@@ -526,7 +552,7 @@ function renderMake(){
     inp.placeholder = "グループの なまえ（わけた ルール）";
     inp.value = g.name;
     inp.autocomplete = "off";
-    inp.oninput = function(){ g.name = inp.value; saveDraft(); updateShareBtn(); };
+    inp.oninput = function(){ g.name = inp.value; saveDraft(); refreshShareUI(); };
     top.appendChild(inp);
     if(draft.length > 1){
       var del = document.createElement("button");
@@ -560,10 +586,69 @@ function renderMake(){
     put.textContent = selected.length ? ("⬇ ここに いれる（" + selected.join(" ") + "）") : "⬇ ここに いれる";
     put.onclick = function(){ putSelected(gi); };
     card.appendChild(put);
+
+    var sh = document.createElement("div");
+    sh.className = "gshare";
+    var note = document.createElement("div");
+    note.className = "gshare-note";
+    var row = document.createElement("div");
+    row.className = "gshare-row";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "share-btn";
+    btn.onclick = function(){ shareGroup(gi); };
+    var un = document.createElement("button");
+    un.type = "button";
+    un.className = "unshare-btn";
+    un.textContent = "やめる";
+    un.onclick = function(){ unshareGroup(gi); };
+    row.appendChild(btn); row.appendChild(un);
+    sh.appendChild(note); sh.appendChild(row);
+    card.appendChild(sh);
+    shareEls[gi] = { note: note, btn: btn, un: un };
     box.appendChild(card);
   });
   document.getElementById("add-group-btn").disabled = draft.length >= MAX_GROUPS;
-  updateShareBtn();
+  refreshShareUI();
+}
+function groupProblem(g){
+  if(!g.letters.length) return "もじを いれてね";
+  if(g.letters.length < 2) return "2もじ いじょう いれてね";
+  if(!String(g.name || "").trim()) return "グループの なまえを かいてね";
+  return "";
+}
+function sameAsShared(g, sh){
+  return !!sh && sh.name === String(g.name || "").trim() && sh.letters.join("") === g.letters.join("");
+}
+function refreshShareUI(){
+  if(!draft) return;
+  var shownCount = 0, likeTotal = 0;
+  draft.forEach(function(g, gi){
+    var el = shareEls[gi];
+    if(!el) return;
+    var sh = sharedOf(g.gid);
+    var problem = groupProblem(g);
+    if(sh){ shownCount++; likeTotal += sh.likes || 0; }
+    el.un.style.display = sh ? "block" : "none";
+    if(sh && sameAsShared(g, sh)){
+      el.btn.className = "share-btn done";
+      el.btn.disabled = true;
+      el.btn.textContent = "✓ みんなに みせています" + (sh.likes ? "　👍 " + sh.likes : "");
+      el.note.textContent = "";
+    } else if(sh){
+      el.btn.className = "share-btn";
+      el.btn.disabled = !!problem;
+      el.btn.textContent = "📤 なおして おくりなおす";
+      el.note.textContent = problem || "（なおすと 👍 は 0に もどります）";
+    } else {
+      el.btn.className = "share-btn";
+      el.btn.disabled = !!problem;
+      el.btn.textContent = "📤 このグループを みんなに みせる";
+      el.note.textContent = (g.letters.length || g.name) ? problem : "";
+    }
+  });
+  var st = document.getElementById("share-state");
+  st.textContent = shownCount ? ("✓ みせているグループ: " + shownCount + "こ" + (likeTotal ? "　👍 " + likeTotal : "")) : "";
 }
 function toggleSel(L){
   var i = selected.indexOf(L);
@@ -576,87 +661,56 @@ function putSelected(gi){
   selected.forEach(function(L){ draft[gi].letters.push(L); });
   draft[gi].letters.sort();
   selected = [];
-  shareDirty = true;
   saveDraft();
   renderMake();
 }
 function returnLetter(gi, L){
   var i = draft[gi].letters.indexOf(L);
   if(i >= 0) draft[gi].letters.splice(i, 1);
-  shareDirty = true;
   saveDraft();
   renderMake();
 }
 function addGroup(){
   if(draft.length >= MAX_GROUPS) return;
-  draft.push({ name: "", letters: [] });
+  draft.push(newGroup());
   saveDraft();
   renderMake();
 }
 function removeGroup(gi){
   var g = draft[gi];
-  if(g.letters.length || g.name){
-    if(!confirm("このグループを けしますか？（もじは もどります）")) return;
+  var shared = !!sharedOf(g.gid);
+  if(g.letters.length || g.name || shared){
+    if(!confirm(shared ? "このグループを けしますか？（みんなに みせているのも きえます）" : "このグループを けしますか？（もじは もどります）")) return;
   }
+  if(shared) postJson("/api/sort/unshare-group", { id: studentId, gid: g.gid }).then(pollGame);
   draft.splice(gi, 1);
-  if(!draft.length) draft = emptyDraft();
-  shareDirty = true;
+  if(!draft.length) draft = [newGroup()];
   saveDraft();
   renderMake();
 }
-function sharePayload(){
-  return draft.filter(function(g){ return g.letters.length; }).map(function(g){
-    return { name: String(g.name || "").trim(), letters: g.letters.slice() };
-  });
+function postJson(path, body){
+  return fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .then(function(r){ if(!r.ok) throw new Error("x"); return r.json(); });
 }
-function shareProblem(){
-  var gs = sharePayload();
-  if(!gs.length) return "もじを グループに いれてね";
-  for(var i = 0; i < gs.length; i++){
-    if(!gs[i].name) return "なまえが ない グループが あるよ（わけた ルールを かいてね）";
-  }
-  if(!gs.some(function(g){ return g.letters.length >= 2; })) return "2もじ いじょうの グループを つくってね";
-  return "";
-}
-function updateShareBtn(){
-  var btn = document.getElementById("share-btn");
-  var problem = shareProblem();
-  btn.disabled = !!problem;
-  btn.textContent = (meState && meState.sharedAt) ? "📤 つくりなおして おくる" : "📤 みんなに みせる";
-  document.getElementById("share-note").textContent = problem;
-  var st = document.getElementById("share-state");
-  if(meState && meState.sharedAt){
-    st.textContent = "✓ みんなに みせています" + (meState.likes ? "　👍 " + meState.likes : "");
-  } else {
-    st.textContent = "";
-  }
-  document.getElementById("unshare-btn").style.display = (meState && meState.sharedAt) ? "block" : "none";
-}
-function shareNow(){
-  if(!studentId || shareProblem()) return;
-  var btn = document.getElementById("share-btn");
-  btn.disabled = true;
-  fetch("/api/sort/share", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: studentId, groups: sharePayload() })
-  }).then(function(r){ if(!r.ok) throw new Error("x"); return r.json(); })
+function shareGroup(gi){
+  var g = draft[gi];
+  if(!studentId || groupProblem(g)) return;
+  var el = shareEls[gi];
+  if(el) el.btn.disabled = true;
+  postJson("/api/sort/share-group", { id: studentId, group: { gid: g.gid, name: String(g.name || "").trim(), letters: g.letters.slice() } })
     .then(function(){
-      shareDirty = false;
       toast("みんなに みせたよ！");
-      pollGame();
+      return pollGame();
     })
-    .catch(function(){ toast("おくれませんでした。もういちど おしてね"); })
-    .finally(function(){ updateShareBtn(); });
+    .catch(function(){ toast("おくれませんでした。もういちど おしてね"); refreshShareUI(); });
 }
-function unshareNow(){
+function unshareGroup(gi){
+  var g = draft[gi];
   if(!studentId) return;
-  if(!confirm("みんなに みせるのを やめますか？（もらった 👍 も きえます）")) return;
-  fetch("/api/sort/unshare", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: studentId })
-  }).then(function(){ toast("みせるのを やめたよ"); pollGame(); }).catch(function(){});
+  if(!confirm("このグループを みせるのを やめますか？（もらった 👍 も きえます）")) return;
+  postJson("/api/sort/unshare-group", { id: studentId, gid: g.gid })
+    .then(function(){ toast("みせるのを やめたよ"); pollGame(); })
+    .catch(function(){});
 }
 
 /* ---------- ② みんなの わけかた ---------- */
@@ -669,49 +723,49 @@ function showView(name){
   if(name === "gallery"){ galleryKey = ""; renderGallery(); }
   window.scrollTo(0, 0);
 }
-function groupsHtml(groups, hideTitles){
-  return groups.map(function(g, gi){
-    var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
-    return '<div class="g-group" style="--gc:' + c + ';--gb:' + bg + '">' +
-      '<div class="g-title">' + (hideTitles ? "？？？ （どんな ルールかな？）" : esc(g.name || "（なまえなし）")) + '</div>' +
-      '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
-  }).join("");
-}
+function isSpot(d, sid, gid){ return !!(d.spot && d.spot.sid === sid && d.spot.gid === gid); }
 function renderGallery(){
   var d = lastState;
   var note = document.getElementById("gallery-note");
   var box = document.getElementById("gallery");
   if(!d){ return; }
   if(d.phase !== "open"){
-    note.innerHTML = "👀 先生が「みんなの わけかたを ひらく」まで<br>ちょっと まっててね<br><small style='font-weight:400;color:#888780;'>じぶんの わけかたは「つくる」で みせておこう</small>";
+    note.innerHTML = "👀 先生が「みんなの わけかたを ひらく」まで<br>ちょっと まっててね<br><small style='font-weight:400;color:#888780;'>みせたい グループは「つくる」で みせておこう</small>";
     box.innerHTML = "";
     galleryKey = "closed";
     return;
   }
   var items = d.items || [];
   note.textContent = items.length ? "" : "まだ だれも みせていません";
-  var key = JSON.stringify([d.spotlight, d.hideTitles, d.revealed, items.map(function(it){ return [it.id, it.sharedAt, it.likes, it.liked]; })]);
+  var key = JSON.stringify([d.spot, d.hideTitles, d.revealed, items.map(function(it){ return [it.id, it.groups.map(function(g){ return [g.gid, g.at, g.likes, g.liked]; })]; })]);
   if(key === galleryKey) return;
   galleryKey = key;
   var y = window.scrollY;
   box.innerHTML = "";
   items.forEach(function(it){
     var mine = it.id === studentId;
-    var spot = d.spotlight === it.id;
+    var anySpot = it.groups.some(function(g){ return isSpot(d, it.id, g.gid); });
     var card = document.createElement("div");
-    card.className = "g-card" + (mine ? " mine" : "") + (spot ? " spot" : "");
-    card.innerHTML =
+    card.className = "g-card" + (mine ? " mine" : "") + (anySpot ? " spot" : "");
+    var html =
       '<div class="g-head">' +
-        (it.photo ? '<img class="g-photo" src="' + it.photo + '" alt="">' : '<div class="g-photo-blank">🙂</div>') +
-        '<div class="g-who">' + (it.role === "teacher" ? "先生" : (it.no ? it.no + "ばん" : "?")) + ' の わけかた</div>' +
-        (spot ? '<span class="g-badge spot">⭐ TVに でているよ</span>' : '') +
+        (it.photo ? '<img class="g-photo" src="' + it.photo + '" alt="">' : '<div class="g-photo-blank">' + (it.anon ? "👤" : "🙂") + '</div>') +
+        '<div class="g-who">' + (it.anon ? "だれかの わけかた" : (it.role === "teacher" ? "先生" : (it.no ? it.no + "ばん" : "?")) + ' の わけかた') + '</div>' +
         (mine ? '<span class="g-badge">きみの</span>' : '') +
-      '</div>' +
-      groupsHtml(it.groups || [], d.hideTitles && !mine && !(spot && d.revealed)) +
-      '<div class="g-actions">' +
-        '<button class="like-btn' + (it.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-id="' + it.id + '">👍 なるほど！ ' + (it.likes || 0) + '</button>' +
-        (mine ? '' : '<button class="copy-btn" data-id="' + it.id + '">📋 まねして つくる</button>') +
       '</div>';
+    it.groups.forEach(function(g, gi){
+      var spot = isSpot(d, it.id, g.gid);
+      var hide = d.hideTitles && !mine && !(spot && d.revealed);
+      var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
+      html += '<div class="g-group' + (spot ? " spot" : "") + '" style="--gc:' + c + ';--gb:' + bg + '">' +
+        '<div class="g-title">' + (hide ? "？？？ （どんな ルールかな？）" : esc(g.name || "（なまえなし）")) + (spot ? ' <span class="spot-tag">⭐ TVに でているよ</span>' : '') + '</div>' +
+        '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>' +
+        '<div class="g-mini">' +
+          '<button class="like-btn' + (g.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">👍 なるほど！ ' + (g.likes || 0) + '</button>' +
+          (mine ? '' : '<button class="copy-btn" data-sid="' + it.id + '" data-gid="' + g.gid + '">📋 まねして つくる</button>') +
+        '</div>';
+    });
+    card.innerHTML = html;
     box.appendChild(card);
   });
   window.scrollTo(0, y);
@@ -719,24 +773,27 @@ function renderGallery(){
 document.getElementById("gallery").addEventListener("click", function(e){
   var like = e.target.closest ? e.target.closest(".like-btn") : null;
   if(like && !like.disabled){
-    var id = like.getAttribute("data-id");
-    fetch("/api/sort/like", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ me: studentId, target: id })
-    }).then(function(){ pollGame(); }).catch(function(){});
+    postJson("/api/sort/like", { me: studentId, target: like.getAttribute("data-sid"), gid: like.getAttribute("data-gid") })
+      .then(function(){ pollGame(); }).catch(function(){});
     return;
   }
   var cp = e.target.closest ? e.target.closest(".copy-btn") : null;
   if(cp){
-    var tid = cp.getAttribute("data-id");
-    var it = ((lastState && lastState.items) || []).filter(function(x){ return x.id === tid; })[0];
-    if(!it) return;
-    var hasWork = draft && draft.some(function(g){ return g.letters.length; });
-    if(hasWork && !confirm("いま つくっている わけかたは きえます。まねして つくりますか？")) return;
-    draft = (it.groups || []).slice(0, MAX_GROUPS).map(function(g){ return { name: g.name || "", letters: g.letters.slice() }; });
+    var sid = cp.getAttribute("data-sid"), gid = cp.getAttribute("data-gid");
+    var it = ((lastState && lastState.items) || []).filter(function(x){ return x.id === sid; })[0];
+    var g = it ? it.groups.filter(function(x){ return x.gid === gid; })[0] : null;
+    if(!g) return;
+    if(draft.length >= MAX_GROUPS){ toast("グループが いっぱいです。どれかを けしてね"); return; }
+    // ほかのグループに入っている同じ文字は、こちらへ うつす
+    draft.forEach(function(dg){ dg.letters = dg.letters.filter(function(L){ return g.letters.indexOf(L) < 0; }); });
+    var ng = newGroup();
+    ng.name = g.name || "";
+    ng.letters = g.letters.slice();
+    // からっぽの 1つめ（まだ なにも かいていない）グループは、おきかえる
+    var emptyIdx = -1;
+    draft.forEach(function(dg, i){ if(emptyIdx < 0 && !dg.letters.length && !dg.name && !sharedOf(dg.gid)) emptyIdx = i; });
+    if(emptyIdx >= 0) draft[emptyIdx] = ng; else draft.push(ng);
     selected = [];
-    shareDirty = true;
     saveDraft();
     renderMake();
     showView("make");
@@ -747,25 +804,44 @@ document.getElementById("gallery").addEventListener("click", function(e){
 /* ---------- ポーリング ---------- */
 function pollGame(){
   if(pollTimer) clearTimeout(pollTimer);
-  fetch("/api/sort/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
+  return fetch("/api/sort/state?room=" + encodeURIComponent(currentRoom) + "&me=" + encodeURIComponent(studentId || "none"))
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(studentId && d.exists === false){ forgetRegistration(); location.reload(); return; }
       lastState = d;
-      meState = d.me ? { id: d.me.id, groups: d.me.groups || [], likes: d.me.likes || 0, sharedAt: d.me.sharedAt || null } : null;
+      meState = d.me ? { id: d.me.id, groups: d.me.groups || [] } : null;
+      var needRender = false;
       if(!draft){
-        draft = (meState && meState.groups.length) ? meState.groups.map(function(g){ return { name: g.name || "", letters: g.letters.slice() }; }) : emptyDraft();
+        draft = loadDraft();
+        if(!draft){
+          draft = (meState && meState.groups.length) ? meState.groups.map(function(g){ return { gid: g.gid, name: g.name || "", letters: g.letters.slice() }; }) : emptyDraft();
+        }
         saveDraft();
-        renderMake();
-      } else {
-        updateShareBtn();
+        needRender = true;
       }
+      if(!mergedFromServer && meState){
+        // べつの端末や ログインしなおしで、みせているグループが 手元に ないときは もってくる
+        mergedFromServer = true;
+        var have = {};
+        draft.forEach(function(g){ have[g.gid] = true; });
+        var placed = placedSet();
+        meState.groups.forEach(function(g){
+          if(have[g.gid] || draft.length >= MAX_GROUPS) return;
+          var ls = g.letters.filter(function(L){ return !placed[L]; });
+          if(!ls.length) return;
+          ls.forEach(function(L){ placed[L] = true; });
+          draft.push({ gid: g.gid, name: g.name || "", letters: ls });
+          needRender = true;
+        });
+        if(needRender) saveDraft();
+      }
+      if(needRender) renderMake(); else refreshShareUI();
       var n = document.getElementById("tab-n");
-      n.textContent = (d.phase === "open" && d.items && d.items.length) ? String(d.items.length) : "";
+      n.textContent = (d.phase === "open" && d.items && d.items.length) ? String(d.groupCount || d.items.length) : "";
       if(viewName === "gallery") renderGallery();
     })
     .catch(function(){})
-    .finally(function(){ pollTimer = setTimeout(pollGame, viewName === "gallery" ? 2500 : 4000); });
+    .then(function(){ pollTimer = setTimeout(pollGame, viewName === "gallery" ? 2500 : 4000); });
 }
 
 /* ---------- registration ---------- */
@@ -931,7 +1007,7 @@ function proceedToSetupScreen(){
   pollGame();
 }
 function resetClientGameState(){
-  meState = null; draft = null; selected = []; lastState = null; galleryKey = ""; shareDirty = false;
+  meState = null; draft = null; selected = []; lastState = null; galleryKey = ""; mergedFromServer = false; shareEls = [];
   document.getElementById("relogin-actions").style.display = "none";
   reloginMode = false;
   inheritNext = true;

@@ -295,7 +295,7 @@ function publicAlphabetList(room){
 /* ============================================================
  * アルファベット なかまわけ（大文字を自分でグループ分けして、グループごとにみんなに共有するゲーム）
  *   /sort（生徒用）/sort-teacher（先生用）/sort-tv（TV用）
- *   room -> { phase: 'making' | 'open', hideTitles: bool（ほかの人のグループ名を かくす／初期ON）,
+ *   room -> { phase: 'making' | 'open', picks: [{sid, gid}]（TVの一覧に のせるグループ。空ならぜんぶ）, hideTitles: bool（ほかの人のグループ名を かくす／初期ON）,
  *             spot: {sid, gid} | null（TVに出しているグループ）, revealed: bool（spotのグループ名を出す）,
  *             queue: [{sid, gid}] | null（いいね上位のクイズ）, qi: 出題中の番号 }
  *   生徒 -> { groups: [{ gid, name, letters:[A-Z], at, likes:[いいねした生徒id] }]（みせているグループ） }
@@ -335,7 +335,7 @@ function sortFindGroup(room, sid, gid){
   return null;
 }
 function getSortRoom(room){
-  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', hideTitles: true, spot: null, revealed: false, queue: null, qi: 0 };
+  if(!sortRooms[room]) sortRooms[room] = { phase: 'making', hideTitles: true, spot: null, revealed: false, queue: null, qi: 0, picks: [] };
   const r = sortRooms[room];
   if(r.phase !== 'open') r.phase = 'making';
   r.hideTitles = r.hideTitles !== false;
@@ -352,6 +352,7 @@ function getSortRoom(room){
   if(!r.spot || !sortFindGroup(room, r.spot.sid, r.spot.gid)){ r.spot = null; }
   if(!r.spot) r.revealed = false;
   r.revealed = !!r.revealed;
+  r.picks = (Array.isArray(r.picks) ? r.picks : []).filter(function(q){ return q && !!sortFindGroup(room, q.sid, q.gid); });
   return r;
 }
 
@@ -412,6 +413,7 @@ function publicSortState(room, me, anon){
     phase: r.phase,
     hideTitles: r.hideTitles,
     spot: r.spot,
+    picks: r.picks,
     revealed: r.revealed,
     quiz: r.queue ? { n: r.queue.length, i: r.qi } : null,
     total: ids.length,
@@ -2267,6 +2269,7 @@ const server = http.createServer(function(req, res){
         const r = sortRooms[room];
         if(r){
           if(r.spot && r.spot.sid === body.replaceId) r.spot.sid = id;
+          if(Array.isArray(r.picks)) r.picks.forEach(function(q){ if(q.sid === body.replaceId) q.sid = id; });
           if(Array.isArray(r.queue)) r.queue.forEach(function(q){ if(q.sid === body.replaceId) q.sid = id; });
           saveSortRooms();
         }
@@ -2362,6 +2365,25 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  // TV の一覧に のせるグループを ピックアップ（1つずつ／ぜんぶ かいじょ）
+  if(req.method === 'POST' && url === '/api/sort/pick'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const r = getSortRoom(room);
+      if(body && body.clear){
+        r.picks = [];
+      } else if(body && typeof body.sid === 'string' && typeof body.gid === 'string' && sortFindGroup(room, body.sid, body.gid)){
+        const i = r.picks.findIndex(function(q){ return q.sid === body.sid && q.gid === body.gid; });
+        const on = typeof body.on === 'boolean' ? body.on : i < 0;
+        if(on && i < 0) r.picks.push({ sid: body.sid, gid: body.gid });
+        if(!on && i >= 0) r.picks.splice(i, 1);
+      }
+      saveSortRooms();
+      sendJson(res, 200, { ok: true, picks: r.picks.length });
+    });
+    return;
+  }
+
   // いいねが多いグループだけで 最後のクイズ
   if(req.method === 'POST' && url === '/api/sort/quiz-start'){
     readJsonBody(req, function(body){
@@ -2432,7 +2454,7 @@ const server = http.createServer(function(req, res){
       Object.keys(sortStudents).forEach(function(id){
         if(normalizeRoom(sortStudents[id].room) === room) delete sortStudents[id];
       });
-      sortRooms[room] = { phase: 'making', hideTitles: true, spot: null, revealed: false, queue: null, qi: 0 };
+      sortRooms[room] = { phase: 'making', hideTitles: true, spot: null, revealed: false, queue: null, qi: 0, picks: [] };
       saveSortStudents();
       saveSortRooms();
       sendJson(res, 200, { ok: true, room: room });

@@ -119,10 +119,11 @@ function render(d){
     }
   }
   var tag = document.getElementById("phase-tag");
-  tag.textContent = d.phase === "open"
-    ? "みんなの わけかた　（" + (d.groupCount || 0) + " こ）"
-    : "いま みんなで かんがえ中…　みせた人 " + (d.sharedCount || 0) + " / " + (d.total || 0) + " 人";
-  var key = JSON.stringify([d.phase, d.spot, d.hideTitles, d.revealed, d.quiz, items.map(function(x){ return [x.id, x.no, x.groups.map(function(g){ return [g.gid, g.at, g.likes]; })]; })]);
+  var pickCount = (d.picks || []).length;
+  tag.textContent = d.phase !== "open"
+    ? "いま みんなで かんがえ中…　みせた人 " + (d.sharedCount || 0) + " / " + (d.total || 0) + " 人"
+    : (pickCount ? "📌 ピックアップ　（" + pickCount + " こ）" : "みんなの わけかた　（" + (d.groupCount || 0) + " こ）");
+  var key = JSON.stringify([d.phase, d.spot, d.picks, d.hideTitles, d.revealed, d.quiz, items.map(function(x){ return [x.id, x.no, x.groups.map(function(g){ return [g.gid, g.at, g.likes]; })]; })]);
   if(key === lastKey) return;
   lastKey = key;
 
@@ -150,8 +151,33 @@ function render(d){
     empty.innerHTML = "✏️ じぶんで かんがえて、グループに わけよう！<br>できた グループから「みんなに みせる」を おしてね";
     return;
   }
-  empty.style.display = items.length ? "none" : "block";
-  empty.textContent = "まだ だれも みせていません";
+  var picks = d.picks || [];
+  var picked = picks.length > 0;
+  var cards = [];
+  if(picked){
+    // ピックアップしたグループだけを、1つずつの カードで 出す
+    picks.forEach(function(q){
+      var it = items.filter(function(x){ return x.id === q.sid; })[0];
+      if(!it) return;
+      var gi = -1;
+      it.groups.forEach(function(g, i){ if(g.gid === q.gid) gi = i; });
+      if(gi >= 0) cards.push({ it: it, g: it.groups[gi], gi: gi });
+    });
+  }
+  empty.style.display = (picked ? cards.length : items.length) ? "none" : "block";
+  empty.textContent = picked ? "ピックアップした グループが ありません" : "まだ だれも みせていません";
+  if(picked){
+    grid.innerHTML = cards.map(function(c){
+      var stamp = c.g.gid + c.g.at;
+      var fresh = !firstLoad && !seen[stamp];
+      return '<div class="card' + (fresh ? " flash" : "") + '">' +
+        '<div class="head">' + avatar(c.it) + '<div class="who">' + who(c.it) + '</div></div>' +
+        groupBlock(c.g, c.gi, hideAll, false) + '</div>';
+    }).join("");
+    cards.forEach(function(c){ seen[c.g.gid + c.g.at] = true; });
+    firstLoad = false;
+    return;
+  }
   grid.innerHTML = items.map(function(it){
     var stamp = it.id + ":" + it.groups.map(function(g){ return g.gid + g.at; }).join(",");
     var fresh = !firstLoad && !seen[stamp];

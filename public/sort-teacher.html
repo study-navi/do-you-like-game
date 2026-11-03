@@ -170,6 +170,7 @@
   .item-actions { display: flex; gap: 8px; margin: 2px 0 10px; }
   .item-actions button { flex: 1; padding: 9px 6px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; font-size: 13px; font-weight: 700; cursor: pointer; }
   .item-actions button.on { background: #F0B429; border-color: #F0B429; color: #FFFFFF; }
+  .item-actions button.pick-btn.on { background: #185FA5; border-color: #185FA5; }
   .item-actions button.rm { flex: 0 0 44px; color: #993C1D; border-color: #E9B9A8; }
   .spot-bar { background: #FDF3D8; border-radius: 14px; padding: 12px; margin-bottom: 14px; font-size: 13px; color: #854F0B; }
   .spot-bar .qz-row button { font-size: 13px; }
@@ -276,6 +277,11 @@
   <div class="card">
     <div class="history-title">みんなの わけかた</div>
     <div class="not-yet" id="not-yet"></div>
+    <div class="spot-bar" id="pick-bar" style="display:none;">
+      📌 TVの一覧に出すグループを えらんでいます（<span id="pick-n">0</span>こ）。えらんだ分だけ TVに出ます
+      <div class="qz-row"><button onclick="pickClear()">📌 ぜんぶ かいじょ（TVは ぜんぶ表示にもどる）</button></div>
+    </div>
+    <div class="size-hint" id="pick-hint">各グループの「📌 ピックアップ」を押すと、TVの一覧に そのグループだけを 出せます（何こでも）</div>
     <div id="items-list"><span class="ranking-empty">まだ だれも みせていません</span></div>
   </div>
 
@@ -405,6 +411,9 @@ function findGroup(d, sid, gid){
 }
 function renderItems(d){
   var items = d.items || [];
+  var pn = (d.picks || []).length;
+  document.getElementById("pick-bar").style.display = pn ? "block" : "none";
+  document.getElementById("pick-n").textContent = pn;
   var box = document.getElementById("items-list");
   var notYet = (d.students || []).filter(function(s){ return !s.shared; }).map(whoLabel);
   document.getElementById("not-yet").textContent = (d.students || []).length && notYet.length ? "まだ みせていない: " + notYet.join("、") : "";
@@ -422,8 +431,11 @@ function renderItems(d){
       '</div>' +
       it.groups.map(function(g, gi){
         var spot = isSpot(d, it.id, g.gid);
+        var picked = (d.picks || []).some(function(q){ return q.sid === it.id && q.gid === g.gid; });
         return groupBlock(g, gi, spot) +
-          '<div class="item-actions"><button class="spot-btn' + (spot ? " on" : "") + '" data-sid="' + it.id + '" data-gid="' + g.gid + '">' + (spot ? "⭐ TVに出しています（はずす）" : "⭐ TVに出す") + '</button></div>';
+          '<div class="item-actions">' +
+          '<button class="pick-btn' + (picked ? " on" : "") + '" data-sid="' + it.id + '" data-gid="' + g.gid + '">' + (picked ? "📌 ピックアップ中（はずす）" : "📌 ピックアップ") + '</button>' +
+          '<button class="spot-btn' + (spot ? " on" : "") + '" data-sid="' + it.id + '" data-gid="' + g.gid + '">' + (spot ? "⭐ 大きく出しています（はずす）" : "⭐ 大きく出す") + '</button></div>';
       }).join("") +
       '</div>';
   }).join("");
@@ -509,6 +521,8 @@ function quizStart(){
     if(!x.ok) alert("いいねの ついた グループが まだ ありません。みんなの わけかたを ひらいて、👍 を おしてもらいましょう。");
   });
 }
+function pickClear(){ post("pick", { clear: true }); }
+window.pickClear = pickClear;
 function quizStep(dir){ post("quiz-step", { dir: dir }); }
 function quizStop(){ post("quiz-stop", {}); }
 function resetGame(){
@@ -519,6 +533,8 @@ function resetGame(){
 window.togglePhase = togglePhase; window.toggleHide = toggleHide; window.toggleReveal = toggleReveal; window.resetGame = resetGame;
 window.quizCount = quizCount; window.quizStart = quizStart; window.quizStep = quizStep; window.quizStop = quizStop;
 document.getElementById("items-list").addEventListener("click", function(e){
+  var pk = e.target.closest ? e.target.closest(".pick-btn") : null;
+  if(pk){ post("pick", { sid: pk.getAttribute("data-sid"), gid: pk.getAttribute("data-gid") }); return; }
   var sp = e.target.closest ? e.target.closest(".spot-btn") : null;
   if(sp){
     var sid = sp.getAttribute("data-sid"), gid = sp.getAttribute("data-gid");

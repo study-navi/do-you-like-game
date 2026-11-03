@@ -361,6 +361,11 @@
   .g-mini button:disabled { opacity: 0.4; cursor: default; }
   .g-group.spot { outline: 3px solid #F0B429; }
   .spot-tag { font-size: 11px; font-weight: 700; color: #854F0B; background: #FDF3D8; border-radius: 999px; padding: 2px 10px; }
+  .g-controls { margin-bottom: 12px; }
+  .chips { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .chips button { flex: 1 1 auto; padding: 8px 10px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 2px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .chips button.on { border-color: #185FA5; background: #E6F1FB; color: #185FA5; }
+  .g-count { font-size: 12px; color: #888780; text-align: center; }
 </style>
 </head>
 <body>
@@ -434,6 +439,18 @@
   </div>
 
   <div id="view-gallery" class="screen">
+    <div class="g-controls" id="g-controls">
+      <div class="chips" id="sort-chips">
+        <button data-sort="new" class="on">🕒 あたらしい順</button>
+        <button data-sort="likes">👍 いいね順</button>
+      </div>
+      <div class="chips" id="filter-chips">
+        <button data-filter="all" class="on">ぜんぶ</button>
+        <button data-filter="unseen">🆕 まだ見ていない</button>
+        <button data-filter="unliked">👍 まだ おしていない</button>
+      </div>
+      <div class="g-count" id="g-count"></div>
+    </div>
     <div id="gallery-note" class="gallery-note"></div>
     <div id="gallery"></div>
   </div>
@@ -714,58 +731,107 @@ function unshareGroup(gi){
 }
 
 /* ---------- ② みんなの わけかた ---------- */
+var gSort = "new", gFilter = "all";
+var seenBase = {};
+function seenKey(){ return "sort_seen_" + currentRoom + "_" + (studentId || ""); }
+function loadSeen(){
+  try{ return JSON.parse(localStorage.getItem(seenKey()) || "{}") || {}; }catch(e){ return {}; }
+}
+function saveSeenAll(){
+  // いま見えている ぜんぶの グループを「見た」ことにする
+  if(!lastState || lastState.phase !== "open") return;
+  var seen = loadSeen();
+  (lastState.items || []).forEach(function(it){ it.groups.forEach(function(g){ seen[g.gid + ":" + g.at] = 1; }); });
+  try{ localStorage.setItem(seenKey(), JSON.stringify(seen)); }catch(e){}
+}
+window.addEventListener("pagehide", function(){ if(viewName === "gallery") saveSeenAll(); });
 function showView(name){
+  var leaving = viewName === "gallery" && name !== "gallery";
+  if(leaving) saveSeenAll();
   viewName = name;
   document.getElementById("view-make").classList.toggle("active", name === "make");
   document.getElementById("view-gallery").classList.toggle("active", name === "gallery");
   document.getElementById("tab-make").classList.toggle("active", name === "make");
   document.getElementById("tab-gallery").classList.toggle("active", name === "gallery");
-  if(name === "gallery"){ galleryKey = ""; renderGallery(); }
+  if(name === "gallery"){ seenBase = loadSeen(); galleryKey = ""; renderGallery(); }
   window.scrollTo(0, 0);
 }
+function setChips(boxId, attr, val){
+  Array.prototype.forEach.call(document.querySelectorAll("#" + boxId + " button"), function(b){
+    b.classList.toggle("on", b.getAttribute(attr) === val);
+  });
+}
+document.getElementById("sort-chips").addEventListener("click", function(e){
+  var b = e.target.closest ? e.target.closest("button") : null;
+  if(!b) return;
+  gSort = b.getAttribute("data-sort"); setChips("sort-chips", "data-sort", gSort); galleryKey = ""; renderGallery();
+});
+document.getElementById("filter-chips").addEventListener("click", function(e){
+  var b = e.target.closest ? e.target.closest("button") : null;
+  if(!b) return;
+  gFilter = b.getAttribute("data-filter"); setChips("filter-chips", "data-filter", gFilter); galleryKey = ""; renderGallery();
+});
 function isSpot(d, sid, gid){ return !!(d.spot && d.spot.sid === sid && d.spot.gid === gid); }
 function renderGallery(){
   var d = lastState;
   var note = document.getElementById("gallery-note");
   var box = document.getElementById("gallery");
+  var ctl = document.getElementById("g-controls");
   if(!d){ return; }
   if(d.phase !== "open"){
+    ctl.style.display = "none";
     note.innerHTML = "👀 先生が「みんなの わけかたを ひらく」まで<br>ちょっと まっててね<br><small style='font-weight:400;color:#888780;'>みせたい グループは「つくる」で みせておこう</small>";
     box.innerHTML = "";
     galleryKey = "closed";
     return;
   }
+  ctl.style.display = "block";
   var items = d.items || [];
-  note.textContent = items.length ? "" : "まだ だれも みせていません";
-  var key = JSON.stringify([d.spot, d.hideTitles, d.revealed, items.map(function(it){ return [it.id, it.groups.map(function(g){ return [g.gid, g.at, g.likes, g.liked]; })]; })]);
+  // グループを 1つずつの リストにする
+  var rows = [];
+  items.forEach(function(it){
+    it.groups.forEach(function(g, gi){ rows.push({ it: it, g: g, gi: gi, mine: it.id === studentId }); });
+  });
+  var total = rows.length;
+  rows = rows.filter(function(r){
+    if(gFilter === "unseen") return !r.mine && !seenBase[r.g.gid + ":" + r.g.at];
+    if(gFilter === "unliked") return !r.mine && !r.g.liked;
+    return true;
+  });
+  rows.sort(function(a, b){
+    if(gSort === "likes" && b.g.likes !== a.g.likes) return b.g.likes - a.g.likes;
+    return (b.g.at || 0) - (a.g.at || 0);
+  });
+  document.getElementById("g-count").textContent = total ? (rows.length === total ? total + " こ ひょうじ中" : total + " こ のうち " + rows.length + " こ ひょうじ中") : "";
+  if(!total) note.textContent = "まだ だれも みせていません";
+  else if(!rows.length) note.textContent = gFilter === "unseen" ? "🎉 ぜんぶ 見たよ！" : "🎉 ぜんぶ おしたよ！";
+  else note.textContent = "";
+  var key = JSON.stringify([gSort, gFilter, d.spot, d.hideTitles, d.revealed, rows.map(function(r){ return [r.it.id, r.it.no, r.g.gid, r.g.at, r.g.likes, r.g.liked]; })]);
   if(key === galleryKey) return;
   galleryKey = key;
   var y = window.scrollY;
   box.innerHTML = "";
-  items.forEach(function(it){
-    var mine = it.id === studentId;
-    var anySpot = it.groups.some(function(g){ return isSpot(d, it.id, g.gid); });
+  rows.forEach(function(r){
+    var it = r.it, g = r.g, mine = r.mine;
+    var spot = isSpot(d, it.id, g.gid);
+    var hide = d.hideTitles && !mine && !(spot && d.revealed);
+    var c = GCOL[r.gi % GCOL.length], bg = GBG[r.gi % GBG.length];
     var card = document.createElement("div");
-    card.className = "g-card" + (mine ? " mine" : "") + (anySpot ? " spot" : "");
-    var html =
+    card.className = "g-card" + (mine ? " mine" : "") + (spot ? " spot" : "");
+    card.innerHTML =
       '<div class="g-head">' +
         (it.photo ? '<img class="g-photo" src="' + it.photo + '" alt="">' : '<div class="g-photo-blank">' + (it.anon ? "👤" : "🙂") + '</div>') +
         '<div class="g-who">' + (it.anon ? "だれかの わけかた" : (it.role === "teacher" ? "先生" : (it.no ? it.no + "ばん" : "?")) + ' の わけかた') + '</div>' +
         (mine ? '<span class="g-badge">きみの</span>' : '') +
-      '</div>';
-    it.groups.forEach(function(g, gi){
-      var spot = isSpot(d, it.id, g.gid);
-      var hide = d.hideTitles && !mine && !(spot && d.revealed);
-      var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
-      html += '<div class="g-group' + (spot ? " spot" : "") + '" style="--gc:' + c + ';--gb:' + bg + '">' +
-        '<div class="g-title">' + (hide ? "？？？ （どんな ルールかな？）" : esc(g.name || "（なまえなし）")) + (spot ? ' <span class="spot-tag">⭐ TVに でているよ</span>' : '') + '</div>' +
+        (spot ? '<span class="g-badge spot">⭐ TVに でているよ</span>' : '') +
+      '</div>' +
+      '<div class="g-group" style="--gc:' + c + ';--gb:' + bg + '">' +
+        '<div class="g-title">' + (hide ? "？？？ （どんな ルールかな？）" : esc(g.name || "（なまえなし）")) + '</div>' +
         '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>' +
-        '<div class="g-mini">' +
-          '<button class="like-btn' + (g.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">👍 なるほど！ ' + (g.likes || 0) + '</button>' +
-          (mine ? '' : '<button class="copy-btn" data-sid="' + it.id + '" data-gid="' + g.gid + '">📋 まねして つくる</button>') +
-        '</div>';
-    });
-    card.innerHTML = html;
+      '<div class="g-mini">' +
+        '<button class="like-btn' + (g.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">👍 なるほど！ ' + (g.likes || 0) + '</button>' +
+        (mine ? '' : '<button class="copy-btn" data-sid="' + it.id + '" data-gid="' + g.gid + '">📋 まねして つくる</button>') +
+      '</div>';
     box.appendChild(card);
   });
   window.scrollTo(0, y);

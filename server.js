@@ -378,7 +378,8 @@ function publicSortItem(id, me){
   const s = sortStudents[id];
   const groups = (s.groups || []).map(function(g){
     const likes = Array.isArray(g.likes) ? g.likes : [];
-    return { gid: g.gid, name: g.name, letters: g.letters, at: g.at, likes: likes.length, liked: !!(me && likes.indexOf(me) >= 0) };
+    const hards = Array.isArray(g.hards) ? g.hards : [];
+    return { gid: g.gid, name: g.name, letters: g.letters, at: g.at, likes: likes.length, liked: !!(me && likes.indexOf(me) >= 0), hards: hards.length, hard: !!(me && hards.indexOf(me) >= 0) };
   });
   let latest = 0;
   groups.forEach(function(g){ if(g.at > latest) latest = g.at; });
@@ -2308,6 +2309,7 @@ const server = http.createServer(function(req, res){
         Object.keys(sortStudents).forEach(function(k){
           (sortStudents[k].groups || []).forEach(function(g){
             if(Array.isArray(g.likes)){ const i = g.likes.indexOf(body.replaceId); if(i >= 0) g.likes[i] = id; }
+            if(Array.isArray(g.hards)){ const j = g.hards.indexOf(body.replaceId); if(j >= 0) g.hards[j] = id; }
           });
         });
         const r = sortRooms[room];
@@ -2336,10 +2338,10 @@ const server = http.createServer(function(req, res){
       if(cur){
         const changed = cur.name !== g.name || cur.letters.join('') !== g.letters.join('');
         cur.name = g.name; cur.letters = g.letters;
-        if(changed){ cur.likes = []; cur.at = Date.now(); }
+        if(changed){ cur.likes = []; cur.hards = []; cur.at = Date.now(); }
       } else {
         if(st.groups.length >= SORT_MAX_GROUPS){ sendJson(res, 400, { error: 'too many' }); return; }
-        st.groups.push({ gid: g.gid, name: g.name, letters: g.letters, at: Date.now(), likes: [] });
+        st.groups.push({ gid: g.gid, name: g.name, letters: g.letters, at: Date.now(), likes: [], hards: [] });
       }
       st.updatedAt = Date.now();
       saveSortStudents();
@@ -2370,10 +2372,39 @@ const server = http.createServer(function(req, res){
         return;
       }
       if(!Array.isArray(g.likes)) g.likes = [];
+      if(!Array.isArray(g.hards)) g.hards = [];
       const i = g.likes.indexOf(body.me);
-      if(i >= 0) g.likes.splice(i, 1); else g.likes.push(body.me);
+      if(i >= 0) g.likes.splice(i, 1);
+      else {
+        g.likes.push(body.me);
+        const h = g.hards.indexOf(body.me);   // 「わかった」と「むずかしい」は どちらか1つ
+        if(h >= 0) g.hards.splice(h, 1);
+      }
       saveSortStudents();
-      sendJson(res, 200, { ok: true, liked: i < 0, likes: g.likes.length });
+      sendJson(res, 200, { ok: true, liked: i < 0, likes: g.likes.length, hards: g.hards.length });
+    });
+    return;
+  }
+
+  if(req.method === 'POST' && url === '/api/sort/hard'){
+    readJsonBody(req, function(body){
+      const me = body && sortStudents[body.me];
+      const g = body && me ? sortFindGroup(normalizeRoom(me.room), body.target, body.gid) : null;
+      if(!me || !g || body.me === body.target){
+        sendJson(res, 400, { error: 'invalid' });
+        return;
+      }
+      if(!Array.isArray(g.likes)) g.likes = [];
+      if(!Array.isArray(g.hards)) g.hards = [];
+      const i = g.hards.indexOf(body.me);
+      if(i >= 0) g.hards.splice(i, 1);
+      else {
+        g.hards.push(body.me);
+        const l = g.likes.indexOf(body.me);
+        if(l >= 0) g.likes.splice(l, 1);
+      }
+      saveSortStudents();
+      sendJson(res, 200, { ok: true, hard: i < 0, likes: g.likes.length, hards: g.hards.length });
     });
     return;
   }
@@ -2497,7 +2528,7 @@ const server = http.createServer(function(req, res){
       const room = normalizeRoom(body && body.room);
       let n = 0;
       sortPlayers(room).forEach(function(id){
-        (sortStudents[id].groups || []).forEach(function(g){ n += (g.likes || []).length; g.likes = []; });
+        (sortStudents[id].groups || []).forEach(function(g){ n += (g.likes || []).length + (g.hards || []).length; g.likes = []; g.hards = []; });
       });
       saveSortStudents();
       sendJson(res, 200, { ok: true, cleared: n });

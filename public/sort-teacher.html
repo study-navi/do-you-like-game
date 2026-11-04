@@ -238,8 +238,8 @@
     <div class="phase-steps">
       ① 生徒が大文字（A〜Z）を、自分で考えたルールでグループに分ける<br>
       ② できたグループから「みんなに みせる」を押して共有（グループの名前＝分けたルール。グループごとに みせる／やめる）<br>
-      ③ 下のボタンで「みんなの わけかたを ひらく」と、生徒の画面で ほかの人の分け方が見られます。このとき 出席番号と写真は伏せて「だれかの わけかた」と出ます。グループの名前も ？？？ です（👍 なるほど！／まねして つくる）<br>
-      ④ さいごに「🎯 クイズ」で、いいねが多いグループだけを TVに1つずつ出します。「こたえを みせる」でグループの名前が出て、発表した人の出席番号と写真も TVに出ます
+      ③ 下のボタンで「みんなの わけかたを ひらく」と、生徒の画面で ほかの人の分け方が見られます。このとき 出席番号と写真は伏せて「だれかの わけかた」と出ます。グループの名前も ？？？ です（💡 わかった！／まねして つくる）<br>
+      ④ さいごに「🎯 クイズ」で、「わかった」が多いグループだけを TVに1つずつ出します。「こたえを みせる」でグループの名前が出て、発表した人の出席番号と写真も TVに出ます
     </div>
     <button class="next-btn" id="phase-btn" onclick="togglePhase()">みんなの わけかたを ひらく</button>
     <div class="qz-row" style="margin-top:12px;">
@@ -250,8 +250,8 @@
   </div>
 
   <div class="card" id="quiz-card">
-    <div class="history-title">🎯 最後の クイズ（いいねが おおい グループだけ）</div>
-    <div class="size-hint">いいねが 多い グループを 何問か えらんで、TVに 1つずつ 出します。人気の いちばん 少ないものから 出して、さいごが いちばん 人気です。</div>
+    <div class="history-title">🎯 最後の クイズ（「わかった」が おおい グループだけ）</div>
+    <div class="size-hint">「わかった」が 多い グループを 何問か えらんで、TVに 1つずつ 出します。人気の いちばん 少ないものから 出して、さいごが いちばん 人気です。</div>
     <div class="qz-row" id="qz-count">
       <button class="qz-sec" data-n="3" onclick="quizCount(3)">3もん</button>
       <button class="qz-sec active" data-n="5" onclick="quizCount(5)">5もん</button>
@@ -273,10 +273,10 @@
     <div class="qz-row" style="margin-top:10px;">
       <button id="qz-end" style="display:none;" onclick="quizStop()">⏹ クイズを おわる（生徒の画面も もどる）</button>
     </div>
-    <div class="history-title" style="margin-top:14px;">いいね ランキング</div>
-    <div class="qz-rank" id="rank-list"><span class="ranking-empty">まだ いいねは ありません</span></div>
+    <div class="history-title" style="margin-top:14px;">わかった ランキング</div>
+    <div class="qz-rank" id="rank-list"><span class="ranking-empty">まだ「わかった」は ありません</span></div>
     <div class="qz-row" style="margin-top:8px;">
-      <button onclick="resetLikes()">🔄 👍（なるほど）を ぜんぶ 0に もどす</button>
+      <button onclick="resetLikes()">🔄 💡（わかった）を ぜんぶ 0に もどす</button>
     </div>
   </div>
 
@@ -406,7 +406,7 @@ function whoLabel(x){ return x.role === "teacher" ? "先生" : (x.no ? x.no + "�
 function isSpot(d, sid, gid){ return !!(d.spot && d.spot.sid === sid && d.spot.gid === gid); }
 function groupBlock(g, gi, spot){
   return '<div class="g-group" style="--gc:' + GCOL[gi % GCOL.length] + ';--gb:' + GBG[gi % GBG.length] + (spot ? ';outline:3px solid #F0B429' : '') + '">' +
-    '<div class="g-title">' + esc(g.name || "（なまえなし）") + (g.likes ? ' <span class="item-likes">👍 ' + g.likes + '</span>' : '') + '</div>' +
+    '<div class="g-title">' + esc(g.name || "（なまえなし）") + (g.likes ? ' <span class="item-likes">💡 ' + g.likes + '</span>' : '') + (g.hards ? ' <span class="item-likes">🤔 ' + g.hards + '</span>' : '') + '</div>' +
     '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
 }
 function findGroup(d, sid, gid){
@@ -453,9 +453,9 @@ function renderRank(d){
   });
   rows.sort(function(a, b){ return b.g.likes - a.g.likes || a.g.at - b.g.at; });
   var box = document.getElementById("rank-list");
-  if(!rows.length){ box.innerHTML = '<span class="ranking-empty">まだ いいねは ありません</span>'; return; }
+  if(!rows.length){ box.innerHTML = '<span class="ranking-empty">まだ「わかった」は ありません</span>'; return; }
   box.innerHTML = rows.slice(0, 12).map(function(r, i){
-    return '<div><span>' + (i + 1) + '. ' + whoLabel(r.it) + '　' + esc(r.g.name || "（なまえなし）") + '　<small style="color:#888780">' + r.g.letters.join("") + '</small></span><b>👍 ' + r.g.likes + '</b></div>';
+    return '<div><span>' + (i + 1) + '. ' + whoLabel(r.it) + '　' + esc(r.g.name || "（なまえなし）") + '　<small style="color:#888780">' + r.g.letters.join("") + '</small></span><b>💡 ' + r.g.likes + (r.g.hards ? '　<span style="color:#185FA5">🤔 ' + r.g.hards + '</span>' : '') + '</b></div>';
   }).join("");
 }
 function applyState(d){
@@ -489,14 +489,14 @@ function applyState(d){
   bar.style.display = cur ? "block" : "none";
   if(cur){
     document.getElementById("spot-info").innerHTML = (d.quiz ? '<b>🎯 もんだい ' + (d.quiz.i + 1) + ' / ' + d.quiz.n + '</b>　' : '⭐ ') +
-      'TVに出している: ' + whoLabel(cur.item) + '　' + esc(cur.group.name || "（なまえなし）") + '　👍 ' + cur.group.likes;
+      'TVに出している: ' + whoLabel(cur.item) + '　' + esc(cur.group.name || "（なまえなし）") + '　💡 ' + cur.group.likes + (cur.group.hards ? '　🤔 ' + cur.group.hards : '');
     document.getElementById("qz-nav").style.display = d.quiz ? "flex" : "none";
   }
   var rb = document.getElementById("reveal-btn");
   rb.className = d.revealed ? "on" : "";
   rb.textContent = d.revealed ? "🙈 また かくす" : "✅ こたえを みせる（タイトルを出す）";
   document.getElementById("qz-end").style.display = d.quiz ? "inline-block" : "none";
-  document.getElementById("qz-start").textContent = d.quiz ? "▶ クイズを はじめなおす（いいね上位 " + quizN + "もん）" : "▶ クイズを はじめる（いいね上位 " + quizN + "もん）";
+  document.getElementById("qz-start").textContent = d.quiz ? "▶ クイズを はじめなおす（わかった上位 " + quizN + "もん）" : "▶ クイズを はじめる（わかった上位 " + quizN + "もん）";
   if(d.students){ renderRoster(d.students); }
   renderItems(d);
   renderRank(d);
@@ -525,7 +525,7 @@ function quizCount(n){
 function quizStart(){
   if(lastState && lastState.quiz && !confirm("いまの クイズを やめて、はじめなおしますか？")) return;
   post("quiz-start", { count: quizN }).then(function(x){
-    if(!x.ok) alert("いいねの ついた グループが まだ ありません。みんなの わけかたを ひらいて、👍 を おしてもらいましょう。");
+    if(!x.ok) alert("「わかった」の ついた グループが まだ ありません。みんなの わけかたを ひらいて、💡 を おしてもらいましょう。");
   });
 }
 function pickClear(){ post("pick", { clear: true }); }
@@ -533,7 +533,7 @@ window.pickClear = pickClear;
 function quizStep(dir){ post("quiz-step", { dir: dir }); }
 function quizStop(){ post("quiz-stop", {}); }
 function resetLikes(){
-  if(!confirm("みんなの 👍（なるほど）を ぜんぶ 0に もどしますか？（もとには もどせません）")) return;
+  if(!confirm("みんなの 💡（わかった）を ぜんぶ 0に もどしますか？（もとには もどせません）")) return;
   post("reset-likes", {});
 }
 function resetGame(){

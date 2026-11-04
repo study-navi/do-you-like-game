@@ -369,6 +369,7 @@
   .unshare-btn { flex: 0 0 auto; padding: 10px 14px; font-size: 12px; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
   .g-mini { display: flex; gap: 8px; margin: 2px 0 10px; }
   .g-mini button { flex: 1; padding: 8px 6px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 1px solid #D3D1C7; background: #FFFFFF; color: #5F5E5A; cursor: pointer; font-family: inherit; }
+  .g-mini button.hardon { background: #E6F1FB; border-color: #185FA5; color: #185FA5; }
   .g-mini button.liked { background: #FDF3D8; border-color: #F0B429; color: #854F0B; }
   .g-mini button:disabled { opacity: 0.4; cursor: default; }
   .g-group.spot { outline: 3px solid #F0B429; }
@@ -454,12 +455,12 @@
     <div class="g-controls" id="g-controls">
       <div class="chips" id="sort-chips">
         <button data-sort="new" class="on">🕒 あたらしい順</button>
-        <button data-sort="likes">👍 いいね順</button>
+        <button data-sort="likes">💡 わかった順</button>
       </div>
       <div class="chips" id="filter-chips">
         <button data-filter="all" class="on">ぜんぶ</button>
         <button data-filter="unseen">🆕 まだ見ていない</button>
-        <button data-filter="unliked">👍 まだ おしていない</button>
+        <button data-filter="unliked">💡 まだ おしていない</button>
       </div>
       <div class="g-count" id="g-count"></div>
     </div>
@@ -662,13 +663,13 @@ function refreshShareUI(){
     if(sh && sameAsShared(g, sh)){
       el.btn.className = "share-btn done";
       el.btn.disabled = true;
-      el.btn.textContent = "✓ みんなに みせています" + (sh.likes ? "　👍 " + sh.likes : "");
+      el.btn.textContent = "✓ みんなに みせています" + (sh.likes ? "　💡 " + sh.likes : "") + (sh.hards ? "　🤔 " + sh.hards : "");
       el.note.textContent = "";
     } else if(sh){
       el.btn.className = "share-btn";
       el.btn.disabled = !!problem;
       el.btn.textContent = "📤 なおして おくりなおす";
-      el.note.textContent = problem || "（なおすと 👍 は 0に もどります）";
+      el.note.textContent = problem || "（なおすと 💡 は 0に もどります）";
     } else {
       el.btn.className = "share-btn";
       el.btn.disabled = !!problem;
@@ -677,7 +678,7 @@ function refreshShareUI(){
     }
   });
   var st = document.getElementById("share-state");
-  st.textContent = shownCount ? ("✓ みせているグループ: " + shownCount + "こ" + (likeTotal ? "　👍 " + likeTotal : "")) : "";
+  st.textContent = shownCount ? ("✓ みせているグループ: " + shownCount + "こ" + (likeTotal ? "　💡 " + likeTotal : "")) : "";
 }
 function toggleSel(L){
   var i = selected.indexOf(L);
@@ -736,7 +737,7 @@ function shareGroup(gi){
 function unshareGroup(gi){
   var g = draft[gi];
   if(!studentId) return;
-  if(!confirm("このグループを みせるのを やめますか？（もらった 👍 も きえます）")) return;
+  if(!confirm("このグループを みせるのを やめますか？（もらった 💡 も きえます）")) return;
   postJson("/api/sort/unshare-group", { id: studentId, gid: g.gid })
     .then(function(){ toast("みせるのを やめたよ"); pollGame(); })
     .catch(function(){});
@@ -807,7 +808,7 @@ function renderGallery(){
   var total = rows.length;
   rows = rows.filter(function(r){
     if(gFilter === "unseen") return !r.mine && !seenBase[r.g.gid + ":" + r.g.at];
-    if(gFilter === "unliked") return !r.mine && !r.g.liked;
+    if(gFilter === "unliked") return !r.mine && !r.g.liked && !r.g.hard;
     return true;
   });
   rows.sort(function(a, b){
@@ -818,7 +819,7 @@ function renderGallery(){
   if(!total) note.textContent = "まだ だれも みせていません";
   else if(!rows.length) note.textContent = gFilter === "unseen" ? "🎉 ぜんぶ 見たよ！" : "🎉 ぜんぶ おしたよ！";
   else note.textContent = "";
-  var key = JSON.stringify([gSort, gFilter, d.spot, d.hideTitles, d.revealed, rows.map(function(r){ return [r.it.id, r.it.no, r.g.gid, r.g.at, r.g.likes, r.g.liked]; })]);
+  var key = JSON.stringify([gSort, gFilter, d.spot, d.hideTitles, d.revealed, rows.map(function(r){ return [r.it.id, r.it.no, r.g.gid, r.g.at, r.g.likes, r.g.liked, r.g.hards, r.g.hard]; })]);
   if(key === galleryKey) return;
   galleryKey = key;
   var y = window.scrollY;
@@ -841,7 +842,8 @@ function renderGallery(){
         '<div class="g-title">' + (hide ? "？？？ （どんな ルールかな？）" : esc(g.name || "（なまえなし）")) + '</div>' +
         '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>' +
       '<div class="g-mini">' +
-        '<button class="like-btn' + (g.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">👍 なるほど！ ' + (g.likes || 0) + '</button>' +
+        '<button class="like-btn' + (g.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">💡 わかった！ ' + (g.likes || 0) + '</button>' +
+        '<button class="hard-btn' + (g.hard ? " hardon" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">🤔 むずかしい ' + (g.hards || 0) + '</button>' +
       '</div>';
     box.appendChild(card);
   });
@@ -853,6 +855,11 @@ document.getElementById("gallery").addEventListener("click", function(e){
     postJson("/api/sort/like", { me: studentId, target: like.getAttribute("data-sid"), gid: like.getAttribute("data-gid") })
       .then(function(){ pollGame(); }).catch(function(){});
     return;
+  }
+  var hard = e.target.closest ? e.target.closest(".hard-btn") : null;
+  if(hard && !hard.disabled){
+    postJson("/api/sort/hard", { me: studentId, target: hard.getAttribute("data-sid"), gid: hard.getAttribute("data-gid") })
+      .then(function(){ pollGame(); }).catch(function(){});
   }
 });
 

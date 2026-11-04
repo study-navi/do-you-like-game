@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const os = require('os');
 
 const PORT = process.env.PORT || 3000;
@@ -2250,7 +2251,27 @@ const server = http.createServer(function(req, res){
   if(req.method === 'GET' && url === '/api/sort/state'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const me = getQueryParam(queryString, 'me');
-    sendJson(res, 200, publicSortState(room, me, getQueryParam(queryString, 'view') === 'tv'));
+    // 通信量をへらす: 変化がなければ 304（本文なし）、あれば gzip で送る
+    const body = JSON.stringify(publicSortState(room, me, getQueryParam(queryString, 'view') === 'tv'));
+    const etag = '"' + crypto.createHash('md5').update(body).digest('hex') + '"';
+    const hdr = {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+      'ETag': etag,
+      'Vary': 'Accept-Encoding'
+    };
+    if(req.headers['if-none-match'] === etag){ res.writeHead(304, hdr); res.end(); return; }
+    if(/\bgzip\b/.test(String(req.headers['accept-encoding'] || '')) && body.length > 512){
+      zlib.gzip(Buffer.from(body, 'utf8'), function(err, buf){
+        if(err){ hdr['Content-Length'] = Buffer.byteLength(body); res.writeHead(200, hdr); res.end(body); return; }
+        hdr['Content-Encoding'] = 'gzip'; hdr['Content-Length'] = buf.length;
+        res.writeHead(200, hdr); res.end(buf);
+      });
+      return;
+    }
+    hdr['Content-Length'] = Buffer.byteLength(body);
+    res.writeHead(200, hdr); res.end(body);
     return;
   }
 

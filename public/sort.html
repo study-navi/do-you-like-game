@@ -884,7 +884,7 @@ function pollGame(){
       if(viewName === "gallery") renderGallery();
     })
     .catch(function(){})
-    .then(function(){ pollTimer = setTimeout(pollGame, viewName === "gallery" ? 2500 : 4000); });
+    .then(function(){ pollTimer = setTimeout(pollGame, viewName === "gallery" ? 3000 : 6000); });
 }
 
 /* ---------- registration ---------- */

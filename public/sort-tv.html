@@ -253,7 +253,7 @@ function poll(){
     .then(function(r){ return r.json(); })
     .then(render)
     .catch(function(){})
-    .finally(function(){ pollTimer = setTimeout(poll, 2000); });
+    .finally(function(){ pollTimer = setTimeout(poll, 3000); });
 }
 (function boot(){
   var urlRoom = getRoomFromUrl();

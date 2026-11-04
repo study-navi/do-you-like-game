@@ -830,7 +830,6 @@ function renderGallery(){
         '<div class="g-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>' +
       '<div class="g-mini">' +
         '<button class="like-btn' + (g.liked ? " liked" : "") + '"' + (mine ? " disabled" : "") + ' data-sid="' + it.id + '" data-gid="' + g.gid + '">👍 なるほど！ ' + (g.likes || 0) + '</button>' +
-        (mine ? '' : '<button class="copy-btn" data-sid="' + it.id + '" data-gid="' + g.gid + '">📋 まねして つくる</button>') +
       '</div>';
     box.appendChild(card);
   });
@@ -842,28 +841,6 @@ document.getElementById("gallery").addEventListener("click", function(e){
     postJson("/api/sort/like", { me: studentId, target: like.getAttribute("data-sid"), gid: like.getAttribute("data-gid") })
       .then(function(){ pollGame(); }).catch(function(){});
     return;
-  }
-  var cp = e.target.closest ? e.target.closest(".copy-btn") : null;
-  if(cp){
-    var sid = cp.getAttribute("data-sid"), gid = cp.getAttribute("data-gid");
-    var it = ((lastState && lastState.items) || []).filter(function(x){ return x.id === sid; })[0];
-    var g = it ? it.groups.filter(function(x){ return x.gid === gid; })[0] : null;
-    if(!g) return;
-    if(draft.length >= MAX_GROUPS){ toast("グループが いっぱいです。どれかを けしてね"); return; }
-    // ほかのグループに入っている同じ文字は、こちらへ うつす
-    draft.forEach(function(dg){ dg.letters = dg.letters.filter(function(L){ return g.letters.indexOf(L) < 0; }); });
-    var ng = newGroup();
-    ng.name = g.name || "";
-    ng.letters = g.letters.slice();
-    // からっぽの 1つめ（まだ なにも かいていない）グループは、おきかえる
-    var emptyIdx = -1;
-    draft.forEach(function(dg, i){ if(emptyIdx < 0 && !dg.letters.length && !dg.name && !sharedOf(dg.gid)) emptyIdx = i; });
-    if(emptyIdx >= 0) draft[emptyIdx] = ng; else draft.push(ng);
-    selected = [];
-    saveDraft();
-    renderMake();
-    showView("make");
-    toast("まねして つくったよ！ なおして みせてみよう");
   }
 });
 

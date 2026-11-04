@@ -123,7 +123,7 @@ function avatar(it){
 }
 function groupBlock(g, gi, hide, big){
   return '<div class="grp" style="--gc:' + GCOL[gi % GCOL.length] + ';--gb:' + GBG[gi % GBG.length] + '">' +
-    '<div class="grp-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + (g.likes ? ' <span class="likes-inline">💡 ' + g.likes + '</span>' : '') + (g.hards ? ' <span class="likes-inline">🤔 ' + g.hards + '</span>' : '') + '</div>' +
+    '<div class="grp-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + (g.likes ? ' <span class="likes-inline">👍 ' + g.likes + '</span>' : '') + (g.hards ? ' <span class="likes-inline">🤔 ' + g.hards + '</span>' : '') + '</div>' +
     '<div class="letters">' + (g.letters || []).map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
 }
 function similarBlock(d, hide){
@@ -198,7 +198,7 @@ function render(d){
     spot.innerHTML =
       (d.quiz ? '<div class="spot-prog">🎯 もんだい ' + (d.quiz.i + 1) + ' / ' + d.quiz.n + '</div>' : '') +
       '<div class="spot-top">' + avatar(spotItem) + '<div class="spot-who">' + who(spotItem) + ' の わけかた</div>' +
-      ((spotGroup.likes || spotGroup.hards) ? '<div class="spot-likes">' + (spotGroup.likes ? '💡 ' + spotGroup.likes : '') + (spotGroup.hards ? '　🤔 ' + spotGroup.hards : '') + '</div>' : '') + '</div>' +
+      ((spotGroup.likes || spotGroup.hards) ? '<div class="spot-likes">' + (spotGroup.likes ? '👍 ' + spotGroup.likes : '') + (spotGroup.hards ? '　🤔 ' + spotGroup.hards : '') + '</div>' : '') + '</div>' +
       (hideSpot ? '<div class="spot-quiz">🙈 どんな ルールで わけたのかな？ かんがえてみよう！</div>' : '<div class="spot-quiz">✅ こたえ</div>') +
       '<div class="spot-groups">' + groupBlock(spotGroup, spotIdx, hideSpot, true) + '</div>' +
       similarBlock(d, hideSpot);

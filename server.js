@@ -443,6 +443,29 @@ function publicSortState(room, me, anon){
     });
   }
   out.items.sort(function(a, b){ return (b.sharedAt || 0) - (a.sharedAt || 0); });
+  // こたえを みせたときだけ、おなじ・にている わけかたを した人も TVに出す（先生・TV用）
+  out.similar = [];
+  if(!me && r.spot && r.revealed){
+    const base = sortFindGroup(room, r.spot.sid, r.spot.gid);
+    if(base){
+      const A = base.letters || [];
+      sortPlayers(room).forEach(function(sid){
+        if(sid === r.spot.sid) return;
+        (sortStudents[sid].groups || []).forEach(function(g){
+          const B = g.letters || [];
+          let inter = 0;
+          A.forEach(function(L){ if(B.indexOf(L) >= 0) inter++; });
+          const uni = A.length + B.length - inter;
+          const sim = uni ? inter / uni : 0;
+          if(sim >= 0.5){
+            const st = sortStudents[sid];
+            out.similar.push({ sid: sid, gid: g.gid, no: st.no || null, role: st.role || 'student', photo: st.photo ? '/api/sort/photo?id=' + sid : null, name: g.name, letters: g.letters, same: sim === 1, sim: sim });
+          }
+        });
+      });
+      out.similar.sort(function(a, b){ return b.sim - a.sim; });
+    }
+  }
   return out;
 }
 

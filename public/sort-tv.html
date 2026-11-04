@@ -45,6 +45,20 @@
   .spot-groups .letters { gap: 10px; }
   .spot-groups .letters span { width: 76px; height: 90px; font-size: 56px; border-radius: 14px; border-width: 4px; }
   .spot-quiz { text-align: center; font-size: 34px; font-weight: 700; color: #F6C453; margin-bottom: 18px; }
+  .card { cursor: pointer; }
+  #zoom { position: fixed; inset: 0; background: #1B1A2E; z-index: 60; display: none; padding: 30px 50px; overflow: auto; cursor: pointer; }
+  #zoom.show { display: block; }
+  #zoom .zoom-hint { text-align: center; color: #B7B4E0; font-size: 20px; margin-top: 22px; }
+  .similar { max-width: 1100px; margin: 34px auto 0; }
+  .similar-h { font-size: 30px; font-weight: 700; color: #F6C453; text-align: center; margin-bottom: 14px; }
+  .sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; }
+  .sim-card { background: #26254A; border-radius: 16px; padding: 12px 14px; }
+  .sim-card .head { margin-bottom: 8px; }
+  .sim-card .who { font-size: 28px; }
+  .sim-tag { font-size: 20px; font-weight: 700; color: #1B1A2E; background: #F6C453; border-radius: 999px; padding: 2px 12px; }
+  .sim-tag.near { background: #B7B4E0; }
+  .sim-card .grp { margin-bottom: 0; }
+  .sim-card .letters span { width: 44px; height: 52px; font-size: 30px; }
   .room-overlay { position: fixed; inset: 0; background: rgba(10,10,20,0.75); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
   .room-card { background: #26254A; border-radius: 20px; padding: 28px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
   .room-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; color: #FFFFFF; }
@@ -65,6 +79,7 @@
   <div class="title">🔤 アルファベット なかまわけ</div>
   <div class="room-tag" id="room-tag"></div>
   <div class="phase-tag" id="phase-tag"></div>
+  <div id="zoom"></div>
   <div id="spot"></div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" style="display:none;"></div>
@@ -111,7 +126,54 @@ function groupBlock(g, gi, hide, big){
     '<div class="grp-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + (g.likes ? ' <span class="likes-inline">👍 ' + g.likes + '</span>' : '') + '</div>' +
     '<div class="letters">' + (g.letters || []).map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
 }
+function similarBlock(d){
+  var sim = d.similar || [];
+  if(!d.revealed || !sim.length) return "";
+  return '<div class="similar"><div class="similar-h">👥 おなじ・にている わけかたを した人</div><div class="sim-grid">' +
+    sim.map(function(x, i){
+      var it = { id: x.sid, no: x.no, role: x.role, photo: x.photo };
+      return '<div class="sim-card"><div class="head">' + avatar(it) + '<div class="who">' + who(it) + '</div>' +
+        '<span class="sim-tag' + (x.same ? '' : ' near') + '">' + (x.same ? "おなじ！" : "にてる！") + '</span></div>' +
+        groupBlock({ name: x.name, letters: x.letters, likes: 0 }, i + 1, false, false) + '</div>';
+    }).join("") + '</div></div>';
+}
+var zoomRef = null, lastCards = [];
+function updateZoom(d, items, hideAll){
+  var z = document.getElementById("zoom");
+  var found = null;
+  if(zoomRef && !d.spot){
+    items.forEach(function(it){
+      if(it.id !== zoomRef.sid) return;
+      it.groups.forEach(function(g, gi){ if(g.gid === zoomRef.gid) found = { it: it, g: g, gi: gi }; });
+    });
+  }
+  if(!found){ zoomRef = null; z.className = ""; z.innerHTML = ""; return; }
+  z.innerHTML =
+    (found.it.anon ? '' : '<div class="spot-top">' + avatar(found.it) + '<div class="spot-who">' + who(found.it) + ' の わけかた</div></div>') +
+    '<div class="spot-groups">' + groupBlock(found.g, found.gi, hideAll, true) + '</div>' +
+    '<div class="zoom-hint">（どこかを タップすると もどります）</div>';
+  z.className = "show";
+}
+document.addEventListener("click", function(e){
+  var z = document.getElementById("zoom");
+  if(zoomRef){ zoomRef = null; z.className = ""; z.innerHTML = ""; return; }
+  var el = e.target;
+  while(el && el !== document.body){
+    if(el.getAttribute && el.getAttribute("data-ci") !== null){
+      var c = lastCards[parseInt(el.getAttribute("data-ci"), 10)];
+      if(c && lastD){
+        zoomRef = { sid: c.it.id, gid: c.g.gid };
+        lastKey = "";
+        updateZoom(lastD, lastD.items || [], !!lastD.hideTitles);
+      }
+      return;
+    }
+    el = el.parentNode;
+  }
+});
+var lastD = null;
 function render(d){
+  lastD = d;
   var items = d.items || [];
   var spotItem = null, spotGroup = null, spotIdx = 0;
   if(d.spot){
@@ -125,7 +187,7 @@ function render(d){
   tag.textContent = d.phase !== "open"
     ? "いま みんなで かんがえ中…　みせた人 " + (d.sharedCount || 0) + " / " + (d.total || 0) + " 人"
     : (pickCount ? "📌 ピックアップ　（" + pickCount + " こ）" : "みんなの わけかた　（" + (d.groupCount || 0) + " こ）");
-  var key = JSON.stringify([d.phase, d.spot, d.picks, d.hideTitles, d.revealed, d.quiz, items.map(function(x){ return [x.id, x.no, x.groups.map(function(g){ return [g.gid, g.at, g.likes]; })]; })]);
+  var key = JSON.stringify([d.phase, d.spot, d.similar, d.picks, d.hideTitles, d.revealed, d.quiz, items.map(function(x){ return [x.id, x.no, x.groups.map(function(g){ return [g.gid, g.at, g.likes]; })]; })]);
   if(key === lastKey) return;
   lastKey = key;
 
@@ -138,13 +200,15 @@ function render(d){
       '<div class="spot-top">' + avatar(spotItem) + '<div class="spot-who">' + who(spotItem) + ' の わけかた</div>' +
       (spotGroup.likes ? '<div class="spot-likes">👍 ' + spotGroup.likes + '</div>' : '') + '</div>' +
       (hideSpot ? '<div class="spot-quiz">🙈 どんな ルールで わけたのかな？ かんがえてみよう！</div>' : '<div class="spot-quiz">✅ こたえ</div>') +
-      '<div class="spot-groups">' + groupBlock(spotGroup, spotIdx, hideSpot, true) + '</div>';
+      '<div class="spot-groups">' + groupBlock(spotGroup, spotIdx, hideSpot, true) + '</div>' +
+      similarBlock(d);
     spot.className = "show";
   } else {
     spot.className = "";
     spot.innerHTML = "";
   }
 
+  updateZoom(d, items, hideAll);
   var grid = document.getElementById("grid");
   var empty = document.getElementById("empty");
   if(d.phase !== "open"){
@@ -172,12 +236,13 @@ function render(d){
   }
   empty.style.display = cards.length ? "none" : "block";
   empty.textContent = picked ? "ピックアップした グループが ありません" : "まだ だれも みせていません";
-  grid.innerHTML = cards.map(function(c){
+  lastCards = cards;
+  grid.innerHTML = cards.map(function(c, ci){
     var stamp = c.g.gid + c.g.at;
     var fresh = !firstLoad && !seen[stamp];
     var head = c.it.anon ? "" :
       '<div class="head">' + avatar(c.it) + '<div class="who">' + who(c.it) + '</div></div>';
-    return '<div class="card' + (fresh ? " flash" : "") + '">' + head +
+    return '<div class="card' + (fresh ? " flash" : "") + '" data-ci="' + ci + '">' + head +
       groupBlock(c.g, c.gi, hideAll, false) + '</div>';
   }).join("");
   cards.forEach(function(c){ seen[c.g.gid + c.g.at] = true; });

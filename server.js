@@ -2492,6 +2492,19 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  if(req.method === 'POST' && url === '/api/sort/reset-likes'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      let n = 0;
+      sortPlayers(room).forEach(function(id){
+        (sortStudents[id].groups || []).forEach(function(g){ n += (g.likes || []).length; g.likes = []; });
+      });
+      saveSortStudents();
+      sendJson(res, 200, { ok: true, cleared: n });
+    });
+    return;
+  }
+
   if(req.method === 'POST' && url === '/api/sort/reset'){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room);

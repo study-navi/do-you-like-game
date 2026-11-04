@@ -294,6 +294,16 @@
   .quiz-choice.ng { background: #FBE9E4; border-color: #D85A30; color: #993C1D; }
   .quiz-result { text-align: center; font-size: 16px; font-weight: 700; min-height: 24px; margin-bottom: 8px; }
   .quiz-photo { display: block; margin: 0 auto 8px; width: 120px; height: 90px; object-fit: contain; border-radius: 8px; background: #F1EFE8; border: 1px solid #E6E4DA; }
+  #quizview { position: fixed; inset: 0; z-index: 250; background: #1B1A2E; color: #FFFFFF; display: none; padding: 22px 16px; overflow: auto; text-align: center; }
+  #quizview.show { display: block; }
+  .qv-prog { font-size: 20px; font-weight: 700; color: #B7B4E0; margin-bottom: 6px; }
+  .qv-q { font-size: 20px; font-weight: 700; color: #F6C453; margin: 10px 0 14px; }
+  .qv-who { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .qv-card { max-width: 640px; margin: 0 auto; background: var(--gb); border-left: 12px solid var(--gc); border-radius: 18px; padding: 16px 18px; text-align: left; }
+  .qv-title { font-size: 26px; font-weight: 700; color: #2C2C2A; margin-bottom: 10px; }
+  .qv-letters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .qv-letters span { width: 52px; height: 60px; border-radius: 12px; background: #FFFFFF; border: 3px solid var(--gc); color: #2C2C2A; font-size: 34px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .qv-foot { margin-top: 16px; font-size: 14px; color: #B7B4E0; }
   .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #2C2C2A; color: #FFFFFF; padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; z-index: 300; display: none; max-width: 90vw; text-align: center; }
   .toast.show { display: block; }
   .xchg-preview { text-align: center; font-size: 18px; font-weight: 700; color: #993C1D; min-height: 26px; margin-bottom: 10px; }
@@ -308,6 +318,8 @@
     display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #2C2C2A;
     cursor: pointer; font-family: inherit; padding: 0; box-shadow: 1px 3px 6px rgba(0,0,0,0.1);
   }
+  .ltile.used { background: #F1EFE8; border-color: #D3D1C7; color: #888780; }
+  .ltile.used.sel { background: #FFFFFF; border-color: #185FA5; color: #2C2C2A; }
   .ltile:active { transform: scale(0.93); }
   .ltile.sel { background: #FFFFFF; border-color: #185FA5; box-shadow: 0 0 0 3px #B5D4F4; transform: translateY(-3px); }
   .tray-empty { color: #B4B2A9; font-size: 13px; align-self: center; }
@@ -424,7 +436,7 @@
     <div class="step-card">
       <div class="step-hint">大文字を なかまわけ しよう！</div>
       <div class="step-example">① ABCから もじを えらぶ<br>② グループの「ここに いれる」を おす<br>③ グループの なまえ（わけた ルール）を かく<br>④ できた グループから「みんなに みせる」を おす<br>れい: 「まっすぐの せんだけ」「まるが ある」</div>
-      <div class="pool-title" id="tray-title">まだ グループに はいっていない もじ</div>
+      <div class="pool-title" id="tray-title">もじ（どの もじも、ちがう グループで なんども つかえるよ）</div>
       <div class="tray" id="tray"></div>
       <div class="tray-actions">
         <button class="mini-btn" onclick="clearSel()">えらびなおす</button>
@@ -458,6 +470,7 @@
 
 <div class="relogin-wrap"><button class="relogin-link" onclick="startRelogin()">🔑 ログインしなおす</button></div>
 
+<div id="quizview"></div>
 <div id="toast" class="toast"></div>
 
 <script>
@@ -537,14 +550,13 @@ function sharedOf(gid){
 function renderMake(){
   if(!draft) return;
   var placed = placedSet();
-  selected = selected.filter(function(L){ return !placed[L]; });
   var tray = document.getElementById("tray");
-  var free = LETTERS.filter(function(L){ return !placed[L]; });
-  tray.innerHTML = free.length ? "" : '<span class="tray-empty">ぜんぶの もじを グループに いれたよ！</span>';
-  free.forEach(function(L){
+  tray.innerHTML = "";
+  // どの もじも、べつの グループで なんども つかえる
+  LETTERS.forEach(function(L){
     var b = document.createElement("button");
     b.type = "button";
-    b.className = "ltile" + (selected.indexOf(L) >= 0 ? " sel" : "");
+    b.className = "ltile" + (selected.indexOf(L) >= 0 ? " sel" : "") + (placed[L] ? " used" : "");
     b.textContent = L;
     b.onclick = function(){ toggleSel(L); };
     tray.appendChild(b);
@@ -675,7 +687,7 @@ function toggleSel(L){
 function clearSel(){ selected = []; renderMake(); }
 function putSelected(gi){
   if(!selected.length) return;
-  selected.forEach(function(L){ draft[gi].letters.push(L); });
+  selected.forEach(function(L){ if(draft[gi].letters.indexOf(L) < 0) draft[gi].letters.push(L); });
   draft[gi].letters.sort();
   selected = [];
   saveDraft();
@@ -697,7 +709,7 @@ function removeGroup(gi){
   var g = draft[gi];
   var shared = !!sharedOf(g.gid);
   if(g.letters.length || g.name || shared){
-    if(!confirm(shared ? "このグループを けしますか？（みんなに みせているのも きえます）" : "このグループを けしますか？（もじは もどります）")) return;
+    if(!confirm(shared ? "このグループを けしますか？（みんなに みせているのも きえます）" : "このグループを けしますか？")) return;
   }
   if(shared) postJson("/api/sort/unshare-group", { id: studentId, gid: g.gid }).then(pollGame);
   draft.splice(gi, 1);
@@ -844,6 +856,32 @@ document.getElementById("gallery").addEventListener("click", function(e){
   }
 });
 
+/* ---------- クイズ中は みんなの 画面を クイズに する ---------- */
+function renderQuizView(d){
+  var qv = document.getElementById("quizview");
+  var it = null, g = null, gi = 0;
+  if(d && d.quiz && d.spot){
+    it = (d.items || []).filter(function(x){ return x.id === d.spot.sid; })[0] || null;
+    if(it) it.groups.forEach(function(x, i){ if(x.gid === d.spot.gid){ g = x; gi = i; } });
+  }
+  if(!it || !g){ qv.className = ""; qv.innerHTML = ""; qv.setAttribute("data-key", ""); return; }
+  var key = JSON.stringify([d.quiz, d.spot, !!d.revealed, !!d.hideTitles, g.letters, g.name, it.no]);
+  if(qv.getAttribute("data-key") === key) return;
+  qv.setAttribute("data-key", key);
+  var hide = !!d.hideTitles && !d.revealed;
+  var c = GCOL[gi % GCOL.length], bg = GBG[gi % GBG.length];
+  qv.innerHTML =
+    '<div class="qv-prog">🎯 もんだい ' + (d.quiz.i + 1) + ' / ' + d.quiz.n + '</div>' +
+    (d.revealed ? '<div class="qv-who">' + (it.no ? esc(String(it.no)) + 'ばん の わけかた' : 'わけかた') + '</div>' : '') +
+    '<div class="qv-q">' + (d.revealed ? "✅ こたえ" : "🙈 どんな ルールで わけたのかな？ かんがえてみよう！") + '</div>' +
+    '<div class="qv-card" style="--gc:' + c + ';--gb:' + bg + '">' +
+      '<div class="qv-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + '</div>' +
+      '<div class="qv-letters">' + g.letters.map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>' +
+    '<div class="qv-foot">せんせいが クイズを おわると、もとの がめんに もどります</div>';
+  qv.className = "show";
+  window.scrollTo(0, 0);
+}
+
 /* ---------- ポーリング ---------- */
 function pollGame(){
   if(pollTimer) clearTimeout(pollTimer);
@@ -867,12 +905,10 @@ function pollGame(){
         mergedFromServer = true;
         var have = {};
         draft.forEach(function(g){ have[g.gid] = true; });
-        var placed = placedSet();
         meState.groups.forEach(function(g){
           if(have[g.gid] || draft.length >= MAX_GROUPS) return;
-          var ls = g.letters.filter(function(L){ return !placed[L]; });
+          var ls = g.letters.slice();
           if(!ls.length) return;
-          ls.forEach(function(L){ placed[L] = true; });
           draft.push({ gid: g.gid, name: g.name || "", letters: ls });
           needRender = true;
         });
@@ -882,9 +918,10 @@ function pollGame(){
       var n = document.getElementById("tab-n");
       n.textContent = (d.phase === "open" && d.items && d.items.length) ? String(d.groupCount || d.items.length) : "";
       if(viewName === "gallery") renderGallery();
+      renderQuizView(d);
     })
     .catch(function(){})
-    .then(function(){ pollTimer = setTimeout(pollGame, viewName === "gallery" ? 3000 : 6000); });
+    .then(function(){ pollTimer = setTimeout(pollGame, (viewName === "gallery" || (lastState && lastState.quiz)) ? 3000 : 6000); });
 }
 
 /* ---------- registration ---------- */

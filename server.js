@@ -443,9 +443,9 @@ function publicSortState(room, me, anon){
     });
   }
   out.items.sort(function(a, b){ return (b.sharedAt || 0) - (a.sharedAt || 0); });
-  // こたえを みせたときだけ、おなじ・にている わけかたを した人も TVに出す（先生・TV用）
+  // TVに出している問題と、おなじ・にている わけかたを した人も TVに出す（先生・TV用）
   out.similar = [];
-  if(!me && r.spot && r.revealed){
+  if(!me && r.spot){
     const base = sortFindGroup(room, r.spot.sid, r.spot.gid);
     if(base){
       const A = base.letters || [];

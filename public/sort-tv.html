@@ -126,15 +126,15 @@ function groupBlock(g, gi, hide, big){
     '<div class="grp-title">' + (hide ? "？？？" : esc(g.name || "（なまえなし）")) + (g.likes ? ' <span class="likes-inline">👍 ' + g.likes + '</span>' : '') + '</div>' +
     '<div class="letters">' + (g.letters || []).map(function(L){ return "<span>" + L + "</span>"; }).join("") + '</div></div>';
 }
-function similarBlock(d){
+function similarBlock(d, hide){
   var sim = d.similar || [];
-  if(!d.revealed || !sim.length) return "";
+  if(!sim.length) return "";
   return '<div class="similar"><div class="similar-h">👥 おなじ・にている わけかたを した人</div><div class="sim-grid">' +
     sim.map(function(x, i){
       var it = { id: x.sid, no: x.no, role: x.role, photo: x.photo };
       return '<div class="sim-card"><div class="head">' + avatar(it) + '<div class="who">' + who(it) + '</div>' +
         '<span class="sim-tag' + (x.same ? '' : ' near') + '">' + (x.same ? "おなじ！" : "にてる！") + '</span></div>' +
-        groupBlock({ name: x.name, letters: x.letters, likes: 0 }, i + 1, false, false) + '</div>';
+        groupBlock({ name: x.name, letters: x.letters, likes: 0 }, i + 1, !!hide, false) + '</div>';
     }).join("") + '</div></div>';
 }
 var zoomRef = null, lastCards = [];
@@ -201,7 +201,7 @@ function render(d){
       (spotGroup.likes ? '<div class="spot-likes">👍 ' + spotGroup.likes + '</div>' : '') + '</div>' +
       (hideSpot ? '<div class="spot-quiz">🙈 どんな ルールで わけたのかな？ かんがえてみよう！</div>' : '<div class="spot-quiz">✅ こたえ</div>') +
       '<div class="spot-groups">' + groupBlock(spotGroup, spotIdx, hideSpot, true) + '</div>' +
-      similarBlock(d);
+      similarBlock(d, hideSpot);
     spot.className = "show";
   } else {
     spot.className = "";

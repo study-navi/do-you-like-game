@@ -197,8 +197,9 @@
   <input id="idRoom" maxlength="30" placeholder="きょうしつコード（れい: 3-1）">
   <input id="idName" maxlength="12" placeholder="なまえ か ばんごう">
   <button class="tbtn main" id="idSet" style="padding:8px 14px">きめる</button>
+  <button class="tbtn main" id="idSave" style="padding:8px 14px">💾 ほぞん</button>
   <button class="tbtn" id="idRestore" style="padding:8px 14px;display:none">☁️ ほぞんを よみこむ</button>
-  <span class="idstat" id="idStat">コードと なまえを いれると、じどうで ほぞんされるよ</span>
+  <span class="idstat" id="idStat">コードと なまえを いれて「きめる」。そのあと「ほぞん」ボタン（5ふんごとに じどうほぞんも するよ）</span>
 </div>
 <div class="layout">
   <!-- 左: 形と色 -->
@@ -1222,28 +1223,40 @@ document.getElementById('exOv').addEventListener('click', function(ev){
 
 
 /* ---------- じどう ほぞん（サーバーにも） ---------- */
-var cloud = { timer: null, lastSig: '', at: 0 };
+var cloud = { timer: null, lastSig: '', at: 0, dirty: false };
 function idReady(){ return !!(ex.room && ex.me); }
 function idStat(t, ok){ var e = document.getElementById('idStat'); if(e){ e.textContent = t; e.className = 'idstat' + (ok ? ' ok' : ''); } }
+/* ほぞん: 「ほぞん」ボタンで すぐ ほぞん。それいがいは 5ふんごとに じどうほぞん */
+var AUTO_SAVE_MS = 5 * 60 * 1000;
 function scheduleCloudSave(){
   if(!idReady()) return;
-  clearTimeout(cloud.timer);
-  cloud.timer = setTimeout(cloudSave, 10000);
+  if(!cloud.dirty){ cloud.dirty = true; idStat('✏️ まだ ほぞんして いないよ（「ほぞん」を おすと すぐ ほぞん。5ふんごとに じどうでも ほぞん）', false); }
 }
-function cloudSave(){
-  if(!idReady()) return;
-  var inv = localInv();
-  var body = { room: ex.room, me: ex.me, state: state, inventory: inv };
+function cloudBody(){ return { room: ex.room, me: ex.me, state: state, inventory: localInv() }; }
+function cloudSave(manual){
+  if(!idReady()){ if(manual === true) idStat('さきに コードと なまえを いれて「きめる」を おしてね', false); return; }
+  if(!state.items.length && ex.restoreData){
+    if(manual === true) idStat('カードが からっぽだよ。まえの ほぞんが あるので「☁️ ほぞんを よみこむ」を おしてね', false);
+    return;
+  }
+  var body = cloudBody();
   var sig = JSON.stringify(body);
-  if(sig === cloud.lastSig) return;
+  if(sig === cloud.lastSig){ if(manual === true){ cloud.dirty = false; idStat('☁️ ほぞんずみだよ（へんこうは ないよ）', true); } return; }
   idStat('☁️ ほぞんしているよ…', false);
   exApi('/api/card/save', body).then(function(d){
-    cloud.lastSig = sig;
+    cloud.lastSig = sig; cloud.dirty = false;
     var t = new Date(d.at || Date.now());
-    idStat('☁️ じどうで ほぞんしたよ（' + ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + '）', true);
-  }).catch(function(){ idStat('⚠️ ほぞんできなかったよ（この たんまつには ほぞんされているよ）', false); });
+    idStat('☁️ ほぞんしたよ（' + ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + '）', true);
+  }).catch(function(){ idStat('⚠️ ほぞんできなかったよ。もういちど「ほぞん」を おしてね（この たんまつには のこっているよ）', false); });
 }
-setInterval(function(){ if(idReady()){ exPoll(); cloudSave(); } }, 15000);
+setInterval(function(){ if(idReady()) exPoll(); }, 15000);
+setInterval(function(){ if(idReady() && cloud.dirty) cloudSave(); }, AUTO_SAVE_MS);
+document.getElementById('idSave').addEventListener('click', function(){ cloudSave(true); });
+/* ページを とじる ときも、ほぞんして いなければ さいごに おくる */
+window.addEventListener('pagehide', function(){
+  if(!idReady() || !cloud.dirty || (!state.items.length && ex.restoreData)) return;
+  try{ navigator.sendBeacon('/api/card/save', new Blob([JSON.stringify(cloudBody())], { type: 'application/json' })); }catch(e){}
+});
 function checkRestore(auto){
   if(!idReady()) return;
   fetch('/api/card/restore?room=' + encodeURIComponent(ex.room) + '&me=' + encodeURIComponent(ex.me)).then(function(r){ return r.json(); }).then(function(d){
@@ -1274,7 +1287,7 @@ function setIdentity(room, name, silent){
   exApi('/api/card/shop/open', { room: room, label: name }).then(function(){ return exPoll(); }).catch(function(){});
   checkRestore(true);
   scheduleCloudSave();
-  if(!silent) toast('きめたよ。これから じどうで ほぞんするよ');
+  if(!silent) toast('きめたよ。「ほぞん」ボタンで ほぞんしてね（5ふんごとに じどうでも ほぞん）');
 }
 document.getElementById('idSet').addEventListener('click', function(){
   var room = document.getElementById('idRoom').value.trim(), name = document.getElementById('idName').value.trim();

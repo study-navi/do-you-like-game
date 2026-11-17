@@ -91,6 +91,9 @@
   .show-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   .show-card { background: #E8E6DC; border-radius: 14px; padding: 12px; }
   .show-card svg { width: 100%; height: auto; display: block; }
+  .give-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 4px 0 12px; }
+  .gbtn { border: none; background: #185FA5; color: #fff; font-size: 20px; font-weight: 700; padding: 12px 20px; border-radius: 999px; cursor: pointer; font-family: "Chalkboard SE", "Comic Sans MS", sans-serif; }
+  .gbtn:disabled { background: #9DB9D6; cursor: default; }
   .big-phrase { text-align: center; font-size: 30px; font-weight: 700; color: #185FA5; margin: 4px 0 10px; font-family: "Chalkboard SE", "Comic Sans MS", sans-serif; }
   .show-row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid #F1EFE8; }
   .show-row .ico svg { width: 52px; height: 52px; display: block; }
@@ -115,6 +118,40 @@
   .share-sheet { max-width: 420px; margin-top: 40px; }
   @media (max-width: 800px) { .show-grid { grid-template-columns: 1fr; } }
   @media print { .overlay { display: none !important; } }
+
+
+  /* やりとり（おみせ） */
+  .ex-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; }
+  .ex-box { background: #FAF9F5; border: 1px solid #E2E0D6; border-radius: 14px; padding: 10px; margin-bottom: 12px; }
+  .ex-box h4 { margin: 0 0 8px; font-size: 13px; color: #5F5E5A; }
+  .stock { display: flex; flex-wrap: wrap; gap: 6px; }
+  .st-chip { display: inline-flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 74px; height: 74px; background: #fff; border: 2px solid #E2E0D6; border-radius: 12px; padding: 3px; font-size: 10px; line-height: 1.15; text-align: center; color: #444441; cursor: default; }
+  .st-chip svg { display: block; margin-bottom: 2px; }
+  .st-chip.pick { cursor: pointer; }
+  .st-chip.sel { border-color: #534AB7; background: #EEEDFE; }
+  .st-chip.used { opacity: .35; }
+  .shop-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .deal { background: #fff; border: 2px solid #D3E4F5; border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+  .deal-head { font-size: 12px; color: #5F5E5A; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .bubble { max-width: 80%; padding: 7px 12px; border-radius: 14px; margin: 4px 0; font-size: 17px; font-family: "Chalkboard SE", "Comic Sans MS", sans-serif; font-weight: 700; }
+  .bubble.me { background: #185FA5; color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .bubble.you { background: #F1EFE8; color: #2C2C2A; margin-right: auto; border-bottom-left-radius: 4px; }
+  .say-btn { border: none; background: #A9C23F; color: #fff; font-size: 19px; font-weight: 700; padding: 11px 18px; border-radius: 999px; cursor: pointer; margin: 4px 4px 0 0; font-family: "Chalkboard SE", "Comic Sans MS", sans-serif; }
+  .say-btn:disabled { background: #D3D1C7; cursor: default; }
+  .say-btn.alt { background: #EF9F27; }
+  .say-btn.gray { background: #888780; font-size: 13px; }
+  .wait { font-size: 12px; color: #888780; margin-top: 6px; }
+  .builder { background: #F8F7F2; border-radius: 12px; padding: 8px; margin-top: 6px; }
+  .builder .opt { display: inline-block; border: 2px solid #E2E0D6; background: #fff; border-radius: 999px; padding: 6px 14px; margin: 2px 4px 2px 0; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .builder .opt.on { border-color: #534AB7; background: #EEEDFE; color: #534AB7; }
+  .builder .shape-opts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+  .builder .shape-opts .so { border: 2px solid #E2E0D6; background: #fff; border-radius: 10px; padding: 3px 5px; cursor: pointer; text-align: center; font-size: 10px; }
+  .builder .shape-opts .so.on { border-color: #534AB7; background: #EEEDFE; }
+  .builder .shape-opts .so svg { width: 32px; height: 32px; display: block; }
+  .builder .color-grid { grid-template-columns: repeat(10, 1fr); }
+  .builder .color-chip { height: 30px; border-radius: 8px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2C2C2A; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; z-index: 99; display: none; }
+  @media (max-width: 800px) { .ex-grid { grid-template-columns: 1fr; } .builder .color-grid { grid-template-columns: repeat(5, 1fr); } }
 
   @media (max-width: 1000px) {
     .layout { grid-template-columns: 1fr; }
@@ -143,6 +180,8 @@
     <div class="panel">
       <h2>① かたちを えらぶ（タップで ふえる）</h2>
       <div class="shape-grid" id="shapeGrid"></div>
+      <details style="margin-top:8px"><summary style="font-size:12px;color:#888780;cursor:pointer">おまけの かたち</summary>
+        <div class="shape-grid" id="shapeExtra" style="margin-top:6px"></div></details>
       <div class="btn-row"><button class="sbtn" id="addText">🔤 もじを いれる</button></div>
     </div>
     <div class="panel">
@@ -161,6 +200,7 @@
       <div class="toolbar">
         <button class="tbtn" id="undoBtn">↩︎ もどす</button>
         <button class="tbtn" id="cutBtn">✂️ きる</button>
+        <button class="tbtn" id="exBtn" style="background:#EAF3DE;color:#3B6D11">🛍 やりとり</button>
         <button class="tbtn" id="showBtn" style="background:#E1F5EE;color:#0F6E56">👀 ともだちに みせる</button>
         <button class="tbtn" id="shareBtn" style="background:#FAEEDA;color:#854F0B">📤 クラスに おくる</button>
         <button class="tbtn" id="galBtn" style="background:#FBEAF0;color:#993556">📥 みんなの カード</button>
@@ -189,9 +229,34 @@
 </div>
 
 
+
+<div class="overlay" id="exOv" style="z-index:55"><div class="sheet">
+  <div class="sheet-head"><h3>🛍 カードやさん <span style="font-size:12px;color:#888780;font-weight:400">ともだちと やりとりして ざいりょうを あつめよう</span></h3><button class="xbtn" id="exClose">✕ とじる</button></div>
+  <div class="ex-box" id="exSetup" style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+    <div class="form-row" style="margin:0;flex:1;min-width:140px"><label>きょうしつコード</label><input id="exRoom" maxlength="30" placeholder="れい: 3-1"></div>
+    <div class="form-row" style="margin:0;flex:1;min-width:140px"><label>なまえ か ばんごう</label><input id="exName" maxlength="12" placeholder="12"></div>
+    <button class="tbtn main" id="exStart" style="padding:12px 20px">おみせを ひらく</button>
+  </div>
+  <div id="exMain" style="display:none">
+    <div class="ex-grid">
+      <div>
+        <div class="ex-box"><h4>わたしの おみせ（ざいりょう）</h4><div class="stock" id="exStock"></div></div>
+        <div class="ex-box"><h4>ともだちの おみせに いく</h4><div class="shop-btns" id="exShops"></div></div>
+        <div class="ex-box"><h4>もらった ざいりょう（タップで カードに いれる）</h4><div class="stock" id="exInv"></div></div>
+      </div>
+      <div><div id="exDeals"></div></div>
+    </div>
+  </div>
+</div></div>
+<div class="toast" id="toast"></div>
+
 <div class="overlay" id="showOv" style="z-index:60"><div class="sheet">
   <div class="sheet-head"><h3 id="showTitle">👀 カードを みせよう</h3><button class="xbtn" id="showClose">✕ とじる</button></div>
-  <div class="big-phrase">This is for you.</div>
+  <div class="give-bar">
+    <button class="gbtn" id="gv1">① This is for you.</button>
+    <button class="gbtn" id="gv2">② Thank you.</button>
+    <button class="gbtn" id="gv3">③ You're welcome.</button>
+  </div>
   <div class="show-grid">
     <div class="show-card"><svg id="showSvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div><div id="showTally"></div></div>
@@ -225,17 +290,22 @@ var COLORS = [
   { id: 'orange', ja: 'オレンジ',   en: 'orange', hex: '#FB8C00', ink: '#fff' },
   { id: 'yellow', ja: 'きいろ',     en: 'yellow', hex: '#FDD835', ink: '#333' },
   { id: 'green',  ja: 'みどり',     en: 'green',  hex: '#43A047', ink: '#fff' },
-  { id: 'lblue',  ja: 'みずいろ',   en: 'light blue', hex: '#4FC3F7', ink: '#333' },
+  { id: 'lblue',  ja: 'みずいろ',   en: 'light blue', hex: '#4FC3F7', ink: '#333', extra: true },
   { id: 'blue',   ja: 'あお',       en: 'blue',   hex: '#1E67D6', ink: '#fff' },
   { id: 'purple', ja: 'むらさき',   en: 'purple', hex: '#8E5BD0', ink: '#fff' },
   { id: 'pink',   ja: 'ピンク',     en: 'pink',   hex: '#F78FB3', ink: '#333' },
   { id: 'brown',  ja: 'ちゃいろ',   en: 'brown',  hex: '#8D5B3A', ink: '#fff' },
   { id: 'white',  ja: 'しろ',       en: 'white',  hex: '#FFFFFF', ink: '#333' },
-  { id: 'gray',   ja: 'はいいろ',   en: 'gray',   hex: '#9E9E9E', ink: '#fff' },
+  { id: 'gray',   ja: 'はいいろ',   en: 'gray',   hex: '#9E9E9E', ink: '#fff', extra: true },
   { id: 'black',  ja: 'くろ',       en: 'black',  hex: '#2B2B2B', ink: '#fff' }
 ];
 var BG_COLORS = ['white', 'yellow', 'pink', 'lblue', 'green', 'orange', 'purple', 'black'];
 
+var BIG_S = 1.5, SMALL_S = 0.6;
+function sizeWord(it){
+  if(!it || it.type === 'piece' || it.type === 'text') return '';
+  return it.s >= 1.2 ? 'big' : (it.s <= 0.8 ? 'small' : '');
+}
 function colorById(id){ for(var i = 0; i < COLORS.length; i++){ if(COLORS[i].id === id) return COLORS[i]; } return COLORS[0]; }
 
 /* 形は -50〜50 の多角形（0,0 が中心）。曲線も細かい点で作るので、きれいに切れる */
@@ -276,14 +346,14 @@ function flowerPts(){
   return pts;
 }
 var SHAPES = [
-  { id: 'circle',   ja: 'まる',         en: 'circle',    pts: circlePts(45, 45, 48, 0, Math.PI * 2 * 47 / 48) },
-  { id: 'triangle', ja: 'さんかく',     en: 'triangle',  pts: [[0, -46], [50, 40], [-50, 40]] },
-  { id: 'square',   ja: 'ましかく',     en: 'square',    pts: [[-40, -40], [40, -40], [40, 40], [-40, 40]] },
-  { id: 'rect',     ja: 'ながしかく',   en: 'rectangle', pts: [[-50, -28], [50, -28], [50, 28], [-50, 28]] },
-  { id: 'diamond',  ja: 'ひしがた',     en: 'diamond',   pts: [[0, -50], [32, 0], [0, 50], [-32, 0]] },
+  { std: true, id: 'circle',   ja: 'まる',         en: 'circle',    pts: circlePts(45, 45, 48, 0, Math.PI * 2 * 47 / 48) },
+  { std: true, id: 'triangle', ja: 'さんかく',     en: 'triangle',  pts: [[0, -46], [50, 40], [-50, 40]] },
+  { std: true, id: 'square',   ja: 'ましかく',     en: 'square',    pts: [[-40, -40], [40, -40], [40, 40], [-40, 40]] },
+  { std: true, id: 'rect',     ja: 'ながしかく',   en: 'rectangle', pts: [[-50, -28], [50, -28], [50, 28], [-50, 28]] },
+  { std: true, id: 'diamond',  ja: 'ひしがた',     en: 'diamond',   pts: [[0, -50], [32, 0], [0, 50], [-32, 0]] },
   { id: 'half',     ja: 'はんえん',     en: 'semicircle',pts: circlePts(50, 50, 32, Math.PI, Math.PI * 2).map(function(p){ return [p[0], p[1] + 25]; }) },
-  { id: 'star',     ja: 'ほし',         en: 'star',      pts: starPts(5, 50, 21) },
-  { id: 'heart',    ja: 'ハート',       en: 'heart',     pts: heartPts() },
+  { std: true, id: 'star',     ja: 'ほし',         en: 'star',      pts: starPts(5, 50, 21) },
+  { std: true, id: 'heart',    ja: 'ハート',       en: 'heart',     pts: heartPts() },
   { id: 'flower',   ja: 'はな',         en: 'flower',    pts: flowerPts() },
   { id: 'hexagon',  ja: 'ろっかっけい', en: 'hexagon',   pts: circlePts(46, 46, 6, 0, Math.PI * 2 * 5 / 6).map(function(p){ return p; }) },
   { id: 'pentagon', ja: 'ごかっけい',   en: 'pentagon',  pts: circlePts(46, 46, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * 4 / 5) },
@@ -484,7 +554,7 @@ function setHint(t, warn){ hintEl.textContent = t; hintEl.className = 'hint' + (
 
 /* ---------- 右パネル（えらんだ形） ---------- */
 function colorChipsHtml(current, idPrefix){
-  return COLORS.map(function(c){
+  return COLORS.filter(function(c){ return !c.extra || c.id === current; }).map(function(c){
     return '<div class="color-chip' + (c.id === current ? ' on' : '') + '" data-color="' + c.id + '" title="' + c.ja + ' / ' + c.en + '" style="background:' + c.hex + ';--ink:' + c.ink + '"></div>';
   }).join('');
 }
@@ -509,6 +579,11 @@ function renderSelPanel(){
   html += '<div class="row"><label>おおきさ</label><input type="range" id="sSize" min="' + (it.type === 'text' ? 0.4 : 0.2) + '" max="' + (it.type === 'text' ? 3 : 4) + '" step="0.01" value="' + it.s + '"></div>';
   if(it.type !== 'text'){
     html += '<div class="row"><label>ほそさ</label><input type="range" id="sAsp" min="0.5" max="2" step="0.01" value="' + it.asp + '"></div>';
+  }
+  if(it.type !== 'text' && it.type !== 'piece'){
+    var sw = sizeWord(it);
+    html += '<div class="btn-row" style="margin:0 0 8px"><button class="sbtn" id="sizeBig">big（おおきく）</button><button class="sbtn" id="sizeSmall">small（ちいさく）</button>' +
+      '<span style="font-size:13px;font-weight:700;align-self:center;color:#185FA5">' + (sw || '') + '</span></div>';
   }
   html += '<div class="row"><label>むき</label><input type="range" id="sRot" min="-180" max="180" step="1" value="' + normAngle(it.r) + '"></div>';
   html += '<div class="btn-row">' +
@@ -546,6 +621,8 @@ function bindSelPanel(it){
   on('toBack', function(){ pushHistory(); moveLayer(it, -1); });
   on('dup', function(){ pushHistory(); var c = clone(it); c.id = newItemId(); c.x += 24; c.y += 24; state.items.push(c); selId = c.id; render(); });
   on('del', function(){ pushHistory(); state.items = state.items.filter(function(x){ return x.id !== it.id; }); selId = null; render(); });
+  on('sizeBig', function(){ pushHistory(); it.s = BIG_S; render(); });
+  on('sizeSmall', function(){ pushHistory(); it.s = SMALL_S; render(); });
   on('cutV', function(){ quickCut(it, true); });
   on('cutH', function(){ quickCut(it, false); });
 }
@@ -584,14 +661,20 @@ function miniShapeSvg(pts, hex){
   return '<svg viewBox="' + (cx - m / 2) + ' ' + (cy - m / 2) + ' ' + m + ' ' + m + '"><polygon points="' + ptsAttr(pts) + '" fill="' + hex + '" stroke="#00000033" stroke-width="2"/></svg>';
 }
 function countCard(st){
-  var byShape = {}, pieces = { n: 0, colors: {} }, texts = 0, byColor = {}, total = 0;
+  var byShape = {}, pieces = { n: 0, colors: {}, variants: {} }, texts = 0, byColor = {}, total = 0;
+  function addV(row, it){
+    row.n++; row.colors[it.color] = (row.colors[it.color] || 0) + 1;
+    var sz = sizeWord(it), k = sz + '|' + it.color;
+    var v = row.variants[k] || (row.variants[k] = { size: sz, color: it.color, n: 0 });
+    v.n++;
+  }
   st.items.forEach(function(it){
     if(it.type === 'text'){ texts++; return; }
     total++;
     byColor[it.color] = (byColor[it.color] || 0) + 1;
-    if(it.type === 'piece'){ pieces.n++; pieces.colors[it.color] = (pieces.colors[it.color] || 0) + 1; return; }
-    var row = byShape[it.shape] || (byShape[it.shape] = { n: 0, colors: {} });
-    row.n++; row.colors[it.color] = (row.colors[it.color] || 0) + 1;
+    if(it.type === 'piece'){ addV(pieces, it); return; }
+    var row = byShape[it.shape] || (byShape[it.shape] = { n: 0, colors: {}, variants: {} });
+    addV(row, it);
   });
   return { byShape: byShape, pieces: pieces, texts: texts, byColor: byColor, total: total };
 }
@@ -603,10 +686,10 @@ function renderTally(){
     body.innerHTML = '<div class="empty-note">まだ なにも つかっていないよ</div>';
     return;
   }
-  function dotsHtml(colors){
-    return Object.keys(colors).map(function(cid){
-      var c = colorById(cid);
-      return '<span class="dot"><i style="background:' + c.hex + '"></i>' + c.ja + ' ' + colors[cid] + '</span>';
+  function dotsHtml(variants){
+    return Object.keys(variants).map(function(k){
+      var v = variants[k], c = colorById(v.color);
+      return '<span class="dot"><i style="background:' + c.hex + '"></i>' + (v.size ? v.size + ' ' : '') + c.ja + ' ' + v.n + '</span>';
     }).join('');
   }
   var html = '<div class="total"><span>かたちの ごうけい</span><span><b>' + total + '</b> こ</span></div><table class="tally">';
@@ -615,12 +698,12 @@ function renderTally(){
     if(!r) return;
     var firstColor = colorById(Object.keys(r.colors)[0]);
     html += '<tr><td class="shape-cell">' + miniShapeSvg(s.pts, firstColor.hex) + '</td>' +
-      '<td class="name"><b>' + s.ja + '</b> <span class="en">' + s.en + '</span><div class="dots">' + dotsHtml(r.colors) + '</div></td>' +
+      '<td class="name"><b>' + s.en + '</b> <span class="en">' + s.ja + '</span><div class="dots">' + dotsHtml(r.variants) + '</div></td>' +
       '<td class="num">' + r.n + '<small> こ</small></td></tr>';
   });
   if(pieces.n){
     html += '<tr><td class="shape-cell"><div style="font-size:24px;text-align:center">✂️</div></td>' +
-      '<td class="name"><b>きった かけら</b> <span class="en">cut pieces</span><div class="dots">' + dotsHtml(pieces.colors) + '</div></td>' +
+      '<td class="name"><b>きった かけら</b> <span class="en">cut pieces</span><div class="dots">' + dotsHtml(pieces.variants) + '</div></td>' +
       '<td class="num">' + pieces.n + '<small> こ</small></td></tr>';
   }
   if(texts){
@@ -632,7 +715,7 @@ function renderTally(){
   if(ckeys.length){
     html += '<div class="sub-title">いろ べつ</div><div class="color-tally">' +
       COLORS.filter(function(c){ return byColor[c.id]; }).map(function(c){
-        return '<span class="dot"><i style="background:' + c.hex + '"></i>' + c.ja + ' <b>' + byColor[c.id] + '</b></span>';
+        return '<span class="dot"><i style="background:' + c.hex + '"></i>' + c.en + ' <b>' + byColor[c.id] + '</b></span>';
       }).join('') + '</div>';
   }
   body.innerHTML = html;
@@ -832,13 +915,17 @@ stage.addEventListener('pointercancel', endDrag);
 /* ---------- ボタン ---------- */
 function buildShapeButtons(){
   var grid = document.getElementById('shapeGrid');
-  SHAPES.forEach(function(s){
+  var extra = document.getElementById('shapeExtra');
+  var order = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'];
+  function mk(s, parent){
     var b = document.createElement('button');
     b.className = 'shape-btn';
-    b.innerHTML = miniShapeSvg(s.pts, '#8E8C85') + '<div>' + s.ja + '</div><div class="en">' + s.en + '</div>';
+    b.innerHTML = miniShapeSvg(s.pts, '#8E8C85') + '<div class="en" style="font-size:11px;color:#444441;font-weight:700">' + s.en + '</div><div class="en">' + s.ja + '</div>';
     b.addEventListener('click', function(){ addShape(s.id); });
-    grid.appendChild(b);
-  });
+    parent.appendChild(b);
+  }
+  order.forEach(function(id){ mk(shapeById(id), grid); });
+  SHAPES.forEach(function(s){ if(!s.std) mk(s, extra); });
 }
 function buildBgColors(){
   var grid = document.getElementById('bgColors');
@@ -928,31 +1015,43 @@ function speak(text){
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
+function article(w){ return /^[aeiou]/i.test(w) ? 'an' : 'a'; }
+function phrase(size, colorEn, shapeEn, n){
+  var words = [size, colorEn].filter(Boolean).join(' ') + ' ' + shapeEn;
+  if(n === 1) return article(words) + ' ' + words;
+  return numWord(n) + ' ' + words + 's';
+}
+var giveStep = 0;
+function setGiveStep(n){
+  giveStep = n;
+  ['gv1', 'gv2', 'gv3'].forEach(function(id, i){
+    var b = document.getElementById(id);
+    b.disabled = i !== n;
+    b.style.opacity = i === n ? '1' : (i < n ? '.45' : '.35');
+  });
+}
 function showCard(st, title){
   document.getElementById('showTitle').textContent = title || '👀 カードを みせよう';
   drawCardInto(document.getElementById('showSvg'), st, { noIds: true });
+  setGiveStep(0);
   var cnt = countCard(st);
   var html = '', rows = [];
   SHAPES.forEach(function(sh){
     var r = cnt.byShape[sh.id]; if(!r) return;
-    rows.push({ ico: miniShapeSvg(sh.pts, colorById(Object.keys(r.colors)[0]).hex), ja: sh.ja, en: sh.en, n: r.n, colors: r.colors });
+    rows.push({ ico: miniShapeSvg(sh.pts, colorById(Object.keys(r.colors)[0]).hex), ja: sh.ja, en: sh.en, n: r.n, variants: r.variants });
   });
-  if(cnt.pieces.n) rows.push({ ico: '<div style="font-size:38px;text-align:center">✂️</div>', ja: 'きった かけら', en: 'piece', n: cnt.pieces.n, colors: cnt.pieces.colors });
+  if(cnt.pieces.n) rows.push({ ico: '<div style="font-size:38px;text-align:center">✂️</div>', ja: 'きった かけら', en: 'piece', n: cnt.pieces.n, variants: cnt.pieces.variants });
   if(!rows.length){ html = '<div class="empty-note">かたちが まだ ないよ</div>'; }
   rows.forEach(function(r, i){
-    var sentence = 'I use ' + Object.keys(r.colors).map(function(cid){
-      var n = r.colors[cid];
-      return numWord(n) + ' ' + colorById(cid).en + ' ' + plural(r.en, n);
-    }).join(' and ') + '.';
-    r.sentence = sentence;
+    var keys = Object.keys(r.variants);
+    r.sentence = keys.map(function(k){ var v = r.variants[k]; return phrase(v.size, colorById(v.color).en, r.en, v.n); }).join(' and ');
     html += '<div class="show-row"><div class="ico">' + r.ico + '</div><div class="mid"><div class="nm">' + r.en + '<small>' + r.ja + '</small></div>' +
-      '<div class="dots">' + Object.keys(r.colors).map(function(cid){ var c = colorById(cid);
-        return '<span class="dot"><i style="background:' + c.hex + '"></i>' + c.en + ' ' + r.colors[cid] + '</span>'; }).join('') + '</div></div>' +
-      '<div class="cnt">' + r.n + '<small> こ</small></div><button class="spk" data-i="' + i + '" title="' + escapeHtml(sentence) + '">🔊</button></div>';
+      '<div class="dots">' + keys.map(function(k){ var v = r.variants[k], c = colorById(v.color);
+        return '<span class="dot"><i style="background:' + c.hex + '"></i>' + (v.size ? v.size + ' ' : '') + c.en + ' ' + v.n + '</span>'; }).join('') + '</div></div>' +
+      '<div class="cnt">' + r.n + '<small> こ</small></div><button class="spk" data-i="' + i + '" title="' + escapeHtml(r.sentence) + '">🔊</button></div>';
   });
   if(cnt.total){
-    var sum = 'I use ' + numWord(cnt.total) + ' ' + plural('shape', cnt.total) + '.';
-    html += '<div class="show-sum">' + sum + '<br><span style="font-size:13px;font-weight:400">ぜんぶで ' + cnt.total + ' こ</span> <button class="spk" id="spkAll" style="vertical-align:middle">🔊</button></div>';
+    html += '<div class="show-sum">How many? ─ ' + numWord(cnt.total) + '!<br><span style="font-size:13px;font-weight:400">ぜんぶで ' + cnt.total + ' こ</span> <button class="spk" id="spkAll" style="vertical-align:middle">🔊</button></div>';
   }
   var box = document.getElementById('showTally');
   box.innerHTML = html;
@@ -960,12 +1059,18 @@ function showCard(st, title){
     b.addEventListener('click', function(){ speak(rows[parseInt(b.getAttribute('data-i'), 10)].sentence); });
   });
   var all = document.getElementById('spkAll');
-  if(all) all.addEventListener('click', function(){ speak('This is for you. I use ' + numWord(cnt.total) + ' ' + plural('shape', cnt.total) + '.'); });
+  if(all) all.addEventListener('click', function(){ speak(numWord(cnt.total)); });
   document.getElementById('showOv').className = 'overlay on';
 }
 document.getElementById('showBtn').addEventListener('click', function(){ selId = null; render(); showCard(state, '👀 カードを みせよう'); });
 document.getElementById('showClose').addEventListener('click', function(){ document.getElementById('showOv').className = 'overlay'; try{ window.speechSynthesis.cancel(); }catch(e){} });
 
+['gv1', 'gv2', 'gv3'].forEach(function(id, i){
+  document.getElementById(id).addEventListener('click', function(){
+    speak(['This is for you.', 'Thank you.', "You're welcome."][i]);
+    setGiveStep(i + 1 > 2 ? 3 : i + 1);
+  });
+});
 /* ---------- クラスに おくる / みんなの カード ---------- */
 function getRoom(){
   var m = location.search.match(/[?&]room=([^&]+)/);
@@ -1027,6 +1132,181 @@ document.getElementById('galBtn').addEventListener('click', function(){
 document.getElementById('galReload').addEventListener('click', loadGallery);
 document.getElementById('galRoomInput').addEventListener('change', loadGallery);
 document.getElementById('galClose').addEventListener('click', function(){ document.getElementById('galOv').className = 'overlay'; });
+
+
+/* ---------- やりとり（おみせ） ---------- */
+var ex = { me: '', room: '', data: null, timer: null, sig: '', sel: {}, builder: {}, reask: {} };
+function toast(t){
+  var e = document.getElementById('toast'); e.textContent = t; e.style.display = 'block';
+  clearTimeout(toast._t); toast._t = setTimeout(function(){ e.style.display = 'none'; }, 2200);
+}
+function norm(x){ return String(x || '').trim().slice(0, 12).toLowerCase(); }
+function itemPhrase(it, n){ return phrase(it.size, colorById(it.color).en, shapeById(it.shape).en, n || 1); }
+function stockChip(it, cls, extra){
+  var sh = shapeById(it.shape), c = colorById(it.color);
+  var px = it.size === 'big' ? 44 : 28;
+  return '<div class="st-chip ' + (cls || '') + '" ' + (extra || '') + '>' +
+    miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') +
+    it.size + ' ' + c.en + '<br>' + sh.en + '</div>';
+}
+function usedKey(){ return 'card_used_' + ex.room + '_' + ex.me; }
+function getUsed(){ try{ return JSON.parse(localStorage.getItem(usedKey()) || '{}'); }catch(e){ return {}; } }
+function setUsed(id){ var u = getUsed(); u[id] = 1; try{ localStorage.setItem(usedKey(), JSON.stringify(u)); }catch(e){} }
+
+function exApi(path, body){
+  return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error(d.error || 'error'); return d; }); });
+}
+function exPoll(){
+  if(!ex.me) return Promise.resolve();
+  return fetch('/api/card/ex?room=' + encodeURIComponent(ex.room) + '&me=' + encodeURIComponent(ex.me))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var sig = JSON.stringify(d) + JSON.stringify(ex.sel) + JSON.stringify(ex.builder) + JSON.stringify(ex.reask);
+      ex.data = d;
+      if(sig !== ex.sig){ ex.sig = sig; exRender(); }
+    }).catch(function(){});
+}
+function exStartTimer(){ exStopTimer(); ex.timer = setInterval(exPoll, 2000); }
+function exStopTimer(){ if(ex.timer){ clearInterval(ex.timer); ex.timer = null; } }
+
+document.getElementById('exBtn').addEventListener('click', function(){
+  document.getElementById('exRoom').value = getRoom();
+  document.getElementById('exName').value = getName();
+  document.getElementById('exOv').className = 'overlay on';
+  if(getRoom() && getName() && ex.me){ exStartTimer(); exPoll(); }
+});
+document.getElementById('exClose').addEventListener('click', function(){ document.getElementById('exOv').className = 'overlay'; exStopTimer(); });
+document.getElementById('exStart').addEventListener('click', function(){
+  var room = document.getElementById('exRoom').value.trim(), name = document.getElementById('exName').value.trim();
+  if(!room || !name){ toast('きょうしつコードと なまえを いれてね'); return; }
+  saveRoom(room); try{ localStorage.setItem('card_name', name); }catch(e){}
+  ex.room = room.toLowerCase(); ex.me = name; ex.sig = '';
+  exApi('/api/card/shop/open', { room: room, label: name }).then(function(){
+    document.getElementById('exMain').style.display = 'block';
+    exStartTimer(); exPoll();
+  }).catch(function(){ toast('ひらけなかったよ。もういちど ためしてね'); });
+});
+
+function logText(e){
+  var t = e.text;
+  if(t.indexOf('wanted:') === 0){
+    var p = t.slice(7).split(' ');
+    return phrase(p[0], colorById(p[1]).en, shapeById(p[2]).en, 1).replace(/^(an?) /, function(m){ return m.toUpperCase().slice(0, 1) + m.slice(1); }) + ', please.';
+  }
+  if(t.indexOf('offer:') === 0){
+    var q = t.slice(6).split(' ');
+    return 'How about ' + phrase(q[0], colorById(q[1]).en, shapeById(q[2]).en, 1) + '?';
+  }
+  if(t === 'cancel') return '（やめた）';
+  return t;
+}
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function exRender(){
+  var d = ex.data; if(!d) return;
+  document.getElementById('exMain').style.display = 'block';
+  var me = norm(ex.me);
+  // 自分の おみせ
+  var st = d.myShop ? d.myShop.stock : [];
+  document.getElementById('exStock').innerHTML = st.length ? st.map(function(it){ return stockChip(it); }).join('') : '<span class="wait">ざいりょうは ぜんぶ なくなったよ</span>';
+  // ともだちの おみせ
+  var sh = document.getElementById('exShops');
+  sh.innerHTML = d.shops.length ? d.shops.map(function(s){ return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
+  // もらった ざいりょう
+  var used = getUsed();
+  document.getElementById('exInv').innerHTML = d.inventory.length ? d.inventory.map(function(it){
+    return stockChip(it, 'pick' + (used[it.id] ? ' used' : ''), 'data-inv="' + it.id + '"');
+  }).join('') : '<span class="wait">まだ もらっていないよ</span>';
+  // やりとり
+  var html = '';
+  d.deals.slice().reverse().forEach(function(dl){ html += dealHtml(dl, me); });
+  document.getElementById('exDeals').innerHTML = html || '<div class="empty-note">ともだちの おみせに いくか、おきゃくさんが くるのを まとう！</div>';
+}
+function dealHtml(dl, me){
+  var isShop = norm(dl.shop) === me;
+  var other = isShop ? dl.customer : dl.shop;
+  var h = '<div class="deal" data-deal="' + dl.id + '"><div class="deal-head"><span>' + (isShop ? '🛍 おみせの ひと（わたし）' : '🙋 おきゃくさん（わたし）') + ' ・ あいて: <b>' + escapeHtml(other) + '</b></span>' +
+    (dl.state !== 'done' ? '<a href="#" data-act="cancel" data-id="' + dl.id + '" style="color:#888780">やめる</a>' : '') + '</div>';
+  dl.log.forEach(function(e){
+    var mine = (e.who === 'shop') === isShop;
+    h += '<div class="bubble ' + (mine ? 'me' : 'you') + '">' + escapeHtml(cap(logText(e))) + '</div>';
+  });
+  var B = function(act, text, cls, extra){ return '<button class="say-btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + dl.id + '" data-say="' + escapeHtml(text) + '" ' + (extra || '') + '>' + escapeHtml(text) + '</button>'; };
+  var st = dl.state;
+  if(isShop){
+    if(st === 'start') h += '<div class="wait">① おきゃくさんに きいてみよう（こえに だして いってから おす）</div>' + B('ask', 'What do you want?');
+    else if(st === 'asked') h += '<div class="wait">おきゃくさんの こたえを まっているよ…</div>';
+    else if(st === 'wanted'){
+      var stock = (ex.data.myShop && ex.data.myShop.stock) || [];
+      var sel = ex.sel[dl.id], selItem = stock.filter(function(x){ return x.id === sel; })[0];
+      h += '<div class="wait">② ほしいもの: <b>' + escapeHtml(cap(itemPhrase(dl.want))) + ', please.</b> ─ ざいりょうから えらぼう</div><div class="stock" style="margin:6px 0">' +
+        stock.map(function(it){ return stockChip(it, 'pick' + (it.id === sel ? ' sel' : ''), 'data-pick="' + it.id + '" data-deal="' + dl.id + '"'); }).join('') + '</div>';
+      if(!selItem) h += B('x', 'ざいりょうを えらんでね', '', 'disabled');
+      else if(selItem.shape === dl.want.shape && selItem.size === dl.want.size && selItem.color === dl.want.color) h += B('give', 'Here you are.', '', 'data-item="' + selItem.id + '"');
+      else h += B('offer', 'How about ' + itemPhrase(selItem) + '?', 'alt', 'data-item="' + selItem.id + '"');
+    }
+    else if(st === 'offered') h += '<div class="wait">おきゃくさんの へんじを まっているよ…</div>';
+    else if(st === 'accepted') h += B('give', 'Here you are.', '', '');
+    else if(st === 'given') h += '<div class="wait">おきゃくさんの「Thank you.」を まっているよ…</div>';
+    else if(st === 'thanked') h += B('welcome', "You're welcome.");
+    else if(st === 'done') h += '<div class="wait">✔ できたね！</div>';
+  } else {
+    if(st === 'start') h += '<div class="wait">おみせの ひとが きいてくれるのを まっているよ…</div>';
+    else if(st === 'asked' || (st === 'offered' && ex.reask[dl.id])){
+      var b = ex.builder[dl.id] || (ex.builder[dl.id] = { size: 'big', color: 'red', shape: 'star' });
+      h += '<div class="wait">ほしい ものを えらんで、いってみよう</div><div class="builder">' +
+        ['big', 'small'].map(function(z){ return '<span class="opt' + (b.size === z ? ' on' : '') + '" data-bset="size" data-v="' + z + '" data-deal="' + dl.id + '">' + z + '</span>'; }).join('') +
+        '<div class="color-grid">' + CARD_STD_COLORS().map(function(co){ return '<div class="color-chip' + (b.color === co.id ? ' on' : '') + '" data-bset="color" data-v="' + co.id + '" data-deal="' + dl.id + '" title="' + co.en + '" style="background:' + co.hex + ';--ink:' + co.ink + '"></div>'; }).join('') + '</div>' +
+        '<div class="shape-opts">' + ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'].map(function(sid){ var s = shapeById(sid); return '<div class="so' + (b.shape === sid ? ' on' : '') + '" data-bset="shape" data-v="' + sid + '" data-deal="' + dl.id + '">' + miniShapeSvg(s.pts, colorById(b.color).hex) + s.en + '</div>'; }).join('') + '</div></div>' +
+        B('want', cap(phrase(b.size, colorById(b.color).en, shapeById(b.shape).en, 1)) + ', please.');
+    }
+    else if(st === 'wanted') h += '<div class="wait">おみせの ひとの へんじを まっているよ…</div>';
+    else if(st === 'offered') h += '<div class="wait">ほかのも ほしい？</div>' + B('accept', 'OK.') + B('reask', 'ほかのが ほしい', 'gray');
+    else if(st === 'accepted') h += '<div class="wait">おみせの ひとが わたしてくれるよ…</div>';
+    else if(st === 'given') h += '<div class="wait">③ うけとったよ！ ─ ' + escapeHtml(itemPhrase(dl.item)) + '</div>' + B('thanks', 'Thank you.');
+    else if(st === 'thanked') h += '<div class="wait">…</div>';
+    else if(st === 'done'){
+      h += dl.item ? '<div class="wait">✔ ' + escapeHtml(itemPhrase(dl.item)) + ' を もらったよ。「もらった ざいりょう」から カードに いれよう</div>' : '';
+      h += '<button class="say-btn gray" data-again="' + escapeHtml(dl.shop) + '">もう1こ ほしい</button>';
+    }
+  }
+  return h + '</div>';
+}
+function CARD_STD_COLORS(){ return COLORS.filter(function(c){ return !c.extra; }); }
+
+document.getElementById('exOv').addEventListener('click', function(ev){
+  var t = ev.target;
+  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.inv || t.dataset.again))) t = t.parentNode;
+  if(!t || t === this) return;
+  var ds = t.dataset;
+  if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
+  if(ds.shop || ds.again){
+    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.shop || ds.again }).then(exPoll).catch(function(){ toast('おみせに いけなかったよ'); });
+    return;
+  }
+  if(ds.pick){ ex.sel[ds.deal] = ds.pick; ex.sig = ''; exPoll(); return; }
+  if(ds.bset){ var b = ex.builder[ds.deal] || (ex.builder[ds.deal] = { size: 'big', color: 'red', shape: 'star' }); b[ds.bset] = ds.v; ex.sig = ''; exRender(); return; }
+  if(ds.inv){
+    var it = ex.data.inventory.filter(function(x){ return x.id === ds.inv; })[0];
+    if(!it) return;
+    if(getUsed()[it.id]){ toast('もう カードに いれたよ'); return; }
+    setUsed(it.id);
+    pushHistory();
+    var n = state.items.length;
+    var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'big' ? BIG_S : SMALL_S, asp: 1, r: 0, color: it.color };
+    state.items.push(shape); selId = shape.id; render();
+    toast(itemPhrase(it) + ' を カードに いれたよ'); exRender();
+    return;
+  }
+  if(ds.act){
+    var body = { room: ex.room, me: ex.me, id: ds.id, act: ds.act };
+    if(ds.act === 'reask'){ ex.reask[ds.id] = true; ex.sig = ''; exRender(); return; }
+    if(ds.act === 'want'){ body.want = ex.builder[ds.id]; delete ex.reask[ds.id]; }
+    if(ds.item) body.itemId = ds.item;
+    if(ds.say) speak(ds.say);
+    exApi('/api/card/deal/act', body).then(exPoll).catch(function(){ toast('うまく いかなかったよ'); exPoll(); });
+  }
+});
 
 /* ---------- 起動 ---------- */
 state = load() || newState();

@@ -301,6 +301,93 @@ function publicAlphabetList(room){
  *             queue: [{sid, gid}] | null（いいね上位のクイズ）, qi: 出題中の番号 }
  *   生徒 -> { groups: [{ gid, name, letters:[A-Z], at, likes:[いいねした生徒id] }]（みせているグループ） }
  * ============================================================ */
+
+/* ---- グリーティングカード: おみせ（ざいりょうの やりとり） ----
+ * 生徒は自分の「おみせ」(ざいりょう14こ)を持ち、友だちの おみせに行って
+ * What do you want? / ～, please. / How about ～? / Here you are. / Thank you. / You're welcome.
+ * のやりとりで ざいりょう(かたち・いろ・おおきさ)を もらう。
+ */
+const CARD_EX_FILE = path.join(__dirname, 'card_exchange.json');
+let cardEx = { shops: {}, deals: {} };
+try{ cardEx = JSON.parse(fs.readFileSync(CARD_EX_FILE, 'utf8')); }catch(e){ cardEx = { shops: {}, deals: {} }; }
+if(!cardEx.shops) cardEx.shops = {};
+if(!cardEx.deals) cardEx.deals = {};
+function saveCardEx(){
+  try{ fs.writeFileSync(CARD_EX_FILE, JSON.stringify(cardEx)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
+const CARD_SHAPES = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'];
+const CARD_SIZES = ['big', 'small'];
+const CARD_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'brown', 'white', 'black'];
+function cardRand(n){ return crypto.randomBytes(2).readUInt16BE(0) % n; }
+function makeCardStock(){
+  const list = [];
+  for(let i = 0; i < 14; i++){
+    list.push({
+      id: crypto.randomBytes(3).toString('hex'),
+      shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)],
+      size: CARD_SIZES[cardRand(CARD_SIZES.length)],
+      color: CARD_COLORS[cardRand(CARD_COLORS.length)]
+    });
+  }
+  return list;
+}
+function cardKey(label){ return String(label || '').trim().slice(0, 12).toLowerCase(); }
+function cardValidWant(w){
+  return w && CARD_SHAPES.indexOf(w.shape) >= 0 && CARD_SIZES.indexOf(w.size) >= 0 && CARD_COLORS.indexOf(w.color) >= 0;
+}
+function cardSame(a, b){ return a && b && a.shape === b.shape && a.size === b.size && a.color === b.color; }
+function cardDealsOf(room){
+  if(!cardEx.deals[room]) cardEx.deals[room] = [];
+  return cardEx.deals[room];
+}
+function cardAct(room, deal, me, act, body){
+  const isShop = deal.shopKey === me, isCust = deal.customerKey === me;
+  const shop = cardEx.shops[room] && cardEx.shops[room][deal.shopKey];
+  function say(who, text){ deal.log.push({ who: who, text: text, at: Date.now() }); }
+  function nameOf(it){ return it.size + ' ' + it.color + ' ' + it.shape; }
+  deal.updatedAt = Date.now();
+  if(act === 'ask' && isShop && deal.state === 'start'){
+    deal.state = 'asked'; say('shop', 'What do you want?'); return true;
+  }
+  if(act === 'want' && isCust && (deal.state === 'asked' || deal.state === 'offered')){
+    if(!cardValidWant(body.want)) return false;
+    deal.want = { shape: body.want.shape, size: body.want.size, color: body.want.color };
+    deal.offer = null; deal.state = 'wanted';
+    say('customer', 'wanted:' + nameOf(deal.want)); return true;
+  }
+  if(act === 'offer' && isShop && deal.state === 'wanted'){
+    const it = shop && shop.stock.filter(function(x){ return x.id === body.itemId; })[0];
+    if(!it || cardSame(it, deal.want)) return false;
+    deal.offer = it; deal.state = 'offered';
+    say('shop', 'offer:' + nameOf(it)); return true;
+  }
+  if(act === 'accept' && isCust && deal.state === 'offered'){
+    deal.state = 'accepted'; say('customer', 'OK.'); return true;
+  }
+  if(act === 'give' && isShop && (deal.state === 'wanted' || deal.state === 'accepted')){
+    let it = null;
+    if(deal.state === 'accepted') it = shop && shop.stock.filter(function(x){ return deal.offer && x.id === deal.offer.id; })[0];
+    else it = shop && shop.stock.filter(function(x){ return x.id === body.itemId; })[0];
+    if(!it) return false;
+    if(deal.state === 'wanted' && !cardSame(it, deal.want)) return false;
+    shop.stock = shop.stock.filter(function(x){ return x.id !== it.id; });
+    deal.item = it; deal.state = 'given';
+    say('shop', 'Here you are.'); return true;
+  }
+  if(act === 'thanks' && isCust && deal.state === 'given'){
+    deal.state = 'thanked'; say('customer', 'Thank you.'); return true;
+  }
+  if(act === 'welcome' && isShop && deal.state === 'thanked'){
+    deal.state = 'done'; say('shop', "You're welcome."); return true;
+  }
+  if(act === 'cancel' && (isShop || isCust) && deal.state !== 'done'){
+    deal.state = 'done'; say(isShop ? 'shop' : 'customer', 'cancel'); return true;
+  }
+  return false;
+}
+function cardPublicDeal(d){
+  return { id: d.id, shop: d.shop, customer: d.customer, state: d.state, want: d.want || null, offer: d.offer || null, item: d.item || null, log: d.log, updatedAt: d.updatedAt };
+}
 const CARD_SHARES_FILE = path.join(__dirname, 'card_shares.json');
 let cardShares = {};
 try{ cardShares = JSON.parse(fs.readFileSync(CARD_SHARES_FILE, 'utf8')); }catch(e){ cardShares = {}; }
@@ -2256,6 +2343,68 @@ const server = http.createServer(function(req, res){
       }
       saveCardShares();
       sendJson(res, 200, { ok: true, room: room });
+    });
+    return;
+  }
+  // おみせを ひらく（まだなら ざいりょうを 14こ くばる）
+  if(req.method === 'POST' && url === '/api/card/shop/open'){
+    readJsonBody(req, function(body){
+      const label = body && typeof body.label === 'string' ? body.label.trim().slice(0, 12) : '';
+      if(!label){ sendJson(res, 400, { error: 'invalid' }); return; }
+      const room = normalizeRoom(body.room), key = cardKey(label);
+      if(!cardEx.shops[room]) cardEx.shops[room] = {};
+      if(!cardEx.shops[room][key]){
+        if(Object.keys(cardEx.shops[room]).length >= 80){ sendJson(res, 400, { error: 'room full' }); return; }
+        cardEx.shops[room][key] = { label: label, stock: makeCardStock(), openedAt: Date.now() };
+        saveCardEx();
+      }
+      sendJson(res, 200, { ok: true });
+    });
+    return;
+  }
+  // 自分の おみせ・やりとり・もらった ざいりょう・ともだちの おみせ一覧
+  if(req.method === 'GET' && url === '/api/card/ex'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const me = cardKey(getQueryParam(queryString, 'me'));
+    const shops = cardEx.shops[room] || {};
+    const mine = shops[me] || null;
+    const deals = cardDealsOf(room).filter(function(d){ return d.shopKey === me || d.customerKey === me; });
+    const inventory = [];
+    deals.forEach(function(d){ if(d.customerKey === me && d.item) inventory.push(d.item); });
+    sendJson(res, 200, {
+      myShop: mine ? { label: mine.label, stock: mine.stock } : null,
+      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return { label: shops[k].label, count: shops[k].stock.length }; }),
+      deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 120000; }).slice(-12).map(cardPublicDeal),
+      inventory: inventory
+    });
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/card/deal/start'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const me = cardKey(body && body.me), shopKey = cardKey(body && body.shop);
+      const shops = cardEx.shops[room] || {};
+      if(!me || !shops[me] || !shops[shopKey] || me === shopKey){ sendJson(res, 400, { error: 'invalid' }); return; }
+      const list = cardDealsOf(room);
+      let d = list.filter(function(x){ return x.customerKey === me && x.shopKey === shopKey && x.state !== 'done'; })[0];
+      if(!d){
+        d = { id: crypto.randomBytes(4).toString('hex'), customerKey: me, shopKey: shopKey, customer: shops[me].label, shop: shops[shopKey].label,
+          state: 'start', want: null, offer: null, item: null, log: [], updatedAt: Date.now() };
+        list.push(d);
+        if(list.length > 400) list.splice(0, list.length - 400);
+        saveCardEx();
+      }
+      sendJson(res, 200, { ok: true, id: d.id });
+    });
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/card/deal/act'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room), me = cardKey(body && body.me);
+      const d = cardDealsOf(room).filter(function(x){ return x.id === (body && body.id); })[0];
+      if(!d || !cardAct(room, d, me, body.act, body)){ sendJson(res, 400, { error: 'not allowed' }); return; }
+      saveCardEx();
+      sendJson(res, 200, { ok: true });
     });
     return;
   }

@@ -180,8 +180,6 @@
     <div class="panel">
       <h2>① かたちを えらぶ（タップで ふえる）</h2>
       <div class="shape-grid" id="shapeGrid"></div>
-      <details style="margin-top:8px"><summary style="font-size:12px;color:#888780;cursor:pointer">おまけの かたち</summary>
-        <div class="shape-grid" id="shapeExtra" style="margin-top:6px"></div></details>
       <div class="btn-row"><button class="sbtn" id="addText">🔤 もじを いれる</button></div>
     </div>
     <div class="panel">
@@ -703,7 +701,7 @@ function renderTally(){
   });
   if(pieces.n){
     html += '<tr><td class="shape-cell"><div style="font-size:24px;text-align:center">✂️</div></td>' +
-      '<td class="name"><b>きった かけら</b> <span class="en">cut pieces</span><div class="dots">' + dotsHtml(pieces.variants) + '</div></td>' +
+      '<td class="name"><b>きった かけら</b><div class="dots">' + dotsHtml(pieces.variants) + '</div></td>' +
       '<td class="num">' + pieces.n + '<small> こ</small></td></tr>';
   }
   if(texts){
@@ -915,7 +913,6 @@ stage.addEventListener('pointercancel', endDrag);
 /* ---------- ボタン ---------- */
 function buildShapeButtons(){
   var grid = document.getElementById('shapeGrid');
-  var extra = document.getElementById('shapeExtra');
   var order = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'];
   function mk(s, parent){
     var b = document.createElement('button');
@@ -925,7 +922,6 @@ function buildShapeButtons(){
     parent.appendChild(b);
   }
   order.forEach(function(id){ mk(shapeById(id), grid); });
-  SHAPES.forEach(function(s){ if(!s.std) mk(s, extra); });
 }
 function buildBgColors(){
   var grid = document.getElementById('bgColors');
@@ -1040,15 +1036,15 @@ function showCard(st, title){
     var r = cnt.byShape[sh.id]; if(!r) return;
     rows.push({ ico: miniShapeSvg(sh.pts, colorById(Object.keys(r.colors)[0]).hex), ja: sh.ja, en: sh.en, n: r.n, variants: r.variants });
   });
-  if(cnt.pieces.n) rows.push({ ico: '<div style="font-size:38px;text-align:center">✂️</div>', ja: 'きった かけら', en: 'piece', n: cnt.pieces.n, variants: cnt.pieces.variants });
+  if(cnt.pieces.n) rows.push({ ico: '<div style="font-size:38px;text-align:center">✂️</div>', ja: 'きった かけら', en: '', noEn: true, n: cnt.pieces.n, variants: cnt.pieces.variants });
   if(!rows.length){ html = '<div class="empty-note">かたちが まだ ないよ</div>'; }
   rows.forEach(function(r, i){
     var keys = Object.keys(r.variants);
-    r.sentence = keys.map(function(k){ var v = r.variants[k]; return phrase(v.size, colorById(v.color).en, r.en, v.n); }).join(' and ');
+    r.sentence = r.noEn ? '' : keys.map(function(k){ var v = r.variants[k]; return phrase(v.size, colorById(v.color).en, r.en, v.n); }).join(' and ');
     html += '<div class="show-row"><div class="ico">' + r.ico + '</div><div class="mid"><div class="nm">' + r.en + '<small>' + r.ja + '</small></div>' +
       '<div class="dots">' + keys.map(function(k){ var v = r.variants[k], c = colorById(v.color);
         return '<span class="dot"><i style="background:' + c.hex + '"></i>' + (v.size ? v.size + ' ' : '') + c.en + ' ' + v.n + '</span>'; }).join('') + '</div></div>' +
-      '<div class="cnt">' + r.n + '<small> こ</small></div><button class="spk" data-i="' + i + '" title="' + escapeHtml(r.sentence) + '">🔊</button></div>';
+      '<div class="cnt">' + r.n + '<small> こ</small></div>' + (r.noEn ? '' : '<button class="spk" data-i="' + i + '" title="' + escapeHtml(r.sentence) + '">🔊</button>') + '</div>';
   });
   if(cnt.total){
     html += '<div class="show-sum">How many? ─ ' + numWord(cnt.total) + '!<br><span style="font-size:13px;font-weight:400">ぜんぶで ' + cnt.total + ' こ</span> <button class="spk" id="spkAll" style="vertical-align:middle">🔊</button></div>';

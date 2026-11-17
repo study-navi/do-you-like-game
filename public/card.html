@@ -380,7 +380,7 @@ function addCard(){
   if(cards.length >= MAX_CARDS){ toast('カードは ' + MAX_CARDS + 'まいまで だよ'); return; }
   syncCur(); cards.push(newState());
   switchCard(cards.length - 1);
-  toast((cards.length) + 'まいめの カードだよ。「やりとり」で ざいりょうを あつめよう');
+  toast((cards.length) + 'まいめの カードだよ。もらった ざいりょうは この カードでも つかえるよ');
 }
 function removeCard(i){
   if(cards.length <= 1) return;
@@ -1122,7 +1122,8 @@ function stockChip(it, cls, extra){
 }
 function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
 function isLocked(it){ return !!(it && it.inv && isMat()); }
-function usedIds(){ var u = {}; syncCur(); cards.forEach(function(c){ (c.items || []).forEach(function(x){ if(x.inv) u[x.inv] = 1; }); }); return u; }
+/* もらった ざいりょうは カードごとに 1かい ずつ つかえる（2まいめ いこうでも また つかえる） */
+function usedIds(){ var u = {}; state.items.forEach(function(x){ if(x.inv) u[x.inv] = 1; }); return u; }
 function applyPaletteLock(){
   var g = document.getElementById('shapeGrid'); if(g) g.classList.toggle('locked', isMat());
   var n = document.getElementById('matNote'); if(n) n.style.display = isMat() ? 'block' : 'none';

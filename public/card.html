@@ -60,6 +60,12 @@
   .tbtn.main { background: #185FA5; color: #fff; }
   .tbtn.cut-on { background: #E24B4A; color: #fff; }
   .tbtn:disabled { opacity: .4; cursor: default; }
+  .card-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 8px; }
+  .ctab { border: 2px solid #D3D1C7; background: #fff; border-radius: 999px; padding: 7px 16px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; color: #2C2C2A; }
+  .ctab.on { background: #185FA5; border-color: #185FA5; color: #fff; }
+  .ctab.add { border-style: dashed; color: #185FA5; }
+  .ctab.del { border-color: #F0B8B8; color: #A32D2D; font-size: 12px; }
+  @media print { .card-tabs { display: none !important; } }
   .card-area { display: flex; justify-content: center; background: #E8E6DC; border-radius: 12px; padding: 12px; }
   #stage { width: 100%; max-width: 640px; height: auto; touch-action: none; display: block; background: transparent; }
   .fab-wrap { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
@@ -254,6 +260,7 @@
         <button class="tbtn" id="printBtn">🖨 いんさつ</button>
         <button class="tbtn danger" id="clearBtn">🗑 ぜんぶ けす</button>
       </div>
+      <div class="card-tabs" id="cardTabs"></div>
       <div class="card-area" style="flex-direction:column;align-items:center">
         <div class="fab-wrap"><button class="fab" id="undoFab">↩︎ もどす<small>（やりなおす）</small></button><button class="fab alt" id="redoFab">↪︎ すすむ</button></div>
         <svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"></svg>
@@ -353,11 +360,62 @@ var hintEl = document.getElementById('hint');
 function newState(){ return { w: 640, h: 480, bg: 'white', items: [] }; }
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 
-function save(){ try{ localStorage.setItem('greetingCardV1', JSON.stringify(state)); }catch(e){} scheduleCloudSave(); }
+/* ---- カードを なんまいも つくる（はやい こ むけ） ---- */
+var MAX_CARDS = 6;
+var cards = [];        // ぜんぶの カード（state の はいれつ）
+var curIdx = 0;
+var deckHist = {};     // カードごとの もどす・すすむ
+function syncCur(){ if(state) cards[curIdx] = state; }
+function totalItems(){ syncCur(); return cards.reduce(function(n, c){ return n + (c && c.items ? c.items.length : 0); }, 0); }
+function save(){ syncCur(); try{ localStorage.setItem('greetingCardV2', JSON.stringify({ cur: curIdx, list: cards })); }catch(e){} scheduleCloudSave(); }
+function switchCard(i){
+  syncCur();
+  deckHist[curIdx] = { h: history, r: redoStack };
+  curIdx = i; state = cards[i]; selId = null; cutMode = false;
+  var dh = deckHist[i] || { h: [], r: [] };
+  history = dh.h; redoStack = dh.r;
+  render(); updateUndo(); renderTabs(); save();
+}
+function addCard(){
+  if(cards.length >= MAX_CARDS){ toast('カードは ' + MAX_CARDS + 'まいまで だよ'); return; }
+  syncCur(); cards.push(newState());
+  switchCard(cards.length - 1);
+  toast((cards.length) + 'まいめの カードだよ。「やりとり」で ざいりょうを あつめよう');
+}
+function removeCard(i){
+  if(cards.length <= 1) return;
+  if(!window.confirm((i + 1) + 'まいめの カードを けす？（つかった ざいりょうは もどるよ）')) return;
+  syncCur(); cards.splice(i, 1);
+  deckHist = {};
+  curIdx = Math.min(i, cards.length - 1); state = cards[curIdx]; selId = null; history = []; redoStack = [];
+  render(); updateUndo(); renderTabs(); save();
+}
+function setDeck(list, cur){
+  cards = list; curIdx = cur || 0; state = cards[curIdx]; deckHist = {}; history = []; redoStack = []; selId = null;
+}
+function renderTabs(){
+  var box = document.getElementById('cardTabs'); if(!box) return;
+  var h = '';
+  cards.forEach(function(c, i){
+    h += '<button class="ctab' + (i === curIdx ? ' on' : '') + '" data-tab="' + i + '">カード ' + (i + 1) + '</button>';
+  });
+  if(cards.length < MAX_CARDS) h += '<button class="ctab add" data-add="1">＋ あたらしい カード</button>';
+  if(cards.length > 1) h += '<button class="ctab del" data-del="' + curIdx + '">🗑 この カードを けす</button>';
+  box.innerHTML = h;
+}
+document.getElementById('cardTabs').addEventListener('click', function(ev){
+  var t = ev.target; while(t && t !== this && !(t.dataset && (t.dataset.tab || t.dataset.add || t.dataset.del))) t = t.parentNode;
+  if(!t || t === this) return;
+  if(t.dataset.add) addCard();
+  else if(t.dataset.del != null && t.dataset.del !== '') removeCard(parseInt(t.dataset.del, 10));
+  else if(t.dataset.tab != null){ var i = parseInt(t.dataset.tab, 10); if(i !== curIdx) switchCard(i); }
+});
 function load(){
   try{
+    var raw2 = localStorage.getItem('greetingCardV2');
+    if(raw2){ var d = JSON.parse(raw2); if(d && d.list && d.list.length){ return { list: d.list.filter(function(x){ return x && x.items && x.w; }), cur: d.cur || 0 }; } }
     var raw = localStorage.getItem('greetingCardV1');
-    if(raw){ var s = JSON.parse(raw); if(s && s.items && s.w){ return s; } }
+    if(raw){ var s = JSON.parse(raw); if(s && s.items && s.w){ return { list: [s], cur: 0 }; } }
   }catch(e){}
   return null;
 }
@@ -1064,7 +1122,7 @@ function stockChip(it, cls, extra){
 }
 function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
 function isLocked(it){ return !!(it && it.inv && isMat()); }
-function usedIds(){ var u = {}; state.items.forEach(function(x){ if(x.inv) u[x.inv] = 1; }); return u; }
+function usedIds(){ var u = {}; syncCur(); cards.forEach(function(c){ (c.items || []).forEach(function(x){ if(x.inv) u[x.inv] = 1; }); }); return u; }
 function applyPaletteLock(){
   var g = document.getElementById('shapeGrid'); if(g) g.classList.toggle('locked', isMat());
   var n = document.getElementById('matNote'); if(n) n.style.display = isMat() ? 'block' : 'none';
@@ -1250,10 +1308,10 @@ function scheduleCloudSave(){
   if(!cloud.dirty){ cloud.dirty = true; idStat('✏️ まだ ほぞんして いないよ（「ほぞん」を おすと すぐ ほぞん。5ふんごとに じどうでも ほぞん）', false); }
 }
 var DEV = (function(){ try{ var d = localStorage.getItem('card_dev'); if(!d){ d = Math.random().toString(36).slice(2, 12); localStorage.setItem('card_dev', d); } return d; }catch(e){ return 'nodev'; } })();
-function cloudBody(){ return { room: ex.room, me: ex.me, state: state, inventory: localInv(), dev: DEV }; }
+function cloudBody(){ syncCur(); return { room: ex.room, me: ex.me, state: cards[0], more: cards.slice(1), inventory: localInv(), dev: DEV }; }
 function cloudSave(manual){
   if(!idReady()){ if(manual === true) idStat('さきに コードと なまえを いれて「きめる」を おしてね', false); return; }
-  if(!state.items.length && ex.restoreData){
+  if(!totalItems() && ex.restoreData){
     if(manual === true) idStat('カードが からっぽだよ。まえの ほぞんが あるので「☁️ ほぞんを よみこむ」を おしてね', false);
     return;
   }
@@ -1272,7 +1330,7 @@ setInterval(function(){ if(idReady() && cloud.dirty) cloudSave(); }, AUTO_SAVE_M
 document.getElementById('idSave').addEventListener('click', function(){ cloudSave(true); });
 /* ページを とじる ときも、ほぞんして いなければ さいごに おくる */
 window.addEventListener('pagehide', function(){
-  if(!idReady() || !cloud.dirty || (!state.items.length && ex.restoreData)) return;
+  if(!idReady() || !cloud.dirty || (!totalItems() && ex.restoreData)) return;
   try{ navigator.sendBeacon('/api/card/save', new Blob([JSON.stringify(cloudBody())], { type: 'application/json' })); }catch(e){}
 });
 function checkRestore(auto){
@@ -1281,7 +1339,7 @@ function checkRestore(auto){
     var rb = document.getElementById('idRestore');
     if(!d.save){ rb.style.display = 'none'; return; }
     ex.restoreData = d.save;
-    if(auto && !state.items.length){ doRestore(); return; }
+    if(auto && !totalItems()){ doRestore(); return; }
     var t = new Date(d.save.at);
     rb.style.display = 'inline-block';
     idStat('☁️ サーバーに ほぞんが あるよ（' + (t.getMonth() + 1) + '/' + t.getDate() + ' ' + ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + '）', false);
@@ -1290,7 +1348,7 @@ function checkRestore(auto){
 function doRestore(){
   var sv = ex.restoreData; if(!sv) return;
   pushHistory();
-  state = sv.state; selId = null;
+  setDeck([sv.state].concat(sv.more || []), 0); renderTabs();
   var have = localInv(), seen = {};
   have.forEach(function(it){ seen[it.id] = 1; });
   (sv.inventory || []).forEach(function(it){ if(!seen[it.id]){ have.push(it); seen[it.id] = 1; } });
@@ -1353,7 +1411,7 @@ function setIdentity(room, name, silent){
   /* ほかの ひとに かわる ときは、まえの ひとの カードを ほぞんしてから、あたらしい カードに する */
   if(changed && idReady()){
     cloudSave();
-    state = newState(); selId = null; save();
+    setDeck([newState()], 0); renderTabs(); save();
     cloud.lastSig = ''; cloud.dirty = false; ex.restoreData = null; ex.data = null;
     document.getElementById('idRestore').style.display = 'none';
     render(); updateUndo();
@@ -1400,7 +1458,9 @@ document.getElementById('idRestore').addEventListener('click', doRestore);
 })();
 
 /* ---------- 起動 ---------- */
-state = load() || newState();
+var __ld = load();
+if(__ld && __ld.list.length) setDeck(__ld.list, Math.min(__ld.cur, __ld.list.length - 1)); else setDeck([newState()], 0);
+renderTabs();
 buildShapeButtons();
 buildBgColors();
 render();

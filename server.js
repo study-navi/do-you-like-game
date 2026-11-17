@@ -2349,6 +2349,7 @@ const server = http.createServer(function(req, res){
         sendJson(res, 400, { error: 'invalid card' }); return;
       }
       if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
+      const more = Array.isArray(body.more) ? body.more.slice(0, 5).filter(function(m){ return m && Array.isArray(m.items) && m.items.length <= 200 && typeof m.w === 'number' && JSON.stringify(m).length <= 300 * 1024; }) : [];
       const room = normalizeRoom(body.room);
       if(!cardShares[room]) cardShares[room] = {};
       const key = label.toLowerCase();
@@ -2448,6 +2449,7 @@ const server = http.createServer(function(req, res){
       if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
       const room = normalizeRoom(body.room);
       const dev = typeof body.dev === 'string' ? body.dev.slice(0, 24) : '';
+      const more = Array.isArray(body.more) ? body.more.slice(0, 5).filter(function(m){ return m && Array.isArray(m.items) && m.items.length <= 200 && typeof m.w === 'number' && JSON.stringify(m).length <= 300 * 1024; }) : [];
       if(!cardEx.saves[room]) cardEx.saves[room] = {};
       const key = cardKey(label), prev = cardEx.saves[room][key] || null;
       if(!prev && Object.keys(cardEx.saves[room]).length >= 120){ sendJson(res, 400, { error: 'room full' }); return; }
@@ -2458,10 +2460,10 @@ const server = http.createServer(function(req, res){
       if(switched) switchedAt = now;
       /* ばんごうの おしまちがい・べつの たんまつの うわがき に そなえて、まえの ほぞんを 3つまで とっておく */
       if(prev && prev.state && prev.state.items && prev.state.items.length && (switched || now - prev.at > 120000)){
-        hist.push({ label: prev.label, state: prev.state, inventory: prev.inventory, at: prev.at, dev: prev.dev || '' });
+        hist.push({ label: prev.label, state: prev.state, more: prev.more || [], inventory: prev.inventory, at: prev.at, dev: prev.dev || '' });
         if(hist.length > 3) hist = hist.slice(hist.length - 3);
       }
-      cardEx.saves[room][key] = { label: label, state: st, inventory: inv, at: now, dev: dev, devSwitchedAt: switchedAt, hist: hist };
+      cardEx.saves[room][key] = { label: label, state: st, more: more, inventory: inv, at: now, dev: dev, devSwitchedAt: switchedAt, hist: hist };
       saveCardEx();
       sendJson(res, 200, { ok: true, at: now });
     });
@@ -2479,9 +2481,9 @@ const server = http.createServer(function(req, res){
       const sv = (cardEx.saves[room] || {})[key];
       const h = sv && sv.hist && sv.hist[parseInt(body.idx, 10)];
       if(!sv || !h){ sendJson(res, 400, { error: 'not found' }); return; }
-      sv.hist.push({ label: sv.label, state: sv.state, inventory: sv.inventory, at: sv.at, dev: sv.dev || '' });
+      sv.hist.push({ label: sv.label, state: sv.state, more: sv.more || [], inventory: sv.inventory, at: sv.at, dev: sv.dev || '' });
       if(sv.hist.length > 3) sv.hist = sv.hist.slice(sv.hist.length - 3);
-      sv.state = h.state; sv.inventory = h.inventory; sv.at = Date.now(); sv.dev = h.dev || ''; sv.devSwitchedAt = null;
+      sv.state = h.state; sv.more = h.more || []; sv.inventory = h.inventory; sv.at = Date.now(); sv.dev = h.dev || ''; sv.devSwitchedAt = null;
       saveCardEx();
       sendJson(res, 200, { ok: true });
     });
@@ -2490,7 +2492,7 @@ const server = http.createServer(function(req, res){
   if(req.method === 'GET' && url === '/api/card/restore'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const sv = (cardEx.saves[room] || {})[cardKey(getQueryParam(queryString, 'me'))] || null;
-    sendJson(res, 200, { save: sv ? { label: sv.label, state: sv.state, inventory: sv.inventory, at: sv.at, dev: sv.dev || '' } : null });
+    sendJson(res, 200, { save: sv ? { label: sv.label, state: sv.state, more: sv.more || [], inventory: sv.inventory, at: sv.at, dev: sv.dev || '' } : null });
     return;
   }
   // 先生用: 教室の 生徒ぜんいんの ほぞんデータ
@@ -2509,6 +2511,7 @@ const server = http.createServer(function(req, res){
       return {
         label: (sv && sv.label) || (sh && sh.label) || (sr && sr.label) || k,
         state: sv ? sv.state : (sr ? sr.state : null),
+        more: sv ? sv.more || [] : [],
         savedAt: sv ? sv.at : null,
         devSwitchedAt: sv ? sv.devSwitchedAt || null : null,
         histCount: sv && sv.hist ? sv.hist.length : 0,

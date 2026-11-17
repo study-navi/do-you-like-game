@@ -109,7 +109,7 @@ function render(){
     d.innerHTML = (has ? '<svg class="card" xmlns="http://www.w3.org/2000/svg"></svg>' : '<div class="empty">カードは まだ</div>') +
       '<div class="nm"><span>' + escapeHtml(s.label) + '</span><small>' + hm(s.savedAt) + '</small></div>' +
       '<div class="line">' + (has ? '<b>' + cnt.total + '</b> こ ─ ' + escapeHtml(variantsText(cnt)) : 'かたち なし') + '</div>' +
-      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.length + '</span>' + (s.devSwitchedAt ? '<span class="tag o">⚠️ べつの たんまつ</span>' : '') + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span></div>';
+      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.length + '</span>' + (s.devSwitchedAt ? '<span class="tag o">⚠️ べつの たんまつ</span>' : '') + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span>' + ((s.more && s.more.length) ? '<span class="tag o">カード ' + (1 + s.more.length) + 'まい</span>' : '') + '</div>';
     if(has) drawCardInto(d.querySelector('svg'), s.state, { noShadow: true, noIds: true });
     d.addEventListener('click', function(){ openDetail(s); });
     g.appendChild(d);
@@ -131,13 +131,19 @@ function showHist(s){
     });
   });
 }
-function openDetail(s){
-  document.getElementById('ovTitle').textContent = s.label + ' の カード（ほぞん ' + hm(s.savedAt) + '）';
+function openDetail(s, idx){
+  idx = idx || 0;
+  var all = s.state ? [s.state].concat(s.more || []) : [];
+  var cur = all[idx] || s.state;
+  document.getElementById('ovTitle').textContent = s.label + ' の カード' + (all.length > 1 ? ' ' + (idx + 1) + '/' + all.length : '') + '（ほぞん ' + hm(s.savedAt) + '）';
   var svg = document.getElementById('ovSvg');
   var body = '';
-  if(s.state && s.state.items.length){
-    drawCardInto(svg, s.state, { noIds: true });
-    var cnt = countCard(s.state);
+  if(all.length > 1){
+    body += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' + all.map(function(c, i){ return '<button class="btn' + (i === idx ? '' : ' gray') + '" data-card="' + i + '">カード ' + (i + 1) + '（' + c.items.length + 'こ）</button>'; }).join('') + '</div>';
+  }
+  if(cur && cur.items.length){
+    drawCardInto(svg, cur, { noIds: true });
+    var cnt = countCard(cur);
     SHAPES.forEach(function(sh){
       var r = cnt.byShape[sh.id]; if(!r) return;
       body += '<div class="row"><div class="ico">' + miniShapeSvg(sh.pts, colorById(Object.keys(r.colors)[0]).hex) + '</div><div class="mid"><div class="t">' + sh.en + '<small>' + sh.ja + '</small></div><div>' +
@@ -155,6 +161,7 @@ function openDetail(s){
   body += '<h4>おみせ</h4><div class="line">のこりの ざいりょう: ' + (s.stockLeft == null ? '—' : s.stockLeft + ' こ') + ' ／ せいりつした やりとり: ' + s.dealsDone + ' ／ クラスに おくった: ' + (s.shared ? hm(s.sharedAt) : 'まだ') + '</div>';
   if(s.histCount){ body += '<div style="margin-top:10px"><button class="btn gray" id="histBtn">🕘 まえの ほぞんを みる（' + s.histCount + '）</button><div id="histBox"></div></div>'; }
   document.getElementById('ovBody').innerHTML = body;
+  Array.prototype.forEach.call(document.querySelectorAll('#ovBody [data-card]'), function(b){ b.addEventListener('click', function(){ openDetail(s, parseInt(b.dataset.card, 10)); }); });
   var hb = document.getElementById('histBtn');
   if(hb) hb.addEventListener('click', function(){ showHist(s); });
   document.getElementById('ov').className = 'overlay on';

@@ -43,13 +43,18 @@
   .inv .c { width: 70px; height: 70px; border: 2px solid #E2E0D6; border-radius: 10px; font-size: 10px; text-align: center; padding: 3px; line-height: 1.15; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
   h4 { margin: 14px 0 4px; font-size: 13px; color: #5F5E5A; }
   @media (max-width: 800px) { .show-grid { grid-template-columns: 1fr; } }
+  .pk { display: inline-flex; gap: 3px; } .pk button { border: 2px solid #D3D1C7; background: #fff; border-radius: 8px; width: 30px; padding: 5px 0; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .pk button.sel { background: #1D9E75; border-color: #1D9E75; color: #fff; } .pk-l { font-size: 13px; color: #5F5E5A; font-weight: 700; }
 </style>
 </head>
 <body>
 <h1>👩‍🏫 グリーティングカード 先生用</h1>
 <div class="sub">This is for you. ─ 生徒ぜんいんの ほぞんデータ（10びょうごとに こうしん）</div>
 <div class="bar">
-  <input id="room" maxlength="30" placeholder="きょうしつコード（れい: 3-1）">
+  <input id="school" maxlength="16" placeholder="学校コード（空でもOK）" style="width:150px">
+  <span class="pk" id="tGrade"></span><span class="pk-l">ねん</span>
+  <span class="pk" id="tClass"></span><span class="pk-l">くみ</span>
+  <input id="room" type="hidden">
   <button class="btn" id="go">ひらく</button>
   <button class="btn gray" id="reload">🔄 いま こうしん</button>
   <span class="sum" id="sum"></span>
@@ -153,17 +158,38 @@ function load(){
   if(!room) return;
   fetch('/api/card/teacher?room=' + encodeURIComponent(room)).then(function(r){ return r.json(); }).then(function(d){ students = d.students || []; showMode(d.mode); render(); }).catch(function(){});
 }
+/* ほかの ゲームと おなじ: ねん・くみを えらぶ（学校コードは ほかの学校と まざらないための もの） */
+var tg = 0, tc = 0;
+function sanSchool(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16); }
+function roomFromPick(){ return (tg && tc) ? ((sanSchool(document.getElementById('school').value) ? sanSchool(document.getElementById('school').value) + '-' : '') + tg + '-' + tc) : ''; }
+function renderPick(){
+  function build(id, max, get, set){
+    var box = document.getElementById(id);
+    if(!box.children.length){ for(var n = 1; n <= max; n++){ (function(num){ var b = document.createElement('button'); b.type = 'button'; b.textContent = num; b.onclick = function(){ set(num); renderPick(); }; box.appendChild(b); })(n); } }
+    Array.prototype.forEach.call(box.children, function(b){ b.className = parseInt(b.textContent, 10) === get() ? 'sel' : ''; });
+  }
+  build('tGrade', 6, function(){ return tg; }, function(n){ tg = n; });
+  build('tClass', 8, function(){ return tc; }, function(n){ tc = n; });
+}
 function start(){
-  room = document.getElementById('room').value.trim();
-  if(!room) return;
-  try{ localStorage.setItem('card_teacher_room', room); }catch(e){}
+  room = roomFromPick();
+  if(!room){ alert('ねんと くみを えらんでね'); return; }
+  document.getElementById('room').value = room;
+  try{ localStorage.setItem('card_teacher_room', room); localStorage.setItem('card_teacher_school', sanSchool(document.getElementById('school').value)); }catch(e){}
   load(); clearInterval(timer); timer = setInterval(load, 10000);
 }
 document.getElementById('go').addEventListener('click', start);
 document.getElementById('reload').addEventListener('click', load);
 document.getElementById('ovClose').addEventListener('click', function(){ document.getElementById('ov').className = 'overlay'; });
-document.getElementById('room').value = getRoom();
-if(getRoom()) start();
+(function(){
+  var r = getRoom(), m = String(r).match(/^(?:([a-z0-9]+)-)?([1-6])-([1-8])$/);
+  var school = ''; try{ school = localStorage.getItem('card_teacher_school') || ''; }catch(e){}
+  if(m){ school = m[1] || ''; tg = parseInt(m[2], 10); tc = parseInt(m[3], 10); }
+  document.getElementById('school').value = school;
+  document.getElementById('school').addEventListener('input', renderPick);
+  renderPick();
+  if(m) start();
+})();
 })();
 </script>
 </body>

@@ -16,6 +16,17 @@
   .sub { text-align: center; font-size: 12px; color: #888780; margin-bottom: 10px; }
   .idbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; max-width: 1280px; margin: 0 auto 10px; background: #fff; border-radius: 14px; padding: 8px 12px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
   .idbar input { font-size: 15px; padding: 7px 10px; border: 2px solid #D3D1C7; border-radius: 10px; width: 190px; user-select: text; -webkit-user-select: text; }
+  .idshow { font-size: 15px; display: flex; gap: 8px; align-items: center; }
+  .idpick { width: 100%; max-width: 560px; }
+  .gcl { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .gcl .nm { flex: 0 0 38px; font-size: 13px; font-weight: 700; color: #5F5E5A; }
+  .gcp { flex: 1; display: grid; gap: 5px; }
+  .gcp.g { grid-template-columns: repeat(6, 1fr); }
+  .gcp.c { grid-template-columns: repeat(8, 1fr); }
+  .gcp.n { grid-template-columns: repeat(10, 1fr); }
+  .gcp button { border: 2px solid #D3D1C7; background: #fff; border-radius: 8px; padding: 6px 0; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; color: #2C2C2A; }
+  .gcp.g button.sel, .gcp.c button.sel { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+  .gcp.n button.sel { background: #E8710A; border-color: #E8710A; color: #fff; }
   .idstat { font-size: 12px; color: #5F5E5A; }
   .idstat.ok { color: #3B6D11; font-weight: 700; }
   @media print { .idbar { display: none !important; } }
@@ -193,13 +204,19 @@
 <div class="sub">This is for you. ─ すきな かたちを くみあわせて、だいじな ひとへの カードを つくるよ</div>
 
 <div class="idbar" id="idBar">
-  <span>👤</span>
-  <input id="idRoom" maxlength="30" placeholder="きょうしつコード（れい: 3-1）">
-  <input id="idName" maxlength="12" placeholder="なまえ か ばんごう">
-  <button class="tbtn main" id="idSet" style="padding:8px 14px">きめる</button>
+  <div class="idshow" id="idShow" style="display:none">👤 <b id="idShowText"></b> <button class="tbtn" id="idChange" style="padding:6px 12px">かえる</button></div>
+  <div class="idpick" id="idPick">
+    <div id="idRoomFixed" style="display:none;font-size:13px;color:#854F0B;background:#FAEEDA;border-radius:999px;padding:5px 12px;margin-bottom:8px;text-align:center"></div>
+    <div id="idGcRows">
+      <div class="gcl"><span class="nm">ねん</span><div class="gcp g" id="idGrade"></div></div>
+      <div class="gcl"><span class="nm">くみ</span><div class="gcp c" id="idClass"></div></div>
+    </div>
+    <div class="gcl"><span class="nm">ばん</span><div class="gcp n" id="idNo"></div></div>
+    <div style="text-align:center"><button class="tbtn main" id="idSet" style="padding:8px 22px">きめる</button></div>
+  </div>
   <button class="tbtn main" id="idSave" style="padding:8px 14px">💾 ほぞん</button>
   <button class="tbtn" id="idRestore" style="padding:8px 14px;display:none">☁️ ほぞんを よみこむ</button>
-  <span class="idstat" id="idStat">コードと なまえを いれて「きめる」。そのあと「ほぞん」ボタン（5ふんごとに じどうほぞんも するよ）</span>
+  <span class="idstat" id="idStat">ねん・くみ・ばんごうを えらんで「きめる」</span>
 </div>
 <div class="layout">
   <!-- 左: 形と色 -->
@@ -262,12 +279,7 @@
 
 <div class="overlay" id="exOv" style="z-index:55"><div class="sheet">
   <div class="sheet-head"><h3>🛍 カードやさん <span style="font-size:12px;color:#888780;font-weight:400">ともだちと やりとりして ざいりょうを あつめよう</span></h3><button class="xbtn" id="exClose">✕ とじる</button></div>
-  <div class="ex-box" id="exSetup" style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
-    <div class="form-row" style="margin:0;flex:1;min-width:140px"><label>きょうしつコード</label><input id="exRoom" maxlength="30" placeholder="れい: 3-1"></div>
-    <div class="form-row" style="margin:0;flex:1;min-width:140px"><label>なまえ か ばんごう</label><input id="exName" maxlength="12" placeholder="12"></div>
-    <button class="tbtn main" id="exStart" style="padding:12px 20px">おみせを ひらく</button>
-  </div>
-  <div id="exMain" style="display:none">
+  <div id="exMain">
     <div class="ex-grid">
       <div>
         <div class="ex-box"><h4>わたしの おみせ（ざいりょう）</h4><div class="stock" id="exStock"></div></div>
@@ -304,8 +316,7 @@
 
 <div class="overlay" id="shareOv"><div class="sheet share-sheet">
   <div class="sheet-head"><h3>📤 クラスに おくる</h3><button class="xbtn" id="shareClose">✕ とじる</button></div>
-  <div class="form-row"><label>きょうしつコード（先生が おしえてくれる コード）</label><input id="shareRoom" maxlength="30" placeholder="れい: 3-1"></div>
-  <div class="form-row"><label>なまえ か ばんごう（れい: 12 ・ ひろ）</label><input id="shareName" maxlength="12" placeholder="12"></div>
+  <div class="big-note" id="shareWho" style="text-align:center;font-weight:700;margin:6px 0 12px"></div>
   <button class="tbtn main" id="shareGo" style="width:100%;padding:14px;font-size:16px">📤 おくる</button>
   <div class="hint" id="shareMsg" style="margin-top:10px"></div>
 </div></div>
@@ -973,19 +984,17 @@ function getRoom(){
 function saveRoom(r){ try{ localStorage.setItem('card_room', r); }catch(e){} }
 function getName(){ try{ return localStorage.getItem('card_name') || ''; }catch(e){ return ''; } }
 document.getElementById('shareBtn').addEventListener('click', function(){
-  document.getElementById('shareRoom').value = getRoom();
-  document.getElementById('shareName').value = getName();
+  if(!idReady()){ needIdentity(); return; }
+  document.getElementById('shareWho').textContent = '👤 ' + idText() + ' として おくるよ';
   document.getElementById('shareMsg').textContent = '';
   document.getElementById('shareOv').className = 'overlay on';
 });
 document.getElementById('shareClose').addEventListener('click', function(){ document.getElementById('shareOv').className = 'overlay'; });
 document.getElementById('shareGo').addEventListener('click', function(){
-  var room = document.getElementById('shareRoom').value.trim();
-  var name = document.getElementById('shareName').value.trim();
+  var room = ex.room, name = ex.me;
   var msg = document.getElementById('shareMsg');
-  if(!room || !name){ msg.className = 'hint warn'; msg.textContent = 'きょうしつコードと なまえ(ばんごう)を いれてね'; return; }
+  if(!idReady()){ msg.className = 'hint warn'; msg.textContent = 'さきに ねん・くみ・ばんごうを きめてね'; return; }
   if(!state.items.length){ msg.className = 'hint warn'; msg.textContent = 'まず カードを つくってから おくってね'; return; }
-  saveRoom(room); try{ localStorage.setItem('card_name', name); }catch(e){}
   msg.className = 'hint'; msg.textContent = 'おくっているよ…';
   fetch('/api/card/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, label: name, state: state }) })
     .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error(d.error || 'error'); return d; }); })
@@ -1084,23 +1093,11 @@ function exStartTimer(){ exStopTimer(); ex.timer = setInterval(exPoll, 2000); }
 function exStopTimer(){ if(ex.timer){ clearInterval(ex.timer); ex.timer = null; } }
 
 document.getElementById('exBtn').addEventListener('click', function(){
-  document.getElementById('exRoom').value = getRoom();
-  document.getElementById('exName').value = getName();
+  if(!idReady()){ needIdentity(); return; }
   document.getElementById('exOv').className = 'overlay on';
-  if(getRoom() && getName() && ex.me){ exStartTimer(); exPoll(); }
+  exStartTimer(); exPoll();
 });
 document.getElementById('exClose').addEventListener('click', function(){ document.getElementById('exOv').className = 'overlay'; exStopTimer(); });
-document.getElementById('exStart').addEventListener('click', function(){
-  var room = document.getElementById('exRoom').value.trim(), name = document.getElementById('exName').value.trim();
-  if(!room || !name){ toast('きょうしつコードと なまえを いれてね'); return; }
-  saveRoom(room); try{ localStorage.setItem('card_name', name); }catch(e){}
-  document.getElementById('idRoom').value = room; document.getElementById('idName').value = name;
-  ex.room = room.toLowerCase(); ex.me = name; ex.sig = '';
-  exApi('/api/card/shop/open', { room: room, label: name }).then(function(){ checkRestore(true); scheduleCloudSave();
-    document.getElementById('exMain').style.display = 'block';
-    exStartTimer(); exPoll();
-  }).catch(function(){ toast('ひらけなかったよ。もういちど ためしてね'); });
-});
 
 function logText(e){
   var t = e.text;
@@ -1281,24 +1278,92 @@ function doRestore(){
   document.getElementById('idRestore').style.display = 'none';
   cloud.lastSig = ''; cloudSave();
 }
+/* ---------- ねん・くみ・ばんごう（ほかの ゲームと おなじ しくみ） ---------- */
+function sanitizeSchool(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16); }
+function makeRoom(school, g, c){ return (school ? school + '-' : '') + g + '-' + c; }
+function urlParam(k){ var m = location.search.match(new RegExp('[?&]' + k + '=([^&]+)')); if(!m) return ''; try{ return decodeURIComponent(m[1]); }catch(e){ return ''; } }
+var idSel = { g: 0, c: 0, n: 0 };
+var URL_ROOM = (urlParam('room') || '').trim().toLowerCase();
+var SCHOOL = sanitizeSchool(urlParam('school')) || (function(){ try{ return sanitizeSchool(localStorage.getItem('card_school') || ''); }catch(e){ return ''; } })();
+function idText(){ return ((ex.room || '').replace(/^[a-z0-9]+-(?=\d-\d$)/, '').replace(/^(\d)-(\d)$/, '$1ねん$2くみ')) + ' ' + ex.me; }
+function pickRoom(){ return URL_ROOM || ((idSel.g && idSel.c) ? makeRoom(SCHOOL, idSel.g, idSel.c) : ''); }
+function renderIdPick(){
+  function build(id, max, key){
+    var box = document.getElementById(id);
+    if(!box.children.length){
+      for(var n = 1; n <= max; n++){
+        (function(num){
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = num;
+          b.addEventListener('click', function(){ idSel[key] = num; renderIdPick(); });
+          box.appendChild(b);
+        })(n);
+      }
+    }
+    Array.prototype.forEach.call(box.children, function(b){ b.className = parseInt(b.textContent, 10) === idSel[key] ? 'sel' : ''; });
+  }
+  build('idGrade', 6, 'g'); build('idClass', 8, 'c'); build('idNo', 35, 'n');
+}
+function showIdMode(){
+  var ready = idReady();
+  document.getElementById('idShow').style.display = ready ? 'flex' : 'none';
+  document.getElementById('idPick').style.display = ready ? 'none' : 'block';
+  if(ready) document.getElementById('idShowText').textContent = idText();
+  var fx = document.getElementById('idRoomFixed');
+  fx.style.display = URL_ROOM ? 'block' : 'none';
+  if(URL_ROOM) fx.textContent = 'きょうしつコード: ' + URL_ROOM;
+  document.getElementById('idGcRows').style.display = URL_ROOM ? 'none' : 'block';
+}
+function openIdPick(){
+  var m = String(ex.room || '').match(/(\d)-(\d)$/);
+  if(m){ idSel.g = parseInt(m[1], 10); idSel.c = parseInt(m[2], 10); }
+  var nm = String(ex.me || '').match(/^(\d+)/); if(nm) idSel.n = parseInt(nm[1], 10);
+  document.getElementById('idShow').style.display = 'none';
+  document.getElementById('idPick').style.display = 'block';
+  renderIdPick();
+}
+function needIdentity(){
+  toast('さきに ねん・くみ・ばんごうを えらんで「きめる」を おしてね');
+  if(!idReady()) showIdMode();
+  window.scrollTo(0, 0);
+}
 function setIdentity(room, name, silent){
+  room = room.toLowerCase();
+  var changed = (ex.room !== room || ex.me !== name);
+  /* ほかの ひとに かわる ときは、まえの ひとの カードを ほぞんしてから、あたらしい カードに する */
+  if(changed && idReady()){
+    cloudSave();
+    state = newState(); selId = null; save();
+    cloud.lastSig = ''; cloud.dirty = false; ex.restoreData = null; ex.data = null;
+    document.getElementById('idRestore').style.display = 'none';
+    render(); updateUndo();
+  }
   saveRoom(room); try{ localStorage.setItem('card_name', name); }catch(e){}
-  ex.room = room.toLowerCase(); ex.me = name; ex.sig = '';
+  ex.room = room; ex.me = name; ex.sig = '';
+  showIdMode();
   exApi('/api/card/shop/open', { room: room, label: name }).then(function(){ return exPoll(); }).catch(function(){});
   checkRestore(true);
   scheduleCloudSave();
   if(!silent) toast('きめたよ。「ほぞん」ボタンで ほぞんしてね（5ふんごとに じどうでも ほぞん）');
 }
 document.getElementById('idSet').addEventListener('click', function(){
-  var room = document.getElementById('idRoom').value.trim(), name = document.getElementById('idName').value.trim();
-  if(!room || !name){ idStat('コードと なまえの りょうほうを いれてね', false); return; }
-  setIdentity(room, name, false);
+  var room = pickRoom();
+  if(!room){ idStat('ねん と くみ を えらんでね', false); return; }
+  if(!idSel.n){ idStat('ばんごうを えらんでね', false); return; }
+  try{ localStorage.setItem('card_school', SCHOOL); localStorage.setItem('card_gc', idSel.g + '-' + idSel.c); localStorage.setItem('card_no', String(idSel.n)); }catch(e){}
+  setIdentity(room, idSel.n + 'ばん', false);
 });
+document.getElementById('idChange').addEventListener('click', openIdPick);
 document.getElementById('idRestore').addEventListener('click', doRestore);
 (function(){
-  var r = getRoom(), n = getName();
-  document.getElementById('idRoom').value = r; document.getElementById('idName').value = n;
-  if(r && n){ ex.room = r.toLowerCase(); ex.me = n; checkRestore(true); scheduleCloudSave(); exPoll(); }
+  try{
+    var gc = (localStorage.getItem('card_gc') || '').split('-');
+    idSel.g = parseInt(gc[0], 10) || 0; idSel.c = parseInt(gc[1], 10) || 0;
+    idSel.n = parseInt(localStorage.getItem('card_no'), 10) || 0;
+  }catch(e){}
+  renderIdPick();
+  var r = (URL_ROOM || localStorage.getItem('card_room') || '').toLowerCase(), n = getName();
+  if(r && /^\d+ばん$/.test(n) && (!URL_ROOM || r === URL_ROOM)){ ex.room = r; ex.me = n; checkRestore(true); scheduleCloudSave(); exPoll(); }
+  showIdMode();
 })();
 
 /* ---------- 起動 ---------- */

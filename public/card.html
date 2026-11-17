@@ -1201,7 +1201,7 @@ function idStat(t, ok){ var e = document.getElementById('idStat'); if(e){ e.text
 function scheduleCloudSave(){
   if(!idReady()) return;
   clearTimeout(cloud.timer);
-  cloud.timer = setTimeout(cloudSave, 2500);
+  cloud.timer = setTimeout(cloudSave, 10000);
 }
 function cloudSave(){
   if(!idReady()) return;

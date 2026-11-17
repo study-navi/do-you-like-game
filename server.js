@@ -313,9 +313,19 @@ try{ cardEx = JSON.parse(fs.readFileSync(CARD_EX_FILE, 'utf8')); }catch(e){ card
 if(!cardEx.saves) cardEx.saves = {};
 if(!cardEx.shops) cardEx.shops = {};
 if(!cardEx.deals) cardEx.deals = {};
-function saveCardEx(){
+let cardExTimer = null;
+function saveCardExNow(){
+  cardExTimer = null;
   try{ fs.writeFileSync(CARD_EX_FILE, JSON.stringify(cardEx)); }catch(e){ console.error('保存に失敗しました:', e.message); }
 }
+/* 全員分のファイルを毎回書き直さないよう、5秒に1回にまとめる */
+function saveCardEx(){
+  if(cardExTimer) return;
+  cardExTimer = setTimeout(saveCardExNow, 5000);
+}
+['SIGTERM', 'SIGINT'].forEach(function(sig){
+  process.on(sig, function(){ if(cardExTimer){ clearTimeout(cardExTimer); saveCardExNow(); } process.exit(0); });
+});
 const CARD_SHAPES = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'];
 const CARD_SIZES = ['big', 'small'];
 const CARD_COLORS = ['red', 'orange', 'yellow', 'green', 'lblue', 'lgreen', 'blue', 'purple', 'pink', 'brown', 'white', 'black'];

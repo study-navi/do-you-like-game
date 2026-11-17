@@ -316,9 +316,9 @@ if(!cardEx.deals) cardEx.deals = {};
 function saveCardEx(){
   try{ fs.writeFileSync(CARD_EX_FILE, JSON.stringify(cardEx)); }catch(e){ console.error('保存に失敗しました:', e.message); }
 }
-const CARD_SHAPES = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'];
+const CARD_SHAPES = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'];
 const CARD_SIZES = ['big', 'small'];
-const CARD_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'brown', 'white', 'black'];
+const CARD_COLORS = ['red', 'orange', 'yellow', 'green', 'lblue', 'lgreen', 'blue', 'purple', 'pink', 'brown', 'white', 'black'];
 function cardRand(n){ return crypto.randomBytes(2).readUInt16BE(0) % n; }
 function makeCardStock(){
   const list = [];

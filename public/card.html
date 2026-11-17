@@ -306,7 +306,7 @@
 'use strict';
 
 /* ---------- 定義 ---------- */
-var BG_COLORS = ['white', 'yellow', 'pink', 'lblue', 'green', 'orange', 'purple', 'black'];
+var BG_COLORS = ['white', 'yellow', 'pink', 'lblue', 'green', 'lgreen', 'orange', 'purple', 'black'];
 
 /* ---------- 状態 ---------- */
 var state = null;      // { w, h, bg, items: [] }
@@ -607,7 +607,7 @@ function renderTally(){
 function addShape(sid){
   pushHistory();
   var count = state.items.length;
-  var colorList = ['red', 'yellow', 'blue', 'green', 'pink', 'orange', 'purple', 'lblue'];
+  var colorList = ['red', 'yellow', 'blue', 'green', 'pink', 'orange', 'purple', 'lblue', 'lgreen'];
   var color = colorList[count % colorList.length];
   if(color === state.bg) color = 'blue';
   var it = { id: newItemId(), type: 'shape', shape: sid, x: state.w / 2 + ((count % 5) - 2) * 70 + (Math.floor(count / 5) % 2) * 30, y: state.h / 2 - 40 + ((count * 3) % 5 - 2) * 28, s: 1, asp: 1, r: 0, color: color };
@@ -797,7 +797,7 @@ stage.addEventListener('pointercancel', endDrag);
 /* ---------- ボタン ---------- */
 function buildShapeButtons(){
   var grid = document.getElementById('shapeGrid');
-  var order = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'];
+  var order = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'];
   function mk(s, parent){
     var b = document.createElement('button');
     b.className = 'shape-btn';
@@ -1142,7 +1142,7 @@ function dealHtml(dl, me){
       h += '<div class="wait">ほしい ものを えらんで、いってみよう</div><div class="builder">' +
         ['big', 'small'].map(function(z){ return '<span class="opt' + (b.size === z ? ' on' : '') + '" data-bset="size" data-v="' + z + '" data-deal="' + dl.id + '">' + z + '</span>'; }).join('') +
         '<div class="color-grid">' + CARD_STD_COLORS().map(function(co){ return '<div class="color-chip' + (b.color === co.id ? ' on' : '') + '" data-bset="color" data-v="' + co.id + '" data-deal="' + dl.id + '" title="' + co.en + '" style="background:' + co.hex + ';--ink:' + co.ink + '"></div>'; }).join('') + '</div>' +
-        '<div class="shape-opts">' + ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond'].map(function(sid){ var s = shapeById(sid); return '<div class="so' + (b.shape === sid ? ' on' : '') + '" data-bset="shape" data-v="' + sid + '" data-deal="' + dl.id + '">' + miniShapeSvg(s.pts, colorById(b.color).hex) + s.en + '</div>'; }).join('') + '</div></div>' +
+        '<div class="shape-opts">' + ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'].map(function(sid){ var s = shapeById(sid); return '<div class="so' + (b.shape === sid ? ' on' : '') + '" data-bset="shape" data-v="' + sid + '" data-deal="' + dl.id + '">' + miniShapeSvg(s.pts, colorById(b.color).hex) + s.en + '</div>'; }).join('') + '</div></div>' +
         B('want', cap(phrase(b.size, colorById(b.color).en, shapeById(b.shape).en, 1)) + ', please.');
     }
     else if(st === 'wanted') h += '<div class="wait">おみせの ひとの へんじを まっているよ…</div>';

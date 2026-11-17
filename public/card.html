@@ -44,6 +44,13 @@
   .tbtn:disabled { opacity: .4; cursor: default; }
   .card-area { display: flex; justify-content: center; background: #E8E6DC; border-radius: 12px; padding: 12px; }
   #stage { width: 100%; max-width: 640px; height: auto; touch-action: none; display: block; background: transparent; }
+  .fab-wrap { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .fab { border: none; background: #E24B4A; color: #fff; font-size: 17px; font-weight: 700; padding: 12px 18px; border-radius: 999px; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); line-height: 1.1; }
+  .fab small { display: block; font-size: 11px; font-weight: 400; }
+  .fab.alt { background: #888780; align-self: center; font-size: 14px; padding: 10px 14px; }
+  .fab:active { transform: scale(.95); }
+  .fab:disabled { opacity: .35; cursor: default; }
+  @media print { .fab-wrap { display: none !important; } }
   .hint { text-align: center; font-size: 12px; color: #5F5E5A; margin-top: 8px; min-height: 18px; }
   .hint.warn { color: #A32D2D; font-weight: 700; }
 
@@ -196,7 +203,8 @@
   <div class="col col-mid">
     <div class="stage-wrap">
       <div class="toolbar">
-        <button class="tbtn" id="undoBtn">↩︎ もどす</button>
+        <button class="tbtn" id="undoBtn">↩︎ もどす（やりなおす）</button>
+        <button class="tbtn" id="redoBtn">↪︎ すすむ</button>
         <button class="tbtn" id="cutBtn">✂️ きる</button>
         <button class="tbtn" id="exBtn" style="background:#EAF3DE;color:#3B6D11">🛍 やりとり</button>
         <button class="tbtn" id="showBtn" style="background:#E1F5EE;color:#0F6E56">👀 ともだちに みせる</button>
@@ -206,7 +214,8 @@
         <button class="tbtn" id="printBtn">🖨 いんさつ</button>
         <button class="tbtn danger" id="clearBtn">🗑 ぜんぶ けす</button>
       </div>
-      <div class="card-area">
+      <div class="card-area" style="flex-direction:column;align-items:center">
+        <div class="fab-wrap"><button class="fab" id="undoFab">↩︎ もどす<small>（やりなおす）</small></button><button class="fab alt" id="redoFab">↪︎ すすむ</button></div>
         <svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"></svg>
       </div>
       <div class="hint" id="hint"></div>
@@ -363,6 +372,7 @@ function shapeById(id){ for(var i = 0; i < SHAPES.length; i++){ if(SHAPES[i].id 
 var state = null;      // { w, h, bg, items: [] }
 var selId = null;
 var history = [];
+var redoStack = [];
 var cutMode = false;
 var nextId = 1;
 var NS = 'http://www.w3.org/2000/svg';
@@ -382,13 +392,25 @@ function load(){
 }
 
 function pushHistory(){
+  redoStack = [];
   history.push(JSON.stringify(state));
   if(history.length > 60) history.shift();
   updateUndo();
 }
-function updateUndo(){ document.getElementById('undoBtn').disabled = history.length === 0; }
+function updateUndo(){
+  ['undoBtn', 'undoFab'].forEach(function(id){ var b = document.getElementById(id); if(b) b.disabled = history.length === 0; });
+  ['redoBtn', 'redoFab'].forEach(function(id){ var b = document.getElementById(id); if(b) b.disabled = redoStack.length === 0; });
+}
+function redo(){
+  if(!redoStack.length) return;
+  history.push(JSON.stringify(state));
+  state = JSON.parse(redoStack.pop());
+  if(!findItem(selId)) selId = null;
+  render(); updateUndo();
+}
 function undo(){
   if(!history.length) return;
+  redoStack.push(JSON.stringify(state));
   state = JSON.parse(history.pop());
   if(!findItem(selId)) selId = null;
   render(); updateUndo();
@@ -949,7 +971,8 @@ function setOrientation(landscape){
 document.getElementById('addText').addEventListener('click', function(){ addText('This is for you.'); });
 document.getElementById('orientL').addEventListener('click', function(){ setOrientation(true); });
 document.getElementById('orientP').addEventListener('click', function(){ setOrientation(false); });
-document.getElementById('undoBtn').addEventListener('click', undo);
+['undoBtn', 'undoFab'].forEach(function(id){ document.getElementById(id).addEventListener('click', undo); });
+['redoBtn', 'redoFab'].forEach(function(id){ document.getElementById(id).addEventListener('click', redo); });
 document.getElementById('cutBtn').addEventListener('click', function(){
   cutMode = !cutMode;
   updateToolbar();
@@ -995,7 +1018,7 @@ document.addEventListener('keydown', function(ev){
   if(tag === 'INPUT') return;
   var it = findItem(selId);
   if((ev.key === 'Delete' || ev.key === 'Backspace') && it){ ev.preventDefault(); pushHistory(); state.items = state.items.filter(function(x){ return x.id !== it.id; }); selId = null; render(); }
-  if((ev.metaKey || ev.ctrlKey) && ev.key === 'z'){ ev.preventDefault(); undo(); }
+  if((ev.metaKey || ev.ctrlKey) && ev.key === 'z'){ ev.preventDefault(); if(ev.shiftKey) redo(); else undo(); }
 });
 
 
@@ -1149,6 +1172,17 @@ function usedKey(){ return 'card_used_' + ex.room + '_' + ex.me; }
 function getUsed(){ try{ return JSON.parse(localStorage.getItem(usedKey()) || '{}'); }catch(e){ return {}; } }
 function setUsed(id){ var u = getUsed(); u[id] = 1; try{ localStorage.setItem(usedKey(), JSON.stringify(u)); }catch(e){} }
 
+function invKey(){ return 'card_inv_' + ex.room + '_' + ex.me; }
+function localInv(){ try{ return JSON.parse(localStorage.getItem(invKey()) || '[]'); }catch(e){ return []; } }
+/* もらった ざいりょうは、サーバーがきえても のこるように、この たんまつにも ほぞんする */
+function mergeInv(serverInv){
+  var list = localInv(), seen = {};
+  list.forEach(function(it){ seen[it.id] = 1; });
+  var changed = false;
+  (serverInv || []).forEach(function(it){ if(!seen[it.id]){ list.push(it); seen[it.id] = 1; changed = true; } });
+  if(changed){ try{ localStorage.setItem(invKey(), JSON.stringify(list)); }catch(e){} }
+  return list;
+}
 function exApi(path, body){
   return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error(d.error || 'error'); return d; }); });
@@ -1159,6 +1193,7 @@ function exPoll(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       var sig = JSON.stringify(d) + JSON.stringify(ex.sel) + JSON.stringify(ex.builder) + JSON.stringify(ex.reask);
+      d.inventory = mergeInv(d.inventory);
       ex.data = d;
       if(sig !== ex.sig){ ex.sig = sig; exRender(); }
     }).catch(function(){});

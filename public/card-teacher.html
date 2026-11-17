@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>グリーティングカード 先生用 - This is for you.</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif; background: #F1EFE8; color: #2C2C2A; margin: 0; padding: 14px; }
+  h1 { font-size: 20px; margin: 0 0 4px; text-align: center; }
+  .sub { text-align: center; font-size: 12px; color: #888780; margin-bottom: 12px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-bottom: 12px; background: #fff; border-radius: 14px; padding: 10px; max-width: 1200px; margin-left: auto; margin-right: auto; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+  .bar input { font-size: 16px; padding: 8px 10px; border: 2px solid #D3D1C7; border-radius: 10px; width: 180px; }
+  .btn { border: none; background: #185FA5; color: #fff; font-weight: 700; padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 14px; }
+  .btn.gray { background: #EEEDFE; color: #534AB7; }
+  .sum { font-size: 13px; color: #5F5E5A; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; max-width: 1200px; margin: 0 auto; }
+  .stu { background: #fff; border-radius: 14px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); cursor: pointer; border: 2px solid transparent; }
+  .stu:hover { border-color: #534AB7; }
+  .stu svg.card { width: 100%; height: auto; display: block; background: #E8E6DC; border-radius: 8px; }
+  .stu .empty { height: 130px; display: flex; align-items: center; justify-content: center; background: #F8F7F2; border-radius: 8px; color: #B4B2A9; font-size: 13px; }
+  .nm { font-weight: 700; font-size: 16px; margin: 6px 0 2px; display: flex; justify-content: space-between; align-items: baseline; }
+  .nm small { font-size: 11px; font-weight: 400; color: #888780; }
+  .line { font-size: 12px; color: #444441; line-height: 1.5; }
+  .tag { display: inline-block; font-size: 11px; border-radius: 999px; padding: 1px 8px; margin-right: 4px; background: #EAF3DE; color: #3B6D11; }
+  .tag.o { background: #FAEEDA; color: #854F0B; }
+  .tag.g { background: #F1EFE8; color: #888780; }
+  .overlay { position: fixed; inset: 0; background: rgba(30,30,28,.55); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding: 12px; overflow-y: auto; }
+  .overlay.on { display: flex; }
+  .sheet { background: #fff; border-radius: 20px; padding: 16px; width: 100%; max-width: 1050px; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .sheet-head h3 { margin: 0; font-size: 18px; }
+  .show-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .show-card { background: #E8E6DC; border-radius: 14px; padding: 12px; }
+  .show-card svg { width: 100%; height: auto; display: block; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid #F1EFE8; }
+  .row .ico svg { width: 44px; height: 44px; display: block; }
+  .row .mid { flex: 1; } .row .t { font-size: 18px; font-weight: 700; } .row .t small { font-size: 12px; color: #888780; font-weight: 400; margin-left: 4px; }
+  .row .n { font-size: 28px; font-weight: 700; } .row .n small { font-size: 12px; color: #888780; font-weight: 400; }
+  .dot { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; background: #FAF9F5; border: 1px solid #E2E0D6; border-radius: 999px; padding: 1px 8px 1px 3px; margin: 2px 3px 0 0; }
+  .dot i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
+  .inv { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .inv .c { width: 70px; height: 70px; border: 2px solid #E2E0D6; border-radius: 10px; font-size: 10px; text-align: center; padding: 3px; line-height: 1.15; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  h4 { margin: 14px 0 4px; font-size: 13px; color: #5F5E5A; }
+  @media (max-width: 800px) { .show-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>👩‍🏫 グリーティングカード 先生用</h1>
+<div class="sub">This is for you. ─ 生徒ぜんいんの ほぞんデータ（10びょうごとに こうしん）</div>
+<div class="bar">
+  <input id="room" maxlength="30" placeholder="きょうしつコード（れい: 3-1）">
+  <button class="btn" id="go">ひらく</button>
+  <button class="btn gray" id="reload">🔄 いま こうしん</button>
+  <span class="sum" id="sum"></span>
+</div>
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="ov"><div class="sheet">
+  <div class="sheet-head"><h3 id="ovTitle"></h3><button class="btn gray" id="ovClose">✕ とじる</button></div>
+  <div class="show-grid">
+    <div class="show-card"><svg id="ovSvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div id="ovBody"></div>
+  </div>
+</div></div>
+
+<script src="/card-common.js"></script>
+<script>
+(function(){
+'use strict';
+var room = '', students = [], timer = null;
+function getRoom(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  if(m){ try{ return decodeURIComponent(m[1]); }catch(e){} }
+  try{ return localStorage.getItem('card_teacher_room') || ''; }catch(e){ return ''; }
+}
+function hm(t){ if(!t) return '—'; var d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+function variantsText(cnt){
+  var parts = [];
+  SHAPES.forEach(function(s){
+    var r = cnt.byShape[s.id]; if(!r) return;
+    parts.push(s.en + ' ×' + r.n);
+  });
+  if(cnt.pieces.n) parts.push('かけら ×' + cnt.pieces.n);
+  return parts.join(', ');
+}
+function render(){
+  var g = document.getElementById('grid');
+  var withMat = students.filter(function(s){ return s.inventory.length; }).length;
+  var withCard = students.filter(function(s){ return s.state && s.state.items.length; }).length;
+  document.getElementById('sum').textContent = students.length + ' にん ／ カードあり ' + withCard + ' ／ ざいりょう もらった ' + withMat + ' ／ おくった ' + students.filter(function(s){ return s.shared; }).length;
+  if(!students.length){ g.innerHTML = '<div style="text-align:center;color:#888780;grid-column:1/-1;padding:30px">まだ ほぞんされたデータは ありません</div>'; return; }
+  g.innerHTML = '';
+  students.forEach(function(s, i){
+    var d = document.createElement('div'); d.className = 'stu';
+    var cnt = s.state ? countCard(s.state) : null;
+    var has = cnt && s.state.items.length;
+    d.innerHTML = (has ? '<svg class="card" xmlns="http://www.w3.org/2000/svg"></svg>' : '<div class="empty">カードは まだ</div>') +
+      '<div class="nm"><span>' + escapeHtml(s.label) + '</span><small>' + hm(s.savedAt) + '</small></div>' +
+      '<div class="line">' + (has ? '<b>' + cnt.total + '</b> こ ─ ' + escapeHtml(variantsText(cnt)) : 'かたち なし') + '</div>' +
+      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.length + '</span>' + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span></div>';
+    if(has) drawCardInto(d.querySelector('svg'), s.state, { noShadow: true, noIds: true });
+    d.addEventListener('click', function(){ openDetail(s); });
+    g.appendChild(d);
+  });
+}
+function openDetail(s){
+  document.getElementById('ovTitle').textContent = s.label + ' の カード（ほぞん ' + hm(s.savedAt) + '）';
+  var svg = document.getElementById('ovSvg');
+  var body = '';
+  if(s.state && s.state.items.length){
+    drawCardInto(svg, s.state, { noIds: true });
+    var cnt = countCard(s.state);
+    SHAPES.forEach(function(sh){
+      var r = cnt.byShape[sh.id]; if(!r) return;
+      body += '<div class="row"><div class="ico">' + miniShapeSvg(sh.pts, colorById(Object.keys(r.colors)[0]).hex) + '</div><div class="mid"><div class="t">' + sh.en + '<small>' + sh.ja + '</small></div><div>' +
+        Object.keys(r.variants).map(function(k){ var v = r.variants[k], c = colorById(v.color); return '<span class="dot"><i style="background:' + c.hex + '"></i>' + (v.size ? v.size + ' ' : '') + c.en + ' ' + v.n + '</span>'; }).join('') +
+        '</div></div><div class="n">' + r.n + '<small> こ</small></div></div>';
+    });
+    if(cnt.pieces.n) body += '<div class="row"><div class="ico" style="font-size:30px;text-align:center">✂️</div><div class="mid"><div class="t">きった かけら</div></div><div class="n">' + cnt.pieces.n + '<small> こ</small></div></div>';
+    body += '<div class="row"><div class="mid"><div class="t">ごうけい</div></div><div class="n">' + cnt.total + '<small> こ</small></div></div>';
+  } else { svg.innerHTML = ''; body = '<div style="color:#888780;padding:20px">カードは まだ ありません</div>'; }
+  body += '<h4>もらった ざいりょう（' + s.inventory.length + 'こ）</h4><div class="inv">' + (s.inventory.map(function(it){
+    var sh = shapeById(it.shape), c = colorById(it.color); if(!sh) return '';
+    var px = it.size === 'big' ? 38 : 24;
+    return '<div class="c">' + miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') + it.size + ' ' + c.en + '<br>' + sh.en + '</div>';
+  }).join('') || '<span style="color:#888780;font-size:12px">まだ ありません</span>') + '</div>';
+  body += '<h4>おみせ</h4><div class="line">のこりの ざいりょう: ' + (s.stockLeft == null ? '—' : s.stockLeft + ' こ') + ' ／ せいりつした やりとり: ' + s.dealsDone + ' ／ クラスに おくった: ' + (s.shared ? hm(s.sharedAt) : 'まだ') + '</div>';
+  document.getElementById('ovBody').innerHTML = body;
+  document.getElementById('ov').className = 'overlay on';
+}
+function load(){
+  if(!room) return;
+  fetch('/api/card/teacher?room=' + encodeURIComponent(room)).then(function(r){ return r.json(); }).then(function(d){ students = d.students || []; render(); }).catch(function(){});
+}
+function start(){
+  room = document.getElementById('room').value.trim();
+  if(!room) return;
+  try{ localStorage.setItem('card_teacher_room', room); }catch(e){}
+  load(); clearInterval(timer); timer = setInterval(load, 10000);
+}
+document.getElementById('go').addEventListener('click', start);
+document.getElementById('reload').addEventListener('click', load);
+document.getElementById('ovClose').addEventListener('click', function(){ document.getElementById('ov').className = 'overlay'; });
+document.getElementById('room').value = getRoom();
+if(getRoom()) start();
+})();
+</script>
+</body>
+</html>

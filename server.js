@@ -308,8 +308,9 @@ function publicAlphabetList(room){
  * のやりとりで ざいりょう(かたち・いろ・おおきさ)を もらう。
  */
 const CARD_EX_FILE = path.join(__dirname, 'card_exchange.json');
-let cardEx = { shops: {}, deals: {} };
-try{ cardEx = JSON.parse(fs.readFileSync(CARD_EX_FILE, 'utf8')); }catch(e){ cardEx = { shops: {}, deals: {} }; }
+let cardEx = { shops: {}, deals: {}, saves: {} };
+try{ cardEx = JSON.parse(fs.readFileSync(CARD_EX_FILE, 'utf8')); }catch(e){ cardEx = { shops: {}, deals: {}, saves: {} }; }
+if(!cardEx.saves) cardEx.saves = {};
 if(!cardEx.shops) cardEx.shops = {};
 if(!cardEx.deals) cardEx.deals = {};
 function saveCardEx(){
@@ -2319,6 +2320,10 @@ const server = http.createServer(function(req, res){
   }
 
   /* ---------- This is for you. グリーティングカード ---------- */
+  if(req.method === 'GET' && url === '/card-common.js'){
+    serveFile(res, path.join(PUBLIC_DIR, 'card-common.js'), 'application/javascript; charset=utf-8');
+    return;
+  }
   if(req.method === 'GET' && url === '/card'){
     serveFile(res, path.join(PUBLIC_DIR, 'card.html'), 'text/html; charset=utf-8');
     return;
@@ -2406,6 +2411,61 @@ const server = http.createServer(function(req, res){
       saveCardEx();
       sendJson(res, 200, { ok: true });
     });
+    return;
+  }
+  // 生徒の じどう ほぞん（カード と もらった ざいりょう）
+  if(req.method === 'POST' && url === '/api/card/save'){
+    readJsonBody(req, function(body){
+      const label = body && typeof body.me === 'string' ? body.me.trim().slice(0, 12) : '';
+      const st = body && body.state;
+      if(!label || !st || !Array.isArray(st.items) || st.items.length > 200 || typeof st.w !== 'number'){ sendJson(res, 400, { error: 'invalid' }); return; }
+      const inv = Array.isArray(body.inventory) ? body.inventory.slice(0, 200).map(function(it){
+        return { id: String(it.id || '').slice(0, 12), shape: String(it.shape || ''), size: String(it.size || ''), color: String(it.color || '') };
+      }) : [];
+      if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
+      const room = normalizeRoom(body.room);
+      if(!cardEx.saves[room]) cardEx.saves[room] = {};
+      if(!cardEx.saves[room][cardKey(label)] && Object.keys(cardEx.saves[room]).length >= 120){ sendJson(res, 400, { error: 'room full' }); return; }
+      cardEx.saves[room][cardKey(label)] = { label: label, state: st, inventory: inv, at: Date.now() };
+      saveCardEx();
+      sendJson(res, 200, { ok: true, at: cardEx.saves[room][cardKey(label)].at });
+    });
+    return;
+  }
+  if(req.method === 'GET' && url === '/api/card/restore'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const sv = (cardEx.saves[room] || {})[cardKey(getQueryParam(queryString, 'me'))] || null;
+    sendJson(res, 200, { save: sv });
+    return;
+  }
+  // 先生用: 教室の 生徒ぜんいんの ほぞんデータ
+  if(req.method === 'GET' && url === '/api/card/teacher'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const saves = cardEx.saves[room] || {}, shops = cardEx.shops[room] || {}, shares = cardShares[room] || {};
+    const keys = {};
+    [saves, shops, shares].forEach(function(m){ Object.keys(m).forEach(function(k){ keys[k] = 1; }); });
+    const deals = cardDealsOf(room);
+    const students = Object.keys(keys).map(function(k){
+      const sv = saves[k] || null, sh = shops[k] || null, sr = shares[k] || null;
+      const inv = [];
+      deals.forEach(function(d){ if(d.customerKey === k && d.item) inv.push(d.item); });
+      const merged = {};
+      inv.concat(sv ? sv.inventory || [] : []).forEach(function(it){ merged[it.id] = it; });
+      return {
+        label: (sv && sv.label) || (sh && sh.label) || (sr && sr.label) || k,
+        state: sv ? sv.state : (sr ? sr.state : null),
+        savedAt: sv ? sv.at : null,
+        shared: !!sr, sharedAt: sr ? sr.at : null,
+        stockLeft: sh ? sh.stock.length : null,
+        inventory: Object.keys(merged).map(function(id){ return merged[id]; }),
+        dealsDone: deals.filter(function(d){ return (d.customerKey === k || d.shopKey === k) && d.state === 'done' && d.item; }).length
+      };
+    }).sort(function(a, b){ return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); });
+    sendJson(res, 200, { room: room, students: students });
+    return;
+  }
+  if(req.method === 'GET' && url === '/card-teacher'){
+    serveFile(res, path.join(PUBLIC_DIR, 'card-teacher.html'), 'text/html; charset=utf-8');
     return;
   }
   if(req.method === 'GET' && url === '/api/card/list'){

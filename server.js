@@ -2225,6 +2225,12 @@ const server = http.createServer(function(req, res){
     return;
   }
 
+  /* ---------- This is for you. グリーティングカード（1人で作る・サーバー保存なし） ---------- */
+  if(req.method === 'GET' && url === '/card'){
+    serveFile(res, path.join(PUBLIC_DIR, 'card.html'), 'text/html; charset=utf-8');
+    return;
+  }
+
   /* ---------- アルファベット なかまわけ ---------- */
   if(req.method === 'GET' && url === '/sort'){
     serveFile(res, path.join(PUBLIC_DIR, 'sort.html'), 'text/html; charset=utf-8');

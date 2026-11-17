@@ -318,15 +318,22 @@ function cardModeOf(room){ return cardEx.modes[room] === 'free' ? 'free' : 'mate
 let cardExTimer = null;
 function saveCardExNow(){
   cardExTimer = null;
-  try{ fs.writeFileSync(CARD_EX_FILE, JSON.stringify(cardEx)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+  try{ fs.writeFileSync(CARD_EX_FILE, JSON.stringify(cardEx)); }catch(e){ console.error('ファイル保存に失敗しました:', e.message); }
+  cardStoreFlush();
 }
-/* 全員分のファイルを毎回書き直さないよう、5秒に1回にまとめる */
+/* 全員分を毎回書き直さないよう、5秒に1回にまとめる */
 function saveCardEx(){
   if(cardExTimer) return;
   cardExTimer = setTimeout(saveCardExNow, 5000);
 }
 ['SIGTERM', 'SIGINT'].forEach(function(sig){
-  process.on(sig, function(){ if(cardExTimer){ clearTimeout(cardExTimer); saveCardExNow(); } process.exit(0); });
+  process.on(sig, function(){
+    if(cardExTimer){ clearTimeout(cardExTimer); cardExTimer = null; }
+    try{ fs.writeFileSync(CARD_EX_FILE, JSON.stringify(cardEx)); }catch(e){}
+    var done = false; function bye(){ if(!done){ done = true; process.exit(0); } }
+    setTimeout(bye, 4000);
+    cardStoreFlush().then(bye, bye);
+  });
 });
 const CARD_SHAPES = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'];
 const CARD_SIZES = ['big', 'small'];
@@ -405,7 +412,83 @@ const CARD_SHARES_FILE = path.join(__dirname, 'card_shares.json');
 let cardShares = {};
 try{ cardShares = JSON.parse(fs.readFileSync(CARD_SHARES_FILE, 'utf8')); }catch(e){ cardShares = {}; }
 function saveCardShares(){
-  try{ fs.writeFileSync(CARD_SHARES_FILE, JSON.stringify(cardShares)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+  try{ fs.writeFileSync(CARD_SHARES_FILE, JSON.stringify(cardShares)); }catch(e){ console.error('ファイル保存に失敗しました:', e.message); }
+  saveCardEx();
+}
+/* ===== Supabase に ほぞん（デプロイや スリープで きえない） =====
+ * Render の 環境変数 SUPABASE_URL / SUPABASE_SERVICE_KEY が あるときだけ つかう。
+ * テーブル card_kv(k text primary key, v jsonb, updated_at timestamptz)
+ *   ex:<room> = { shops, deals, saves, mode } / sh:<room> = クラスに おくった カード
+ * へんこうが あった クラス(room)だけ 5びょうに 1かい まとめて かきこむ。 */
+const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const SB_ON = !!(SB_URL && SB_KEY);
+const sbSig = {};      // key -> 最後に かきこめた ないようの署名
+let sbBusy = null, sbRetry = null;
+function sbHeaders(extra){
+  return Object.assign({ apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }, extra || {});
+}
+function cardStoreRows(){
+  const rooms = {};
+  [cardEx.shops, cardEx.deals, cardEx.saves, cardEx.modes, cardShares].forEach(function(o){ Object.keys(o || {}).forEach(function(r){ rooms[r] = 1; }); });
+  const rows = {};
+  Object.keys(rooms).forEach(function(r){
+    rows['ex:' + r] = { shops: cardEx.shops[r] || {}, deals: cardEx.deals[r] || [], saves: cardEx.saves[r] || {}, mode: cardEx.modes[r] || null };
+    if(cardShares[r]) rows['sh:' + r] = cardShares[r];
+  });
+  return rows;
+}
+async function cardStoreLoad(){
+  if(!SB_ON){ console.log('[card] Supabase 未設定: ファイル保存のみ（Render の ディスクは きえる ことが あります）'); return; }
+  try{
+    const res = await fetch(SB_URL + '/rest/v1/card_kv?select=k,v&limit=10000', { headers: sbHeaders() });
+    if(!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
+    const rows = await res.json();
+    if(rows.length){
+      cardEx = { shops: {}, deals: {}, saves: {}, modes: {} }; cardShares = {};
+      rows.forEach(function(row){
+        const room = row.k.slice(3), v = row.v || {};
+        if(row.k.indexOf('ex:') === 0){
+          cardEx.shops[room] = v.shops || {}; cardEx.deals[room] = v.deals || []; cardEx.saves[room] = v.saves || {};
+          if(v.mode) cardEx.modes[room] = v.mode;
+        }else if(row.k.indexOf('sh:') === 0){ cardShares[room] = v; }
+        sbSig[row.k] = JSON.stringify(v);
+      });
+      console.log('[card] Supabase から ' + rows.length + ' けん よみこみ');
+    }else{
+      console.log('[card] Supabase は からっぽ（さいしょの 5びょう あとに かきこみ）');
+      saveCardEx();
+    }
+  }catch(e){ console.error('[card] Supabase よみこみ しっぱい:', e.message); }
+}
+function cardStoreFlush(){
+  if(!SB_ON) return Promise.resolve();
+  if(sbBusy) return sbBusy.then(cardStoreFlush);
+  const rows = cardStoreRows(), out = [];
+  Object.keys(rows).forEach(function(k){
+    const sig = JSON.stringify(rows[k]);
+    if(sbSig[k] !== sig) out.push({ k: k, v: rows[k], sig: sig });
+  });
+  if(!out.length) return Promise.resolve();
+  sbBusy = (async function(){
+    try{
+      for(let i = 0; i < out.length; i += 20){
+        const chunk = out.slice(i, i + 20);
+        const res = await fetch(SB_URL + '/rest/v1/card_kv?on_conflict=k', {
+          method: 'POST',
+          headers: sbHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+          body: JSON.stringify(chunk.map(function(r){ return { k: r.k, v: r.v, updated_at: new Date().toISOString() }; }))
+        });
+        if(!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
+        chunk.forEach(function(r){ sbSig[r.k] = r.sig; });
+      }
+    }catch(e){
+      console.error('[card] Supabase かきこみ しっぱい（30びょう あとに やりなおし）:', e.message);
+      if(!sbRetry){ sbRetry = setTimeout(function(){ sbRetry = null; saveCardEx(); }, 30000); }
+    }
+    sbBusy = null;
+  })();
+  return sbBusy;
 }
 const SORT_ROOMS_FILE = path.join(__dirname, 'sort_rooms.json');
 const SORT_STUDENTS_FILE = path.join(__dirname, 'sort_students.json');
@@ -3343,7 +3426,7 @@ const server = http.createServer(function(req, res){
   sendJson(res, 404, { error: 'not found' });
 });
 
-server.listen(PORT, '0.0.0.0', function(){
+cardStoreLoad().then(function(){ server.listen(PORT, '0.0.0.0', function(){
   const nets = os.networkInterfaces();
   const addrs = [];
   Object.keys(nets).forEach(function(name){
@@ -3371,4 +3454,4 @@ server.listen(PORT, '0.0.0.0', function(){
   console.log('');
   console.log('終了するには Ctrl+C を押してください。');
   console.log('');
-});
+}); });

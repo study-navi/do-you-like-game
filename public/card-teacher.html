@@ -54,6 +54,12 @@
   <button class="btn gray" id="reload">🔄 いま こうしん</button>
   <span class="sum" id="sum"></span>
 </div>
+<div class="bar" id="modeBar">
+  <b>つくりかた:</b>
+  <button class="btn" id="mMat">🛍 ざいりょうモード（あつめた かたちだけ）</button>
+  <button class="btn gray" id="mFree">🎨 じゆうモード（ぜんぶ つかえる）</button>
+  <span class="sum" id="modeNote"></span>
+</div>
 <div class="grid" id="grid"></div>
 
 <div class="overlay" id="ov"><div class="sheet">
@@ -129,9 +135,23 @@ function openDetail(s){
   document.getElementById('ovBody').innerHTML = body;
   document.getElementById('ov').className = 'overlay on';
 }
+function showMode(m){
+  var mat = m !== 'free';
+  document.getElementById('mMat').className = 'btn' + (mat ? '' : ' gray');
+  document.getElementById('mFree').className = 'btn' + (mat ? ' gray' : '');
+  document.getElementById('modeNote').textContent = mat ? 'いま: ざいりょうモード（こうかんで あつめた かたちだけ つかえる）' : 'いま: じゆうモード（こうかんしなくても ぜんぶ つかえる）';
+}
+function setMode(m){
+  var room = document.getElementById('room').value.trim();
+  if(!room) return;
+  fetch('/api/card/mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, mode: m }) })
+    .then(function(r){ return r.json(); }).then(function(d){ showMode(d.mode); }).catch(function(){});
+}
+document.getElementById('mMat').addEventListener('click', function(){ setMode('material'); });
+document.getElementById('mFree').addEventListener('click', function(){ setMode('free'); });
 function load(){
   if(!room) return;
-  fetch('/api/card/teacher?room=' + encodeURIComponent(room)).then(function(r){ return r.json(); }).then(function(d){ students = d.students || []; render(); }).catch(function(){});
+  fetch('/api/card/teacher?room=' + encodeURIComponent(room)).then(function(r){ return r.json(); }).then(function(d){ students = d.students || []; showMode(d.mode); render(); }).catch(function(){});
 }
 function start(){
   room = document.getElementById('room').value.trim();

@@ -27,6 +27,8 @@
   /* 形パレット */
   .shape-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .shape-btn { border: 2px solid #E2E0D6; background: #FAF9F5; border-radius: 12px; padding: 4px 2px 3px; cursor: pointer; text-align: center; font-size: 10px; line-height: 1.2; color: #444441; }
+  .shape-grid.locked .shape-btn { opacity: .38; filter: grayscale(1); }
+  .mat-note { display: none; font-size: 12px; font-weight: 700; color: #854F0B; background: #FAEEDA; border-radius: 8px; padding: 6px 8px; margin: 8px 0 0; line-height: 1.5; }
   .shape-btn:active { transform: scale(.95); background: #EEEDFE; border-color: #534AB7; }
   .shape-btn svg { width: 40px; height: 40px; display: block; margin: 0 auto 2px; }
   .shape-btn .en { color: #888780; font-size: 9px; }
@@ -204,6 +206,7 @@
     <div class="panel">
       <h2>① かたちを えらぶ（タップで ふえる）</h2>
       <div class="shape-grid" id="shapeGrid"></div>
+      <div class="mat-note" id="matNote">🛍 ざいりょうモード: 「やりとり」で あつめた かたちだけ カードに つかえるよ</div>
       <div class="msg-label">🔤 メッセージを いれる（タップ）</div>
       <div class="msg-row" id="msgRow"></div>
       <div class="btn-row"><button class="sbtn" id="addText">✏️ じぶんで かく</button></div>
@@ -488,13 +491,17 @@ function renderSelPanel(){
     html += '<div class="row" style="font-weight:700;font-size:13px">' +
       (nm ? nm.ja + ' <span style="color:#888780;font-weight:400">' + nm.en + '</span>' : '✂️ かけら <span style="color:#888780;font-weight:400">piece</span>') + '</div>';
   }
+  var lk = isLocked(it);
+  if(lk){ html += '<div class="color-name" style="margin:4px 0 8px">' + c.ja + ' ／ ' + c.en + '　🔒 あつめた ざいりょう（いろ・おおきさは かえられないよ）</div>'; }
+  else {
   html += '<div class="color-grid" id="selColors">' + colorChipsHtml(it.color) + '</div>';
   html += '<div class="color-name">' + c.ja + ' ／ ' + c.en + '</div>';
   html += '<div class="row"><label>おおきさ</label><input type="range" id="sSize" min="' + (it.type === 'text' ? 0.4 : 0.2) + '" max="' + (it.type === 'text' ? 3 : 4) + '" step="0.01" value="' + it.s + '"></div>';
   if(it.type !== 'text'){
     html += '<div class="row"><label>ほそさ</label><input type="range" id="sAsp" min="0.5" max="2" step="0.01" value="' + it.asp + '"></div>';
   }
-  if(it.type !== 'text' && it.type !== 'piece'){
+  }
+  if(it.type !== 'text' && it.type !== 'piece' && !lk){
     var sw = sizeWord(it);
     html += '<div class="btn-row" style="margin:0 0 8px"><button class="sbtn" id="sizeBig">big（おおきく）</button><button class="sbtn" id="sizeSmall">small（ちいさく）</button>' +
       '<span style="font-size:13px;font-weight:700;align-self:center;color:#185FA5">' + (sw || '') + '</span></div>';
@@ -503,7 +510,7 @@ function renderSelPanel(){
   html += '<div class="btn-row">' +
     '<button class="sbtn" id="rotL">↺ 15°</button><button class="sbtn" id="rotR">↻ 15°</button>' +
     '<button class="sbtn" id="toFront">⬆ まえへ</button><button class="sbtn" id="toBack">⬇ うしろへ</button>' +
-    '<button class="sbtn" id="dup">📄 コピー</button><button class="sbtn red" id="del">🗑 けす</button></div>';
+    (lk ? '' : '<button class="sbtn" id="dup">📄 コピー</button>') + '<button class="sbtn red" id="del">🗑 けす</button></div>';
   if(it.type !== 'text'){
     html += '<div class="sub-title">✂️ まんなかで きる</div><div class="btn-row">' +
       '<button class="sbtn" id="cutV">｜ たてに きる</button><button class="sbtn" id="cutH">― よこに きる</button></div>';
@@ -516,7 +523,7 @@ function normAngle(a){ a = ((a + 180) % 360 + 360) % 360 - 180; return Math.roun
 
 function bindSelPanel(it){
   var colors = document.getElementById('selColors');
-  Array.prototype.forEach.call(colors.querySelectorAll('.color-chip'), function(ch){
+  if(colors) Array.prototype.forEach.call(colors.querySelectorAll('.color-chip'), function(ch){
     ch.addEventListener('click', function(){ pushHistory(); it.color = ch.getAttribute('data-color'); render(); });
   });
   bindRange('sSize', function(v){ it.s = v; });
@@ -671,7 +678,7 @@ function cutItem(it, p1, p2){
     poly.forEach(function(p){ cx += p[0]; cy += p[1]; });
     cx /= poly.length; cy /= poly.length;
     return {
-      id: newItemId(), type: 'piece', x: cx + nx * gap * sgn, y: cy + ny * gap * sgn, s: 1, asp: 1, r: 0, color: it.color,
+      id: newItemId(), type: 'piece', inv: it.inv, x: cx + nx * gap * sgn, y: cy + ny * gap * sgn, s: 1, asp: 1, r: 0, color: it.color,
       pts: poly.map(function(p){ return [p[0] - cx, p[1] - cy]; })
     };
   }
@@ -769,7 +776,7 @@ stage.addEventListener('pointermove', function(ev){
     var ang = Math.atan2(p[1] - it.y, p[0] - it.x);
     var ns = drag.startS * (d / Math.max(10, drag.startDist));
     var lo = it.type === 'text' ? 0.4 : 0.2, hi = it.type === 'text' ? 3 : 4;
-    it.s = Math.max(lo, Math.min(hi, ns));
+    if(!isLocked(it)) it.s = Math.max(lo, Math.min(hi, ns));
     var nr = drag.startR + (ang - drag.startAng) * 180 / Math.PI;
     // 15°ごとに すいつく（まっすぐに しやすい）
     var snapped = Math.round(nr / 15) * 15;
@@ -808,7 +815,7 @@ function buildShapeButtons(){
     var b = document.createElement('button');
     b.className = 'shape-btn';
     b.innerHTML = miniShapeSvg(s.pts, '#8E8C85') + '<div class="en" style="font-size:11px;color:#444441;font-weight:700">' + s.en + '</div><div class="en">' + s.ja + '</div>';
-    b.addEventListener('click', function(){ addShape(s.id); });
+    b.addEventListener('click', function(){ if(isMat()){ toast('おみせで ざいりょうを あつめよう（やりとり）'); return; } addShape(s.id); });
     parent.appendChild(b);
   }
   order.forEach(function(id){ mk(shapeById(id), grid); });
@@ -1034,6 +1041,13 @@ function stockChip(it, cls, extra){
     miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') +
     it.size + ' ' + c.en + '<br>' + sh.en + '</div>';
 }
+function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
+function isLocked(it){ return !!(it && it.inv && isMat()); }
+function usedIds(){ var u = {}; state.items.forEach(function(x){ if(x.inv) u[x.inv] = 1; }); return u; }
+function applyPaletteLock(){
+  var g = document.getElementById('shapeGrid'); if(g) g.classList.toggle('locked', isMat());
+  var n = document.getElementById('matNote'); if(n) n.style.display = isMat() ? 'block' : 'none';
+}
 function usedKey(){ return 'card_used_' + ex.room + '_' + ex.me; }
 function getUsed(){ try{ return JSON.parse(localStorage.getItem(usedKey()) || '{}'); }catch(e){ return {}; } }
 function setUsed(id){ var u = getUsed(); u[id] = 1; try{ localStorage.setItem(usedKey(), JSON.stringify(u)); }catch(e){} }
@@ -1061,6 +1075,7 @@ function exPoll(){
       var sig = JSON.stringify(d) + JSON.stringify(ex.sel) + JSON.stringify(ex.builder) + JSON.stringify(ex.reask);
       d.inventory = mergeInv(d.inventory);
       ex.data = d;
+      applyPaletteLock();
       if(sig !== ex.sig){ ex.sig = sig; exRender(); }
     }).catch(function(){});
 }
@@ -1111,7 +1126,7 @@ function exRender(){
   var sh = document.getElementById('exShops');
   sh.innerHTML = d.shops.length ? d.shops.map(function(s){ return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
   // もらった ざいりょう
-  var used = getUsed();
+  var used = usedIds();
   document.getElementById('exInv').innerHTML = d.inventory.length ? d.inventory.map(function(it){
     return stockChip(it, 'pick' + (used[it.id] ? ' used' : ''), 'data-inv="' + it.id + '"');
   }).join('') : '<span class="wait">まだ もらっていないよ</span>';
@@ -1187,11 +1202,10 @@ document.getElementById('exOv').addEventListener('click', function(ev){
   if(ds.inv){
     var it = ex.data.inventory.filter(function(x){ return x.id === ds.inv; })[0];
     if(!it) return;
-    if(getUsed()[it.id]){ toast('もう カードに いれたよ'); return; }
-    setUsed(it.id);
+    if(usedIds()[it.id]){ toast('もう カードに いれたよ'); return; }
     pushHistory();
     var n = state.items.length;
-    var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'big' ? BIG_S : SMALL_S, asp: 1, r: 0, color: it.color };
+    var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'big' ? BIG_S : SMALL_S, asp: 1, r: 0, color: it.color, inv: it.id };
     state.items.push(shape); selId = shape.id; render();
     toast(itemPhrase(it) + ' を カードに いれたよ'); exRender();
     return;
@@ -1257,7 +1271,7 @@ function doRestore(){
 function setIdentity(room, name, silent){
   saveRoom(room); try{ localStorage.setItem('card_name', name); }catch(e){}
   ex.room = room.toLowerCase(); ex.me = name; ex.sig = '';
-  exApi('/api/card/shop/open', { room: room, label: name }).catch(function(){});
+  exApi('/api/card/shop/open', { room: room, label: name }).then(function(){ return exPoll(); }).catch(function(){});
   checkRestore(true);
   scheduleCloudSave();
   if(!silent) toast('きめたよ。これから じどうで ほぞんするよ');

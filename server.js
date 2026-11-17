@@ -313,6 +313,8 @@ try{ cardEx = JSON.parse(fs.readFileSync(CARD_EX_FILE, 'utf8')); }catch(e){ card
 if(!cardEx.saves) cardEx.saves = {};
 if(!cardEx.shops) cardEx.shops = {};
 if(!cardEx.deals) cardEx.deals = {};
+if(!cardEx.modes) cardEx.modes = {};
+function cardModeOf(room){ return cardEx.modes[room] === 'free' ? 'free' : 'material'; }
 let cardExTimer = null;
 function saveCardExNow(){
   cardExTimer = null;
@@ -2390,7 +2392,18 @@ const server = http.createServer(function(req, res){
       myShop: mine ? { label: mine.label, stock: mine.stock } : null,
       shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return { label: shops[k].label, count: shops[k].stock.length }; }),
       deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 120000; }).slice(-12).map(cardPublicDeal),
-      inventory: inventory
+      inventory: inventory,
+      mode: cardModeOf(room)
+    });
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/card/mode'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room);
+      const mode = body && body.mode === 'free' ? 'free' : 'material';
+      cardEx.modes[room] = mode;
+      saveCardEx();
+      sendJson(res, 200, { ok: true, mode: mode });
     });
     return;
   }
@@ -2471,7 +2484,7 @@ const server = http.createServer(function(req, res){
         dealsDone: deals.filter(function(d){ return (d.customerKey === k || d.shopKey === k) && d.state === 'done' && d.item; }).length
       };
     }).sort(function(a, b){ return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); });
-    sendJson(res, 200, { room: room, students: students });
+    sendJson(res, 200, { room: room, students: students, mode: cardModeOf(room) });
     return;
   }
   if(req.method === 'GET' && url === '/card-teacher'){

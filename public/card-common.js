@@ -13,7 +13,16 @@ var COLORS = [
   { id: 'brown',  ja: 'ちゃいろ',   en: 'brown',  hex: '#8D5B3A', ink: '#fff' },
   { id: 'white',  ja: 'しろ',       en: 'white',  hex: '#FFFFFF', ink: '#333' },
   { id: 'gray',   ja: 'はいいろ',   en: 'gray',   hex: '#9E9E9E', ink: '#fff', extra: true },
-  { id: 'black',  ja: 'くろ',       en: 'black',  hex: '#2B2B2B', ink: '#fff' }
+  { id: 'black',  ja: 'くろ',       en: 'black',  hex: '#2B2B2B', ink: '#fff' },
+  /* ここから下は「カードの いろ」だけに つかう（ざいりょうの いろでは ない） */
+  { id: 'bgcream',  ja: 'クリーム',   en: 'cream',    hex: '#FFF3D6', ink: '#333', extra: true },
+  { id: 'bgpeach',  ja: 'もも',       en: 'peach',    hex: '#FFD9C2', ink: '#333', extra: true },
+  { id: 'bgrose',   ja: 'うすピンク', en: 'pale pink',hex: '#FFD6E0', ink: '#333', extra: true },
+  { id: 'bgmint',   ja: 'ミント',     en: 'mint',     hex: '#D4F1DE', ink: '#333', extra: true },
+  { id: 'bgsky',    ja: 'そらいろ',   en: 'sky',      hex: '#D6ECFA', ink: '#333', extra: true },
+  { id: 'bglav',    ja: 'ラベンダー', en: 'lavender', hex: '#E6DCF7', ink: '#333', extra: true },
+  { id: 'bgkraft',  ja: 'クラフト',   en: 'kraft',    hex: '#D9B98A', ink: '#333', extra: true },
+  { id: 'bgnavy',   ja: 'こん',       en: 'navy',     hex: '#1F3A6B', ink: '#fff', extra: true }
 ];
 
 var BIG_S = 1.5, SMALL_S = 0.6;

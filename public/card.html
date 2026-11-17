@@ -80,6 +80,42 @@
   /* 切るモードの先生向けではなく子ども向けの注意 */
   #cutLine { pointer-events: none; }
 
+
+  /* ともだちに みせる / みんなの カード */
+  .overlay { position: fixed; inset: 0; background: rgba(30,30,28,.55); z-index: 50; display: none; align-items: flex-start; justify-content: center; padding: 12px; overflow-y: auto; }
+  .overlay.on { display: flex; }
+  .sheet { background: #fff; border-radius: 20px; padding: 16px; width: 100%; max-width: 1100px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .sheet-head h3 { margin: 0; font-size: 18px; }
+  .xbtn { border: none; background: #F1EFE8; border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .show-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .show-card { background: #E8E6DC; border-radius: 14px; padding: 12px; }
+  .show-card svg { width: 100%; height: auto; display: block; }
+  .big-phrase { text-align: center; font-size: 30px; font-weight: 700; color: #185FA5; margin: 4px 0 10px; font-family: "Chalkboard SE", "Comic Sans MS", sans-serif; }
+  .show-row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-bottom: 1px solid #F1EFE8; }
+  .show-row .ico svg { width: 52px; height: 52px; display: block; }
+  .show-row .mid { flex: 1; min-width: 0; }
+  .show-row .nm { font-size: 22px; font-weight: 700; }
+  .show-row .nm small { font-size: 13px; color: #888780; font-weight: 400; margin-left: 4px; }
+  .show-row .cnt { font-size: 36px; font-weight: 700; min-width: 70px; text-align: right; }
+  .show-row .cnt small { font-size: 14px; font-weight: 400; color: #888780; }
+  .show-row .dot { font-size: 14px; padding: 3px 10px 3px 4px; }
+  .show-row .dot i { width: 18px; height: 18px; }
+  .spk { border: none; background: #EEEDFE; color: #534AB7; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; cursor: pointer; flex: 0 0 auto; }
+  .show-sum { margin-top: 10px; padding: 10px; background: #F3F8E4; border-radius: 12px; font-size: 18px; text-align: center; font-weight: 700; color: #3B6D11; }
+  .gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .gal-item { background: #FAF9F5; border: 2px solid #E2E0D6; border-radius: 14px; padding: 8px; cursor: pointer; text-align: center; }
+  .gal-item:active { border-color: #534AB7; }
+  .gal-item svg { width: 100%; height: auto; display: block; border-radius: 8px; background: #E8E6DC; }
+  .gal-item .lb { font-weight: 700; font-size: 14px; margin-top: 6px; }
+  .gal-item .sm { font-size: 11px; color: #888780; }
+  .form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .form-row label { font-size: 12px; color: #5F5E5A; }
+  .form-row input { font-size: 18px; padding: 10px; border: 2px solid #D3D1C7; border-radius: 10px; user-select: text; -webkit-user-select: text; }
+  .share-sheet { max-width: 420px; margin-top: 40px; }
+  @media (max-width: 800px) { .show-grid { grid-template-columns: 1fr; } }
+  @media print { .overlay { display: none !important; } }
+
   @media (max-width: 1000px) {
     .layout { grid-template-columns: 1fr; }
     .col-left { order: 2; } .col-mid { order: 1; } .col-right { order: 3; }
@@ -125,6 +161,9 @@
       <div class="toolbar">
         <button class="tbtn" id="undoBtn">↩︎ もどす</button>
         <button class="tbtn" id="cutBtn">✂️ きる</button>
+        <button class="tbtn" id="showBtn" style="background:#E1F5EE;color:#0F6E56">👀 ともだちに みせる</button>
+        <button class="tbtn" id="shareBtn" style="background:#FAEEDA;color:#854F0B">📤 クラスに おくる</button>
+        <button class="tbtn" id="galBtn" style="background:#FBEAF0;color:#993556">📥 みんなの カード</button>
         <button class="tbtn main" id="saveBtn">💾 がぞうを ほぞん</button>
         <button class="tbtn" id="printBtn">🖨 いんさつ</button>
         <button class="tbtn danger" id="clearBtn">🗑 ぜんぶ けす</button>
@@ -148,6 +187,33 @@
     </div>
   </div>
 </div>
+
+
+<div class="overlay" id="showOv" style="z-index:60"><div class="sheet">
+  <div class="sheet-head"><h3 id="showTitle">👀 カードを みせよう</h3><button class="xbtn" id="showClose">✕ とじる</button></div>
+  <div class="big-phrase">This is for you.</div>
+  <div class="show-grid">
+    <div class="show-card"><svg id="showSvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div><div id="showTally"></div></div>
+  </div>
+</div></div>
+
+<div class="overlay" id="galOv"><div class="sheet">
+  <div class="sheet-head"><h3>📥 みんなの カード <span style="font-size:12px;color:#888780;font-weight:400" id="galRoom"></span></h3>
+    <div><button class="xbtn" id="galReload">🔄 こうしん</button> <button class="xbtn" id="galClose">✕ とじる</button></div></div>
+  <div class="form-row" style="flex-direction:row;align-items:center;gap:8px;">
+    <label style="white-space:nowrap">きょうしつコード</label><input id="galRoomInput" maxlength="30" style="flex:1;min-width:0;font-size:16px;padding:6px 10px" placeholder="れい: 3-1">
+  </div>
+  <div id="galBody"></div>
+</div></div>
+
+<div class="overlay" id="shareOv"><div class="sheet share-sheet">
+  <div class="sheet-head"><h3>📤 クラスに おくる</h3><button class="xbtn" id="shareClose">✕ とじる</button></div>
+  <div class="form-row"><label>きょうしつコード（先生が おしえてくれる コード）</label><input id="shareRoom" maxlength="30" placeholder="れい: 3-1"></div>
+  <div class="form-row"><label>なまえ か ばんごう（れい: 12 ・ ひろ）</label><input id="shareName" maxlength="12" placeholder="12"></div>
+  <button class="tbtn main" id="shareGo" style="width:100%;padding:14px;font-size:16px">📤 おくる</button>
+  <div class="hint" id="shareMsg" style="margin-top:10px"></div>
+</div></div>
 
 <script>
 (function(){
@@ -339,21 +405,23 @@ function itemTransform(it){
   return 'translate(' + it.x + ' ' + it.y + ') rotate(' + it.r + ') scale(' + (it.s * it.asp) + ' ' + (it.s / it.asp) + ')';
 }
 
-function drawStage(){
-  stage.setAttribute('viewBox', '0 0 ' + state.w + ' ' + state.h);
-  while(stage.firstChild) stage.removeChild(stage.firstChild);
-
-  var defs = el('defs');
-  var f = el('filter', { id: 'paperShadow', x: '-20%', y: '-20%', width: '140%', height: '140%' });
-  f.appendChild(el('feDropShadow', { dx: '1.5', dy: '2.5', stdDeviation: '2.2', 'flood-color': '#000', 'flood-opacity': '0.28' }));
-  defs.appendChild(f);
-  stage.appendChild(defs);
-
-  var bgc = colorById(state.bg);
-  stage.appendChild(el('rect', { x: 0, y: 0, width: state.w, height: state.h, fill: bgc.hex, rx: 8, stroke: '#00000022', 'stroke-width': 1, id: 'bgRect' }));
-
-  var g = el('g', { id: 'items' });
-  state.items.forEach(function(it){
+/* 1まいの カードを svg に えがく（じぶんの画面・ともだちの画面・一覧で共通） */
+function drawCardInto(svg, st, opts){
+  opts = opts || {};
+  svg.setAttribute('viewBox', '0 0 ' + st.w + ' ' + st.h);
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  var shadow = !opts.noShadow;
+  if(shadow){
+    var defs = el('defs');
+    var f = el('filter', { id: 'paperShadow', x: '-20%', y: '-20%', width: '140%', height: '140%' });
+    f.appendChild(el('feDropShadow', { dx: '1.5', dy: '2.5', stdDeviation: '2.2', 'flood-color': '#000', 'flood-opacity': '0.28' }));
+    defs.appendChild(f);
+    svg.appendChild(defs);
+  }
+  var bgc = colorById(st.bg);
+  svg.appendChild(el('rect', { x: 0, y: 0, width: st.w, height: st.h, fill: bgc.hex, rx: 8, stroke: '#00000022', 'stroke-width': 1 }));
+  var g = el('g', { id: opts.noIds ? '' : 'items' });
+  st.items.forEach(function(it){
     var c = colorById(it.color);
     var node;
     if(it.type === 'text'){
@@ -362,21 +430,23 @@ function drawStage(){
       node.textContent = it.text;
       if(c.id === 'white'){ node.setAttribute('stroke', '#00000055'); node.setAttribute('stroke-width', 1); }
     } else {
-      node = el('polygon', { points: ptsAttr(itemPts(it)), transform: itemTransform(it), fill: c.hex, filter: 'url(#paperShadow)' });
+      node = el('polygon', { points: ptsAttr(itemPts(it)), transform: itemTransform(it), fill: c.hex });
+      if(shadow) node.setAttribute('filter', 'url(#paperShadow)');
       if(c.id === 'white'){ node.setAttribute('stroke', '#00000033'); node.setAttribute('stroke-width', 1 / it.s); }
     }
     node.setAttribute('data-id', it.id);
-    node.style.cursor = 'move';
+    if(opts.interactive) node.style.cursor = 'move';
     g.appendChild(node);
   });
-  stage.appendChild(g);
-
+  svg.appendChild(g);
+}
+function drawStage(){
+  drawCardInto(stage, state, { interactive: true });
   var ui = el('g', { 'class': 'sel-ui' });
   var it = findItem(selId);
   if(it){
     var box = worldBox(it);
     ui.appendChild(el('polygon', { points: ptsAttr(box), fill: 'none', stroke: '#534AB7', 'stroke-width': 2, 'stroke-dasharray': '6 4', 'pointer-events': 'none' }));
-    // 右下のハンドル（大きさ・むきを ひとつで）
     var hp = box[2];
     var h = el('circle', { cx: hp[0], cy: hp[1], r: 15, fill: '#534AB7', stroke: '#fff', 'stroke-width': 3, id: 'handle' });
     h.style.cursor = 'nwse-resize';
@@ -386,7 +456,6 @@ function drawStage(){
     ui.appendChild(ht);
   }
   stage.appendChild(ui);
-
   var cl = el('line', { id: 'cutLine', x1: 0, y1: 0, x2: 0, y2: 0, stroke: '#E24B4A', 'stroke-width': 4, 'stroke-dasharray': '10 7', 'stroke-linecap': 'round', visibility: 'hidden' });
   stage.appendChild(cl);
 }
@@ -514,10 +583,9 @@ function miniShapeSvg(pts, hex){
   var cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
   return '<svg viewBox="' + (cx - m / 2) + ' ' + (cy - m / 2) + ' ' + m + ' ' + m + '"><polygon points="' + ptsAttr(pts) + '" fill="' + hex + '" stroke="#00000033" stroke-width="2"/></svg>';
 }
-function renderTally(){
-  var body = document.getElementById('tallyBody');
+function countCard(st){
   var byShape = {}, pieces = { n: 0, colors: {} }, texts = 0, byColor = {}, total = 0;
-  state.items.forEach(function(it){
+  st.items.forEach(function(it){
     if(it.type === 'text'){ texts++; return; }
     total++;
     byColor[it.color] = (byColor[it.color] || 0) + 1;
@@ -525,6 +593,12 @@ function renderTally(){
     var row = byShape[it.shape] || (byShape[it.shape] = { n: 0, colors: {} });
     row.n++; row.colors[it.color] = (row.colors[it.color] || 0) + 1;
   });
+  return { byShape: byShape, pieces: pieces, texts: texts, byColor: byColor, total: total };
+}
+function renderTally(){
+  var body = document.getElementById('tallyBody');
+  var cnt = countCard(state);
+  var byShape = cnt.byShape, pieces = cnt.pieces, texts = cnt.texts, byColor = cnt.byColor, total = cnt.total;
   if(total === 0 && texts === 0){
     body.innerHTML = '<div class="empty-note">まだ なにも つかっていないよ</div>';
     return;
@@ -840,6 +914,119 @@ document.addEventListener('keydown', function(ev){
   if((ev.key === 'Delete' || ev.key === 'Backspace') && it){ ev.preventDefault(); pushHistory(); state.items = state.items.filter(function(x){ return x.id !== it.id; }); selId = null; render(); }
   if((ev.metaKey || ev.ctrlKey) && ev.key === 'z'){ ev.preventDefault(); undo(); }
 });
+
+
+/* ---------- ともだちに みせる ---------- */
+var NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+function numWord(n){ return n <= 10 ? NUMW[n] : String(n); }
+function plural(w, n){ return n === 1 ? w : w + 's'; }
+function speak(text){
+  try{
+    if(!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function showCard(st, title){
+  document.getElementById('showTitle').textContent = title || '👀 カードを みせよう';
+  drawCardInto(document.getElementById('showSvg'), st, { noIds: true });
+  var cnt = countCard(st);
+  var html = '', rows = [];
+  SHAPES.forEach(function(sh){
+    var r = cnt.byShape[sh.id]; if(!r) return;
+    rows.push({ ico: miniShapeSvg(sh.pts, colorById(Object.keys(r.colors)[0]).hex), ja: sh.ja, en: sh.en, n: r.n, colors: r.colors });
+  });
+  if(cnt.pieces.n) rows.push({ ico: '<div style="font-size:38px;text-align:center">✂️</div>', ja: 'きった かけら', en: 'piece', n: cnt.pieces.n, colors: cnt.pieces.colors });
+  if(!rows.length){ html = '<div class="empty-note">かたちが まだ ないよ</div>'; }
+  rows.forEach(function(r, i){
+    var sentence = 'I use ' + Object.keys(r.colors).map(function(cid){
+      var n = r.colors[cid];
+      return numWord(n) + ' ' + colorById(cid).en + ' ' + plural(r.en, n);
+    }).join(' and ') + '.';
+    r.sentence = sentence;
+    html += '<div class="show-row"><div class="ico">' + r.ico + '</div><div class="mid"><div class="nm">' + r.en + '<small>' + r.ja + '</small></div>' +
+      '<div class="dots">' + Object.keys(r.colors).map(function(cid){ var c = colorById(cid);
+        return '<span class="dot"><i style="background:' + c.hex + '"></i>' + c.en + ' ' + r.colors[cid] + '</span>'; }).join('') + '</div></div>' +
+      '<div class="cnt">' + r.n + '<small> こ</small></div><button class="spk" data-i="' + i + '" title="' + escapeHtml(sentence) + '">🔊</button></div>';
+  });
+  if(cnt.total){
+    var sum = 'I use ' + numWord(cnt.total) + ' ' + plural('shape', cnt.total) + '.';
+    html += '<div class="show-sum">' + sum + '<br><span style="font-size:13px;font-weight:400">ぜんぶで ' + cnt.total + ' こ</span> <button class="spk" id="spkAll" style="vertical-align:middle">🔊</button></div>';
+  }
+  var box = document.getElementById('showTally');
+  box.innerHTML = html;
+  Array.prototype.forEach.call(box.querySelectorAll('.spk[data-i]'), function(b){
+    b.addEventListener('click', function(){ speak(rows[parseInt(b.getAttribute('data-i'), 10)].sentence); });
+  });
+  var all = document.getElementById('spkAll');
+  if(all) all.addEventListener('click', function(){ speak('This is for you. I use ' + numWord(cnt.total) + ' ' + plural('shape', cnt.total) + '.'); });
+  document.getElementById('showOv').className = 'overlay on';
+}
+document.getElementById('showBtn').addEventListener('click', function(){ selId = null; render(); showCard(state, '👀 カードを みせよう'); });
+document.getElementById('showClose').addEventListener('click', function(){ document.getElementById('showOv').className = 'overlay'; try{ window.speechSynthesis.cancel(); }catch(e){} });
+
+/* ---------- クラスに おくる / みんなの カード ---------- */
+function getRoom(){
+  var m = location.search.match(/[?&]room=([^&]+)/);
+  if(m){ try{ return decodeURIComponent(m[1]); }catch(e){} }
+  try{ return localStorage.getItem('card_room') || ''; }catch(e){ return ''; }
+}
+function saveRoom(r){ try{ localStorage.setItem('card_room', r); }catch(e){} }
+function getName(){ try{ return localStorage.getItem('card_name') || ''; }catch(e){ return ''; } }
+document.getElementById('shareBtn').addEventListener('click', function(){
+  document.getElementById('shareRoom').value = getRoom();
+  document.getElementById('shareName').value = getName();
+  document.getElementById('shareMsg').textContent = '';
+  document.getElementById('shareOv').className = 'overlay on';
+});
+document.getElementById('shareClose').addEventListener('click', function(){ document.getElementById('shareOv').className = 'overlay'; });
+document.getElementById('shareGo').addEventListener('click', function(){
+  var room = document.getElementById('shareRoom').value.trim();
+  var name = document.getElementById('shareName').value.trim();
+  var msg = document.getElementById('shareMsg');
+  if(!room || !name){ msg.className = 'hint warn'; msg.textContent = 'きょうしつコードと なまえ(ばんごう)を いれてね'; return; }
+  if(!state.items.length){ msg.className = 'hint warn'; msg.textContent = 'まず カードを つくってから おくってね'; return; }
+  saveRoom(room); try{ localStorage.setItem('card_name', name); }catch(e){}
+  msg.className = 'hint'; msg.textContent = 'おくっているよ…';
+  fetch('/api/card/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, label: name, state: state }) })
+    .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error(d.error || 'error'); return d; }); })
+    .then(function(){ msg.className = 'hint'; msg.textContent = 'おくれたよ！「📥 みんなの カード」で みんなの カードも みてみよう'; })
+    .catch(function(){ msg.className = 'hint warn'; msg.textContent = 'おくれなかったよ。もういちど ためしてね'; });
+});
+
+var galTimer = null;
+var galCards = [];
+function loadGallery(){
+  var room = document.getElementById('galRoomInput').value.trim();
+  var body = document.getElementById('galBody');
+  if(!room){ body.innerHTML = '<div class="empty-note">きょうしつコードを いれてね</div>'; return; }
+  saveRoom(room);
+  document.getElementById('galRoom').textContent = '（コード: ' + room + '）';
+  fetch('/api/card/list?room=' + encodeURIComponent(room)).then(function(r){ return r.json(); }).then(function(d){
+    galCards = d.cards || [];
+    if(!galCards.length){ body.innerHTML = '<div class="empty-note">まだ だれも おくっていないよ</div>'; return; }
+    body.innerHTML = '<div class="gal-grid"></div>';
+    var grid = body.firstChild;
+    galCards.forEach(function(c, i){
+      var cnt = countCard(c.state);
+      var div = document.createElement('div');
+      div.className = 'gal-item';
+      div.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"></svg><div class="lb">' + escapeHtml(c.label) + ' の カード</div><div class="sm">かたち ' + cnt.total + ' こ ・ タップで みる</div>';
+      drawCardInto(div.querySelector('svg'), c.state, { noShadow: true, noIds: true });
+      div.addEventListener('click', function(){ showCard(c.state, '👀 ' + c.label + ' の カード'); });
+      grid.appendChild(div);
+    });
+  }).catch(function(){ body.innerHTML = '<div class="empty-note">よみこめなかったよ。「こうしん」を おしてね</div>'; });
+}
+document.getElementById('galBtn').addEventListener('click', function(){
+  document.getElementById('galRoomInput').value = getRoom();
+  document.getElementById('galOv').className = 'overlay on';
+  loadGallery();
+});
+document.getElementById('galReload').addEventListener('click', loadGallery);
+document.getElementById('galRoomInput').addEventListener('change', loadGallery);
+document.getElementById('galClose').addEventListener('click', function(){ document.getElementById('galOv').className = 'overlay'; });
 
 /* ---------- 起動 ---------- */
 state = load() || newState();

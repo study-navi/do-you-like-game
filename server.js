@@ -301,6 +301,12 @@ function publicAlphabetList(room){
  *             queue: [{sid, gid}] | null（いいね上位のクイズ）, qi: 出題中の番号 }
  *   生徒 -> { groups: [{ gid, name, letters:[A-Z], at, likes:[いいねした生徒id] }]（みせているグループ） }
  * ============================================================ */
+const CARD_SHARES_FILE = path.join(__dirname, 'card_shares.json');
+let cardShares = {};
+try{ cardShares = JSON.parse(fs.readFileSync(CARD_SHARES_FILE, 'utf8')); }catch(e){ cardShares = {}; }
+function saveCardShares(){
+  try{ fs.writeFileSync(CARD_SHARES_FILE, JSON.stringify(cardShares)); }catch(e){ console.error('保存に失敗しました:', e.message); }
+}
 const SORT_ROOMS_FILE = path.join(__dirname, 'sort_rooms.json');
 const SORT_STUDENTS_FILE = path.join(__dirname, 'sort_students.json');
 let sortRooms = {};
@@ -2225,9 +2231,39 @@ const server = http.createServer(function(req, res){
     return;
   }
 
-  /* ---------- This is for you. グリーティングカード（1人で作る・サーバー保存なし） ---------- */
+  /* ---------- This is for you. グリーティングカード ---------- */
   if(req.method === 'GET' && url === '/card'){
     serveFile(res, path.join(PUBLIC_DIR, 'card.html'), 'text/html; charset=utf-8');
+    return;
+  }
+  // クラスにおくる（きょうしつコードごとに、ひとり1まい。おなじ名前でおくると上書き）
+  if(req.method === 'POST' && url === '/api/card/share'){
+    readJsonBody(req, function(body){
+      const st = body && body.state;
+      const label = body && typeof body.label === 'string' ? body.label.trim().slice(0, 12) : '';
+      if(!label || !st || !Array.isArray(st.items) || st.items.length > 200 || typeof st.w !== 'number' || typeof st.h !== 'number'){
+        sendJson(res, 400, { error: 'invalid card' }); return;
+      }
+      if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
+      const room = normalizeRoom(body.room);
+      if(!cardShares[room]) cardShares[room] = {};
+      const key = label.toLowerCase();
+      cardShares[room][key] = { label: label, state: st, at: Date.now() };
+      const keys = Object.keys(cardShares[room]);
+      if(keys.length > 60){
+        keys.sort(function(a, b){ return cardShares[room][a].at - cardShares[room][b].at; });
+        delete cardShares[room][keys[0]];
+      }
+      saveCardShares();
+      sendJson(res, 200, { ok: true, room: room });
+    });
+    return;
+  }
+  if(req.method === 'GET' && url === '/api/card/list'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const m = cardShares[room] || {};
+    const list = Object.keys(m).map(function(k){ return m[k]; }).sort(function(a, b){ return b.at - a.at; });
+    sendJson(res, 200, { room: room, cards: list });
     return;
   }
 

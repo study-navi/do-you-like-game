@@ -2447,18 +2447,50 @@ const server = http.createServer(function(req, res){
       }) : [];
       if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
       const room = normalizeRoom(body.room);
+      const dev = typeof body.dev === 'string' ? body.dev.slice(0, 24) : '';
       if(!cardEx.saves[room]) cardEx.saves[room] = {};
-      if(!cardEx.saves[room][cardKey(label)] && Object.keys(cardEx.saves[room]).length >= 120){ sendJson(res, 400, { error: 'room full' }); return; }
-      cardEx.saves[room][cardKey(label)] = { label: label, state: st, inventory: inv, at: Date.now() };
+      const key = cardKey(label), prev = cardEx.saves[room][key] || null;
+      if(!prev && Object.keys(cardEx.saves[room]).length >= 120){ sendJson(res, 400, { error: 'room full' }); return; }
+      const now = Date.now();
+      let hist = prev && prev.hist ? prev.hist.slice() : [];
+      let switchedAt = prev ? prev.devSwitchedAt || null : null;
+      const switched = !!(prev && prev.dev && dev && prev.dev !== dev);
+      if(switched) switchedAt = now;
+      /* ばんごうの おしまちがい・べつの たんまつの うわがき に そなえて、まえの ほぞんを 3つまで とっておく */
+      if(prev && prev.state && prev.state.items && prev.state.items.length && (switched || now - prev.at > 120000)){
+        hist.push({ label: prev.label, state: prev.state, inventory: prev.inventory, at: prev.at, dev: prev.dev || '' });
+        if(hist.length > 3) hist = hist.slice(hist.length - 3);
+      }
+      cardEx.saves[room][key] = { label: label, state: st, inventory: inv, at: now, dev: dev, devSwitchedAt: switchedAt, hist: hist };
       saveCardEx();
-      sendJson(res, 200, { ok: true, at: cardEx.saves[room][cardKey(label)].at });
+      sendJson(res, 200, { ok: true, at: now });
+    });
+    return;
+  }
+  if(req.method === 'GET' && url === '/api/card/hist'){
+    const room = normalizeRoom(getQueryParam(queryString, 'room'));
+    const sv = (cardEx.saves[room] || {})[cardKey(getQueryParam(queryString, 'me'))] || null;
+    sendJson(res, 200, { hist: sv ? sv.hist || [] : [] });
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/card/rollback'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room), key = cardKey(body && body.me);
+      const sv = (cardEx.saves[room] || {})[key];
+      const h = sv && sv.hist && sv.hist[parseInt(body.idx, 10)];
+      if(!sv || !h){ sendJson(res, 400, { error: 'not found' }); return; }
+      sv.hist.push({ label: sv.label, state: sv.state, inventory: sv.inventory, at: sv.at, dev: sv.dev || '' });
+      if(sv.hist.length > 3) sv.hist = sv.hist.slice(sv.hist.length - 3);
+      sv.state = h.state; sv.inventory = h.inventory; sv.at = Date.now(); sv.dev = h.dev || ''; sv.devSwitchedAt = null;
+      saveCardEx();
+      sendJson(res, 200, { ok: true });
     });
     return;
   }
   if(req.method === 'GET' && url === '/api/card/restore'){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const sv = (cardEx.saves[room] || {})[cardKey(getQueryParam(queryString, 'me'))] || null;
-    sendJson(res, 200, { save: sv });
+    sendJson(res, 200, { save: sv ? { label: sv.label, state: sv.state, inventory: sv.inventory, at: sv.at, dev: sv.dev || '' } : null });
     return;
   }
   // 先生用: 教室の 生徒ぜんいんの ほぞんデータ
@@ -2478,6 +2510,9 @@ const server = http.createServer(function(req, res){
         label: (sv && sv.label) || (sh && sh.label) || (sr && sr.label) || k,
         state: sv ? sv.state : (sr ? sr.state : null),
         savedAt: sv ? sv.at : null,
+        devSwitchedAt: sv ? sv.devSwitchedAt || null : null,
+        histCount: sv && sv.hist ? sv.hist.length : 0,
+        meKey: k,
         shared: !!sr, sharedAt: sr ? sr.at : null,
         stockLeft: sh ? sh.stock.length : null,
         inventory: Object.keys(merged).map(function(id){ return merged[id]; }),

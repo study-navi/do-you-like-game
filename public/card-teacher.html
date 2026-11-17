@@ -109,10 +109,26 @@ function render(){
     d.innerHTML = (has ? '<svg class="card" xmlns="http://www.w3.org/2000/svg"></svg>' : '<div class="empty">カードは まだ</div>') +
       '<div class="nm"><span>' + escapeHtml(s.label) + '</span><small>' + hm(s.savedAt) + '</small></div>' +
       '<div class="line">' + (has ? '<b>' + cnt.total + '</b> こ ─ ' + escapeHtml(variantsText(cnt)) : 'かたち なし') + '</div>' +
-      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.length + '</span>' + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span></div>';
+      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.length + '</span>' + (s.devSwitchedAt ? '<span class="tag o">⚠️ べつの たんまつ</span>' : '') + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span></div>';
     if(has) drawCardInto(d.querySelector('svg'), s.state, { noShadow: true, noIds: true });
     d.addEventListener('click', function(){ openDetail(s); });
     g.appendChild(d);
+  });
+}
+function showHist(s){
+  fetch('/api/card/hist?room=' + encodeURIComponent(room) + '&me=' + encodeURIComponent(s.meKey)).then(function(r){ return r.json(); }).then(function(d){
+    var box = document.getElementById('histBox'); box.innerHTML = '';
+    (d.hist || []).forEach(function(h, i){
+      var w = document.createElement('div'); w.style.cssText = 'display:flex;gap:10px;align-items:center;margin:8px 0;background:#F1EFE8;border-radius:10px;padding:8px';
+      w.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" style="width:130px;border-radius:6px"></svg><div style="flex:1;font-size:13px">' + hm(h.at) + ' の ほぞん（' + h.state.items.length + 'こ）</div><button class="btn">これに もどす</button>';
+      drawCardInto(w.querySelector('svg'), h.state, { noShadow: true, noIds: true });
+      w.querySelector('button').addEventListener('click', function(){
+        if(!confirm(s.label + ' の カードを この ほぞんに もどしますか？（いまの カードも まえの ほぞんに のこります）')) return;
+        fetch('/api/card/rollback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: room, me: s.meKey, idx: i }) })
+          .then(function(r){ return r.json(); }).then(function(){ document.getElementById('ov').className = 'overlay'; load(); });
+      });
+      box.appendChild(w);
+    });
   });
 }
 function openDetail(s){
@@ -137,7 +153,10 @@ function openDetail(s){
     return '<div class="c">' + miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') + it.size + ' ' + c.en + '<br>' + sh.en + '</div>';
   }).join('') || '<span style="color:#888780;font-size:12px">まだ ありません</span>') + '</div>';
   body += '<h4>おみせ</h4><div class="line">のこりの ざいりょう: ' + (s.stockLeft == null ? '—' : s.stockLeft + ' こ') + ' ／ せいりつした やりとり: ' + s.dealsDone + ' ／ クラスに おくった: ' + (s.shared ? hm(s.sharedAt) : 'まだ') + '</div>';
+  if(s.histCount){ body += '<div style="margin-top:10px"><button class="btn gray" id="histBtn">🕘 まえの ほぞんを みる（' + s.histCount + '）</button><div id="histBox"></div></div>'; }
   document.getElementById('ovBody').innerHTML = body;
+  var hb = document.getElementById('histBtn');
+  if(hb) hb.addEventListener('click', function(){ showHist(s); });
   document.getElementById('ov').className = 'overlay on';
 }
 function showMode(m){

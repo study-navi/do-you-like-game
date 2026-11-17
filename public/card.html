@@ -283,7 +283,7 @@
     <div class="ex-grid">
       <div>
         <div class="ex-box"><h4>わたしの おみせ（ざいりょう）</h4><div class="stock" id="exStock"></div></div>
-        <div class="ex-box"><h4>ともだちの おみせに いく</h4><div class="shop-btns" id="exShops"></div></div>
+        <div class="ex-box"><h4>ともだちの おみせに いく</h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box"><h4>もらった ざいりょう（タップで カードに いれる）</h4><div class="stock" id="exInv"></div></div>
       </div>
       <div><div id="exDeals"></div></div>
@@ -312,6 +312,17 @@
     <label style="white-space:nowrap">きょうしつコード</label><input id="galRoomInput" maxlength="30" style="flex:1;min-width:0;font-size:16px;padding:6px 10px" placeholder="れい: 3-1">
   </div>
   <div id="galBody"></div>
+</div></div>
+
+<div class="overlay" id="claimOv" style="z-index:70"><div class="sheet share-sheet" style="text-align:center">
+  <div class="sheet-head"><h3 id="claimTitle">⚠️ この ばんごうの カードが もう あるよ</h3></div>
+  <svg id="claimSvg" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:320px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.15)"></svg>
+  <div id="claimInfo" style="margin:10px 0;font-size:14px;color:#5F5E5A"></div>
+  <div style="font-weight:700;margin-bottom:10px">これは あなたの カード？</div>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button class="tbtn main" id="claimYes" style="padding:12px 20px">はい、わたしの カード</button>
+    <button class="tbtn" id="claimNo" style="padding:12px 20px">ちがう（ばんごうを えらびなおす）</button>
+  </div>
 </div></div>
 
 <div class="overlay" id="shareOv"><div class="sheet share-sheet">
@@ -1122,7 +1133,7 @@ function exRender(){
   document.getElementById('exStock').innerHTML = st.length ? st.map(function(it){ return stockChip(it); }).join('') : '<span class="wait">ざいりょうは ぜんぶ なくなったよ</span>';
   // ともだちの おみせ
   var sh = document.getElementById('exShops');
-  sh.innerHTML = d.shops.length ? d.shops.map(function(s){ return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
+  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
   // もらった ざいりょう
   var used = usedIds();
   document.getElementById('exInv').innerHTML = d.inventory.length ? d.inventory.map(function(it){
@@ -1136,7 +1147,7 @@ function exRender(){
 function dealHtml(dl, me){
   var isShop = norm(dl.shop) === me;
   var other = isShop ? dl.customer : dl.shop;
-  var h = '<div class="deal" data-deal="' + dl.id + '"><div class="deal-head"><span>' + (isShop ? '🛍 おみせの ひと（わたし）' : '🙋 おきゃくさん（わたし）') + ' ・ あいて: <b>' + escapeHtml(other) + '</b></span>' +
+  var h = '<div class="deal" data-deal="' + dl.id + '"><div class="deal-head"><span>' + (isShop ? '🛍 おみせの ひと（わたし）' : '🙋 おきゃくさん（わたし）') + ' ・ あいて: <b style="font-size:20px;color:#185FA5">' + escapeHtml(other) + '</b></span>' +
     (dl.state !== 'done' ? '<a href="#" data-act="cancel" data-id="' + dl.id + '" style="color:#888780">やめる</a>' : '') + '</div>';
   dl.log.forEach(function(e){
     var mine = (e.who === 'shop') === isShop;
@@ -1145,7 +1156,7 @@ function dealHtml(dl, me){
   var B = function(act, text, cls, extra){ return '<button class="say-btn ' + (cls || '') + '" data-act="' + act + '" data-id="' + dl.id + '" data-say="' + escapeHtml(text) + '" ' + (extra || '') + '>' + escapeHtml(text) + '</button>'; };
   var st = dl.state;
   if(isShop){
-    if(st === 'start') h += '<div class="wait">① おきゃくさんに きいてみよう（こえに だして いってから おす）</div>' + B('ask', 'What do you want?');
+    if(st === 'start') h += '<div class="wait" style="color:#854F0B;font-weight:700">👀 おきゃくさんは <b>' + escapeHtml(other) + '</b> だよ。となりに きた ともだちと おなじ ばんごうか みてね。ちがう ときは「やめる」</div><div class="wait">① おきゃくさんに きいてみよう（こえに だして いってから おす）</div>' + B('ask', 'What do you want?');
     else if(st === 'asked') h += '<div class="wait">おきゃくさんの こたえを まっているよ…</div>';
     else if(st === 'wanted'){
       var stock = (ex.data.myShop && ex.data.myShop.stock) || [];
@@ -1187,12 +1198,21 @@ function CARD_STD_COLORS(){ return COLORS.filter(function(c){ return !c.extra; }
 
 document.getElementById('exOv').addEventListener('click', function(ev){
   var t = ev.target;
-  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.inv || t.dataset.again))) t = t.parentNode;
+  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.inv || t.dataset.again))) t = t.parentNode;
   if(!t || t === this) return;
   var ds = t.dataset;
   if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
-  if(ds.shop || ds.again){
-    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.shop || ds.again }).then(exPoll).catch(function(){ toast('おみせに いけなかったよ'); });
+  if(ds.shop){
+    var cf = document.getElementById('exConfirm');
+    cf.innerHTML = '<div style="font-size:18px;font-weight:700;margin-bottom:6px"><b style="font-size:26px;color:#185FA5">' + escapeHtml(ds.shop) + '</b> の おみせに いく？</div><div style="font-size:13px;color:#5F5E5A;margin-bottom:8px">となりの ともだちの がめんに「' + escapeHtml(ex.me) + '」と でて いるか、たしかめよう</div>' +
+      '<button class="tbtn main" data-go="' + escapeHtml(ds.shop) + '" style="padding:10px 22px">いく</button> <button class="tbtn" data-nogo="1" style="padding:10px 22px">ちがう</button>';
+    cf.style.display = 'block';
+    return;
+  }
+  if(ds.nogo){ document.getElementById('exConfirm').style.display = 'none'; return; }
+  if(ds.go || ds.again){
+    document.getElementById('exConfirm').style.display = 'none';
+    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.go || ds.again }).then(exPoll).catch(function(){ toast('おみせに いけなかったよ'); });
     return;
   }
   if(ds.pick){ ex.sel[ds.deal] = ds.pick; ex.sig = ''; exPoll(); return; }
@@ -1229,7 +1249,8 @@ function scheduleCloudSave(){
   if(!idReady()) return;
   if(!cloud.dirty){ cloud.dirty = true; idStat('✏️ まだ ほぞんして いないよ（「ほぞん」を おすと すぐ ほぞん。5ふんごとに じどうでも ほぞん）', false); }
 }
-function cloudBody(){ return { room: ex.room, me: ex.me, state: state, inventory: localInv() }; }
+var DEV = (function(){ try{ var d = localStorage.getItem('card_dev'); if(!d){ d = Math.random().toString(36).slice(2, 12); localStorage.setItem('card_dev', d); } return d; }catch(e){ return 'nodev'; } })();
+function cloudBody(){ return { room: ex.room, me: ex.me, state: state, inventory: localInv(), dev: DEV }; }
 function cloudSave(manual){
   if(!idReady()){ if(manual === true) idStat('さきに コードと なまえを いれて「きめる」を おしてね', false); return; }
   if(!state.items.length && ex.restoreData){
@@ -1350,7 +1371,19 @@ document.getElementById('idSet').addEventListener('click', function(){
   if(!room){ idStat('ねん と くみ を えらんでね', false); return; }
   if(!idSel.n){ idStat('ばんごうを えらんでね', false); return; }
   try{ localStorage.setItem('card_school', SCHOOL); localStorage.setItem('card_gc', idSel.g + '-' + idSel.c); localStorage.setItem('card_no', String(idSel.n)); }catch(e){}
-  setIdentity(room, idSel.n + 'ばん', false);
+  var name = idSel.n + 'ばん';
+  fetch('/api/card/restore?room=' + encodeURIComponent(room) + '&me=' + encodeURIComponent(name)).then(function(r){ return r.json(); }).then(function(d){
+    var sv = d && d.save;
+    var other = sv && sv.dev && sv.dev !== DEV && sv.state && sv.state.items && sv.state.items.length;
+    if(!other){ setIdentity(room, name, false); return; }
+    drawCardInto(document.getElementById('claimSvg'), sv.state, { noShadow: true, noIds: true });
+    var t = new Date(sv.at);
+    document.getElementById('claimTitle').textContent = '⚠️ ' + name + ' の カードが もう あるよ';
+    document.getElementById('claimInfo').textContent = 'べつの たんまつで ほぞんした カードだよ（' + (t.getMonth() + 1) + '/' + t.getDate() + ' ' + ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2) + '）。ほかの ひとの ばんごうを おしまちがえて いないかな？';
+    document.getElementById('claimYes').onclick = function(){ document.getElementById('claimOv').className = 'overlay'; setIdentity(room, name, false); };
+    document.getElementById('claimNo').onclick = function(){ document.getElementById('claimOv').className = 'overlay'; idStat('ばんごうを もういちど えらんでね', false); };
+    document.getElementById('claimOv').className = 'overlay on';
+  }).catch(function(){ setIdentity(room, name, false); });
 });
 document.getElementById('idChange').addEventListener('click', openIdPick);
 document.getElementById('idRestore').addEventListener('click', doRestore);

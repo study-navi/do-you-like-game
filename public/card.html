@@ -837,8 +837,8 @@ function setOrientation(landscape){
 }
 
 document.getElementById('addText').addEventListener('click', function(){ addText('This is for you.'); });
-/* 教科書のカードにある ことば（This is for you. / Thank you. / TO / FROM） */
-['This is for you.', 'Thank you.', 'TO: ', 'FROM: '].forEach(function(m){
+/* 教科書の カードの れい（クリスマス・たんじょうび・バレンタイン・ありがとう・ねんが）と This is for you. */
+['This is for you.', 'Thank you!', 'Merry Christmas!', 'Happy Birthday!', "Happy Valentine's Day!", 'Happy New Year!', 'TO: ', 'FROM: '].forEach(function(m){
   var b = document.createElement('button');
   b.className = 'msg-btn'; b.textContent = m.trim();
   b.addEventListener('click', function(){ addText(m); });

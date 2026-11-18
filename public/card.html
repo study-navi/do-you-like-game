@@ -1299,15 +1299,6 @@ function exRender(){
   d.deals.slice().reverse().forEach(function(dl){ html += dealHtml(dl, me); });
   document.getElementById('exDeals').innerHTML = html || '<div class="empty-note">ともだちの おみせに いくか、おきゃくさんが くるのを まとう！</div>';
 }
-function getAllBtn(dl){
-  if(!dl.item || !dl.gaveQty || !ex.data) return '';
-  var id = 'm_' + dl.item.shape + '_' + dl.item.size + '_' + dl.item.color;
-  var inv = ex.data.inventory.filter(function(x){ return x.id === id; })[0];
-  if(!inv) return '';
-  var left = leftOf(inv), num = Math.min(dl.gaveQty, left);
-  if(!num) return '<div class="wait" style="margin-top:6px">✔ カードに のせたよ</div>';
-  return '<button class="say-btn alt" data-getall="' + id + '" data-n="' + num + '" style="margin-top:6px">🎁 ' + escapeHtml(itemPhrase(dl.item, num)) + ' を ぜんぶ カードに のせる</button>';
-}
 function dealHtml(dl, me){
   var isShop = norm(dl.shop) === me;
   var other = isShop ? dl.customer : dl.shop;
@@ -1360,11 +1351,14 @@ function dealHtml(dl, me){
       h += '</div></div>' + B('qty', cap(numWord(q)) + ', please.', '', 'data-qty="' + q + '"');
     }
     else if(st === 'qtyset') h += '<div class="wait">おみせの ひとが わたしてくれるよ…</div>';
-    else if(st === 'given') h += '<div class="wait">⑤ うけとったよ！ ─ ' + escapeHtml(itemPhrase(dl.item, dl.qty)) + '</div>' + B('thanks', 'Thank you.') + getAllBtn(dl);
-    else if(st === 'thanked') h += '<div class="wait">…</div>' + getAllBtn(dl);
+    else if(st === 'given'){
+      var gsh = shapeById(dl.item.shape), gco = colorById(dl.item.color);
+      h += '<div style="text-align:center;margin:6px 0"><div class="stock" style="justify-content:center">' + stockChip({ shape: dl.item.shape, size: 'big', color: dl.item.color, tag: '×' + dl.gaveQty }) + '</div><div class="wait" style="margin:4px 0">⑤ ' + escapeHtml(itemPhrase(dl.item, dl.gaveQty)) + '</div>' +
+        '<button class="say-btn alt" data-act="thanks" data-id="' + dl.id + '" data-say="Thank you." style="font-size:22px;padding:14px 26px">🎁 Thank you.（1タップで ぜんぶ うけとる）</button></div>';
+    }
+    else if(st === 'thanked') h += '<div class="wait">✔ うけとったよ！（BOX に ' + escapeHtml(itemPhrase(dl.item, dl.gaveQty)) + ' が はいったよ）</div>';
     else if(st === 'done'){
-      h += dl.item && dl.gaveQty ? '<div class="wait">✔ ' + escapeHtml(itemPhrase(dl.item, dl.gaveQty)) + ' を もらったよ。「もらった ざいりょう」から カードに いれよう</div>' : '';
-      h += getAllBtn(dl);
+      h += dl.item && dl.gaveQty ? '<div class="wait">✔ ' + escapeHtml(itemPhrase(dl.item, dl.gaveQty)) + ' を うけとったよ。BOX から カードに のせよう</div>' : '';
       h += '<button class="say-btn gray" data-again="' + escapeHtml(dl.shop) + '">もっと ほしい</button>';
     }
   }
@@ -1403,7 +1397,7 @@ document.getElementById('exOv').addEventListener('click', function(ev){
     return;
   }
   var t = ev.target;
-  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.qset || t.dataset.boxsort || t.dataset.getall || t.dataset.inv || t.dataset.again))) t = t.parentNode;
+  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.qset || t.dataset.boxsort || t.dataset.inv || t.dataset.again))) t = t.parentNode;
   if(!t || t === this) return;
   var ds = t.dataset;
   if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
@@ -1424,7 +1418,6 @@ document.getElementById('exOv').addEventListener('click', function(ev){
   if(ds.qset){ ex.qty[ds.deal] = parseInt(ds.qset, 10); ex.sig = ''; exRender(); return; }
   if(ds.pick){ ex.sel[ds.deal] = ds.pick; ex.sig = ''; exPoll(); return; }
   if(ds.bset){ var b = ex.builder[ds.deal] || (ex.builder[ds.deal] = { size: 'big', color: 'red', shape: 'star' }); b[ds.bset] = ds.v; ex.sig = ''; exRender(); return; }
-  if(ds.getall){ addInvAll(ds.getall, parseInt(ds.n, 10) || 1); return; }
   if(ds.inv){ addInvAll(ds.inv); return; }
   if(ds.act){
     var body = { room: ex.room, me: ex.me, id: ds.id, act: ds.act };

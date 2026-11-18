@@ -401,6 +401,8 @@ function cardInvOf(room, key){
   cardDealsOf(room).forEach(function(d){
     if(d.customerKey !== key || !d.item) return;
     if(d.gaveQty){
+      /* おきゃくさんが「Thank you.」を おして うけとったら、ぜんぶの こすうが いっぺんに BOX に はいる */
+      if(!d.log.some(function(e){ return e.who === 'customer' && e.text === 'Thank you.'; })) return;
       const id = 'm_' + d.item.shape + '_' + d.item.size + '_' + d.item.color;
       if(!map[id]){ map[id] = { id: id, shape: d.item.shape, size: d.item.size, color: d.item.color, qty: 0 }; order.push(id); }
       map[id].qty += d.gaveQty;

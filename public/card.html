@@ -218,6 +218,9 @@
   #exConfirm .cf-q { font-size: 20px; font-weight: 800; line-height: 1.5; }
   #exConfirm .cf-n { display: block; font-size: 56px; font-weight: 900; color: #185FA5; line-height: 1.2; }
   #exConfirm .tbtn { font-size: 20px !important; padding: 14px 26px !important; margin: 4px; }
+  #exBtn.ring { animation: exRing .8s infinite; border-color: #D85A30; }
+  .exbell { background: #D85A30; color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 13px; }
+  @keyframes exRing { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
   .shopcard { margin: 6px 0 10px; }
   .shophave { margin: 4px 0 0 6px; gap: 4px; }
   .shophave .st-chip { transform: scale(.85); transform-origin: top left; margin: 0 -6px -6px 0; }
@@ -1255,8 +1258,25 @@ function exPoll(){
       ex.data = d;
       applyPaletteLock();
       if(sig !== ex.sig){ ex.sig = sig; exRender(); }
+      exBadge(d);
     }).catch(function(){});
 }
+/* やりとりを ひらいて いない ときも、まっている ひとが いたら しらせる */
+var EX_WAIT_SHOP = { start: 1, wanted: 1, accepted: 1, qtyset: 1, thanked: 1 }, EX_WAIT_CUST = { asked: 1, offered: 1, howmany: 1, given: 1 };
+function exBadge(d){
+  var me = norm(ex.me), n = 0, firstShop = '';
+  (d.deals || []).forEach(function(dl){
+    var isShop = norm(dl.shop) === me;
+    if(isShop ? EX_WAIT_SHOP[dl.state] : EX_WAIT_CUST[dl.state]){ n++; if(!firstShop) firstShop = isShop ? dl.customer : dl.shop; }
+  });
+  var btn = document.getElementById('exBtn'), open = document.getElementById('exOv').className.indexOf('on') >= 0;
+  var show = n > 0 && !open;
+  btn.innerHTML = show ? '🛍 やりとり <span class="exbell">🔔 ' + n + '</span>' : '🛍 やりとり';
+  btn.className = 'tbtn' + (show ? ' ring' : '');
+  if(show && n > (ex.lastWait || 0)) toast('🔔 ' + firstShop + ' が まっているよ！「やりとり」を ひらこう');
+  ex.lastWait = open ? 0 : n;
+}
+setInterval(function(){ if(ex.me && !ex.timer) exPoll(); }, 3000);
 function exStartTimer(){ exStopTimer(); ex.timer = setInterval(exPoll, 2000); }
 function exStopTimer(){ if(ex.timer){ clearInterval(ex.timer); ex.timer = null; } }
 

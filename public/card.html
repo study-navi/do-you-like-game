@@ -176,6 +176,8 @@
   .boxgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; max-height: 340px; overflow-y: auto; padding: 2px; }
   .bx { background: #fff; border: 3px solid #378ADD; border-radius: 14px; overflow: hidden; cursor: pointer; text-align: center; box-shadow: 0 2px 0 #B5D4F4; }
   .bx:active { transform: translateY(1px); }
+  .bx.view { cursor: default; box-shadow: none; }
+  .bx.view:active { transform: none; }
   .bx.out { border-color: #B4B2A9; box-shadow: none; opacity: .55; }
   .bxart { position: relative; padding: 8px 0 4px; background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 18%, #fff), #fff); }
   .bxart svg { display: block; margin: 0 auto; }
@@ -318,7 +320,7 @@
         <div class="ex-box"><h4>わたしの おみせ（この ざいりょうは なんこでも あげられるよ）</h4><div class="stock" id="exStock"></div></div>
         <div class="ex-box"><h4>ともだちの おみせに いく</h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box" id="exGachaBox"><h4>🎰 ガチャ（ともだち 3にんと こうりゅうする ごとに 1かい）</h4><div id="exGacha"></div></div>
-        <div class="ex-box"><h4>📦 BOX（カードを タップすると、1こ ずつ カードに のるよ）</h4><div class="stock" id="exInv"></div></div>
+        <div class="ex-box"><h4>📦 BOX（もっている かず。カードに のせるのは、ひだりの BOX から えらぼう）</h4><div class="stock" id="exInv"></div></div>
       </div>
       <div><div id="exDeals"></div></div>
     </div>
@@ -1242,7 +1244,7 @@ function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 /* もらった ざいりょうを「BOX」（カードコレクションみたいに ならべる）。ならびかえも できる */
 var BOX_SORTS = [['new', 'あたらしい じゅん'], ['shape', 'かたち'], ['color', 'いろ'], ['many', 'おおい じゅん']];
 function boxSort(){ try{ return localStorage.getItem('card_boxsort') || 'new'; }catch(e){ return 'new'; } }
-function invBox(inv, used){
+function invBox(inv, used, viewOnly){
   var SH = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'], CO = CARD_STD_COLORS();
   var g = {}, list = [], total = 0, ord = 0;
   (inv || []).forEach(function(it){
@@ -1264,11 +1266,11 @@ function invBox(inv, used){
     BOX_SORTS.map(function(x){ return '<span class="opt' + (sort === x[0] ? ' on' : '') + '" data-boxsort="' + x[0] + '">' + x[1] + '</span>'; }).join('') + '</div><div class="boxgrid">';
   list.forEach(function(o){
     var co = colorById(o.color), sh = shapeById(o.shape);
-    var cls = 'bx' + (o.left ? '' : ' out');
-    h += '<div class="' + cls + '" data-inv="' + (o.pick || o.first) + '" style="--tint:' + co.hex + '">' +
+    var cls = 'bx' + (o.left ? '' : ' out') + (viewOnly ? ' view' : '');
+    h += '<div class="' + cls + '"' + (viewOnly ? '' : ' data-inv="' + (o.pick || o.first) + '"') + ' style="--tint:' + co.hex + '">' +
       '<div class="bxart">' + miniShapeSvg(sh.pts, co.hex).replace('<svg ', '<svg width="54" height="54" ') + '<span class="bxn">×' + o.qty + '</span></div>' +
       '<div class="bxnm">' + escapeHtml(co.en) + '<br>' + escapeHtml(sh.en) + '</div>' +
-      '<div class="bxlf">' + (o.left === o.qty ? 'タップで 1こ のせる' : (o.left ? 'あと ' + o.left + ' こ' : 'つかいきり')) + '</div></div>';
+      '<div class="bxlf">' + (o.left === o.qty ? (viewOnly ? '&nbsp;' : 'タップで 1こ のせる') : (o.left ? 'あと ' + o.left + ' こ' : 'つかいきり')) + '</div></div>';
   });
   return h + '</div>';
 }
@@ -1293,7 +1295,7 @@ function exRender(){
   }
   // もらった ざいりょう
   var used = usedCounts();
-  document.getElementById('exInv').innerHTML = invBox(d.inventory, used);
+  document.getElementById('exInv').innerHTML = invBox(d.inventory, used, true);
   // やりとり
   var html = '';
   d.deals.slice().reverse().forEach(function(dl){ html += dealHtml(dl, me); });

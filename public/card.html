@@ -289,7 +289,7 @@
   <div id="exMain">
     <div class="ex-grid">
       <div>
-        <div class="ex-box"><h4>わたしの おみせ（ざいりょう）</h4><div class="stock" id="exStock"></div></div>
+        <div class="ex-box"><h4>わたしの おみせ（この ざいりょうは なんこでも あげられるよ）</h4><div class="stock" id="exStock"></div></div>
         <div class="ex-box"><h4>ともだちの おみせに いく</h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box"><h4>もらった ざいりょう（タップで カードに いれる）</h4><div class="stock" id="exInv"></div></div>
       </div>
@@ -759,7 +759,7 @@ function cutItem(it, p1, p2){
     poly.forEach(function(p){ cx += p[0]; cy += p[1]; });
     cx /= poly.length; cy /= poly.length;
     return {
-      id: newItemId(), type: 'piece', inv: it.inv, x: cx + nx * gap * sgn, y: cy + ny * gap * sgn, s: 1, asp: 1, r: 0, color: it.color,
+      id: newItemId(), type: 'piece', inv: it.inv, grp: it.grp || it.id, x: cx + nx * gap * sgn, y: cy + ny * gap * sgn, s: 1, asp: 1, r: 0, color: it.color,
       pts: poly.map(function(p){ return [p[0] - cx, p[1] - cy]; })
     };
   }
@@ -1106,7 +1106,7 @@ document.getElementById('galClose').addEventListener('click', function(){ docume
 
 
 /* ---------- やりとり（おみせ） ---------- */
-var ex = { me: '', room: '', data: null, timer: null, sig: '', sel: {}, builder: {}, reask: {} };
+var ex = { me: '', room: '', data: null, timer: null, sig: '', sel: {}, builder: {}, reask: {}, qty: {} };
 function toast(t){
   var e = document.getElementById('toast'); e.textContent = t; e.style.display = 'block';
   clearTimeout(toast._t); toast._t = setTimeout(function(){ e.style.display = 'none'; }, 2200);
@@ -1118,12 +1118,22 @@ function stockChip(it, cls, extra){
   var px = it.size === 'big' ? 44 : 28;
   return '<div class="st-chip ' + (cls || '') + '" ' + (extra || '') + '>' +
     miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') +
-    it.size + ' ' + c.en + '<br>' + sh.en + '</div>';
+    it.size + ' ' + c.en + '<br>' + sh.en + (it.tag ? '<br><b style="font-size:12px;color:#185FA5">' + it.tag + '</b>' : '') + '</div>';
 }
 function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
 function isLocked(it){ return !!(it && it.inv && isMat()); }
 /* もらった ざいりょうは カードごとに 1かい ずつ つかえる（2まいめ いこうでも また つかえる） */
-function usedIds(){ var u = {}; state.items.forEach(function(x){ if(x.inv) u[x.inv] = 1; }); return u; }
+/* もらった こすう ぶんだけ、1まいの カードに つかえる（きった かけらは 1こと かぞえる） */
+function usedCounts(){
+  var u = {}, seen = {};
+  state.items.forEach(function(x){
+    if(!x.inv) return;
+    if(x.type === 'piece'){ var g = x.inv + '/' + (x.grp || x.id); if(seen[g]) return; seen[g] = 1; }
+    u[x.inv] = (u[x.inv] || 0) + 1;
+  });
+  return u;
+}
+function leftOf(it, used){ return Math.max(0, (it.qty || 1) - ((used || usedCounts())[it.id] || 0)); }
 function applyPaletteLock(){
   var g = document.getElementById('shapeGrid'); if(g) g.classList.toggle('locked', isMat());
   var n = document.getElementById('matNote'); if(n) n.style.display = isMat() ? 'block' : 'none';
@@ -1137,9 +1147,13 @@ function localInv(){ try{ return JSON.parse(localStorage.getItem(invKey()) || '[
 /* もらった ざいりょうは、サーバーがきえても のこるように、この たんまつにも ほぞんする */
 function mergeInv(serverInv){
   var list = localInv(), seen = {};
-  list.forEach(function(it){ seen[it.id] = 1; });
+  list.forEach(function(it){ seen[it.id] = it; if(!it.qty) it.qty = 1; });
   var changed = false;
-  (serverInv || []).forEach(function(it){ if(!seen[it.id]){ list.push(it); seen[it.id] = 1; changed = true; } });
+  (serverInv || []).forEach(function(it){
+    var q = it.qty || 1;
+    if(!seen[it.id]){ it.qty = q; list.push(it); seen[it.id] = it; changed = true; }
+    else if(q > seen[it.id].qty){ seen[it.id].qty = q; changed = true; }
+  });
   if(changed){ try{ localStorage.setItem(invKey(), JSON.stringify(list)); }catch(e){} }
   return list;
 }
@@ -1179,6 +1193,7 @@ function logText(e){
     var q = t.slice(6).split(' ');
     return 'How about ' + phrase(q[0], colorById(q[1]).en, shapeById(q[2]).en, 1) + '?';
   }
+  if(t.indexOf('qty:') === 0) return numWord(parseInt(t.slice(4), 10)).replace(/^./, function(m){ return m.toUpperCase(); }) + ', please.';
   if(t === 'cancel') return '（やめた）';
   return t;
 }
@@ -1192,11 +1207,13 @@ function exRender(){
   document.getElementById('exStock').innerHTML = st.length ? st.map(function(it){ return stockChip(it); }).join('') : '<span class="wait">ざいりょうは ぜんぶ なくなったよ</span>';
   // ともだちの おみせ
   var sh = document.getElementById('exShops');
-  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
+  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ' + (s.got ? ' <small>（もらった ' + s.got + '/' + (d.pairMax || 10) + '）</small>' : '') + '</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
   // もらった ざいりょう
-  var used = usedIds();
+  var used = usedCounts();
   document.getElementById('exInv').innerHTML = d.inventory.length ? d.inventory.map(function(it){
-    return stockChip(it, 'pick' + (used[it.id] ? ' used' : ''), 'data-inv="' + it.id + '"');
+    var left = leftOf(it, used), c2 = {}; for(var k in it) c2[k] = it[k];
+    c2.tag = 'のこり ' + left + ' / ' + (it.qty || 1);
+    return stockChip(c2, 'pick' + (left ? '' : ' used'), 'data-inv="' + it.id + '"');
   }).join('') : '<span class="wait">まだ もらっていないよ</span>';
   // やりとり
   var html = '';
@@ -1223,11 +1240,13 @@ function dealHtml(dl, me){
       h += '<div class="wait">② ほしいもの: <b>' + escapeHtml(cap(itemPhrase(dl.want))) + ', please.</b> ─ ざいりょうから えらぼう</div><div class="stock" style="margin:6px 0">' +
         stock.map(function(it){ return stockChip(it, 'pick' + (it.id === sel ? ' sel' : ''), 'data-pick="' + it.id + '" data-deal="' + dl.id + '"'); }).join('') + '</div>';
       if(!selItem) h += B('x', 'ざいりょうを えらんでね', '', 'disabled');
-      else if(selItem.shape === dl.want.shape && selItem.size === dl.want.size && selItem.color === dl.want.color) h += B('give', 'Here you are.', '', 'data-item="' + selItem.id + '"');
+      else if(selItem.shape === dl.want.shape && selItem.size === dl.want.size && selItem.color === dl.want.color) h += B('howmany', 'How many?', '', 'data-item="' + selItem.id + '"');
       else h += B('offer', 'How about ' + itemPhrase(selItem) + '?', 'alt', 'data-item="' + selItem.id + '"');
     }
     else if(st === 'offered') h += '<div class="wait">おきゃくさんの へんじを まっているよ…</div>';
-    else if(st === 'accepted') h += B('give', 'Here you are.', '', '');
+    else if(st === 'accepted') h += B('howmany', 'How many?', '', '');
+    else if(st === 'howmany') h += '<div class="wait">おきゃくさんが かずを こたえるのを まっているよ…</div>';
+    else if(st === 'qtyset') h += '<div class="wait">④ おきゃくさんの ほしい かず: <b>' + escapeHtml(cap(numWord(dl.qty))) + '</b>（' + escapeHtml(itemPhrase(dl.item, dl.qty)) + '）</div>' + B('give', 'Here you are.');
     else if(st === 'given') h += '<div class="wait">おきゃくさんの「Thank you.」を まっているよ…</div>';
     else if(st === 'thanked') h += B('welcome', "You're welcome.");
     else if(st === 'done') h += '<div class="wait">✔ できたね！</div>';
@@ -1243,12 +1262,21 @@ function dealHtml(dl, me){
     }
     else if(st === 'wanted') h += '<div class="wait">おみせの ひとの へんじを まっているよ…</div>';
     else if(st === 'offered') h += '<div class="wait">ほかのも ほしい？</div>' + B('accept', 'OK.') + B('reask', 'ほかのが ほしい', 'gray');
-    else if(st === 'accepted') h += '<div class="wait">おみせの ひとが わたしてくれるよ…</div>';
-    else if(st === 'given') h += '<div class="wait">③ うけとったよ！ ─ ' + escapeHtml(itemPhrase(dl.item)) + '</div>' + B('thanks', 'Thank you.');
+    else if(st === 'accepted') h += '<div class="wait">おみせの ひとが きいてくれるよ…</div>';
+    else if(st === 'howmany'){
+      var shopInfo = (ex.data.shops || []).filter(function(x){ return norm(x.label) === norm(dl.shop); })[0];
+      var left = (ex.data.pairMax || 10) - (shopInfo ? shopInfo.got || 0 : 0);
+      var q = ex.qty[dl.id] || 1; if(q > left) q = left; if(q < 1) q = 1;
+      h += '<div class="wait">③ ' + escapeHtml(cap(itemPhrase(dl.item))) + ' を なんこ ほしい？（この ともだちからは あと <b>' + left + '</b> こまで）</div><div class="builder"><div class="color-grid" style="gap:6px">';
+      for(var qi = 1; qi <= left; qi++) h += '<div class="opt' + (q === qi ? ' on' : '') + '" data-qset="' + qi + '" data-deal="' + dl.id + '" style="min-width:34px;text-align:center;font-size:18px">' + qi + '</div>';
+      h += '</div></div>' + B('qty', cap(numWord(q)) + ', please.', '', 'data-qty="' + q + '"');
+    }
+    else if(st === 'qtyset') h += '<div class="wait">おみせの ひとが わたしてくれるよ…</div>';
+    else if(st === 'given') h += '<div class="wait">⑤ うけとったよ！ ─ ' + escapeHtml(itemPhrase(dl.item, dl.qty)) + '</div>' + B('thanks', 'Thank you.');
     else if(st === 'thanked') h += '<div class="wait">…</div>';
     else if(st === 'done'){
-      h += dl.item ? '<div class="wait">✔ ' + escapeHtml(itemPhrase(dl.item)) + ' を もらったよ。「もらった ざいりょう」から カードに いれよう</div>' : '';
-      h += '<button class="say-btn gray" data-again="' + escapeHtml(dl.shop) + '">もう1こ ほしい</button>';
+      h += dl.item && dl.gaveQty ? '<div class="wait">✔ ' + escapeHtml(itemPhrase(dl.item, dl.gaveQty)) + ' を もらったよ。「もらった ざいりょう」から カードに いれよう</div>' : '';
+      h += '<button class="say-btn gray" data-again="' + escapeHtml(dl.shop) + '">もっと ほしい</button>';
     }
   }
   return h + '</div>';
@@ -1257,7 +1285,7 @@ function CARD_STD_COLORS(){ return COLORS.filter(function(c){ return !c.extra; }
 
 document.getElementById('exOv').addEventListener('click', function(ev){
   var t = ev.target;
-  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.inv || t.dataset.again))) t = t.parentNode;
+  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.qset || t.dataset.inv || t.dataset.again))) t = t.parentNode;
   if(!t || t === this) return;
   var ds = t.dataset;
   if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
@@ -1271,15 +1299,16 @@ document.getElementById('exOv').addEventListener('click', function(ev){
   if(ds.nogo){ document.getElementById('exConfirm').style.display = 'none'; return; }
   if(ds.go || ds.again){
     document.getElementById('exConfirm').style.display = 'none';
-    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.go || ds.again }).then(exPoll).catch(function(){ toast('おみせに いけなかったよ'); });
+    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.go || ds.again }).then(exPoll).catch(function(e){ toast(e && e.message === 'limit' ? 'この ともだちからは もう 10こ もらったよ。ほかの ともだちの おみせに いこう' : 'おみせに いけなかったよ'); });
     return;
   }
+  if(ds.qset){ ex.qty[ds.deal] = parseInt(ds.qset, 10); ex.sig = ''; exRender(); return; }
   if(ds.pick){ ex.sel[ds.deal] = ds.pick; ex.sig = ''; exPoll(); return; }
   if(ds.bset){ var b = ex.builder[ds.deal] || (ex.builder[ds.deal] = { size: 'big', color: 'red', shape: 'star' }); b[ds.bset] = ds.v; ex.sig = ''; exRender(); return; }
   if(ds.inv){
     var it = ex.data.inventory.filter(function(x){ return x.id === ds.inv; })[0];
     if(!it) return;
-    if(usedIds()[it.id]){ toast('もう カードに いれたよ'); return; }
+    if(!leftOf(it)){ toast('この カードでは もらった ' + (it.qty || 1) + 'こ ぜんぶ つかったよ'); return; }
     pushHistory();
     var n = state.items.length;
     var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'big' ? BIG_S : SMALL_S, asp: 1, r: 0, color: it.color, inv: it.id };
@@ -1292,6 +1321,7 @@ document.getElementById('exOv').addEventListener('click', function(ev){
     if(ds.act === 'reask'){ ex.reask[ds.id] = true; ex.sig = ''; exRender(); return; }
     if(ds.act === 'want'){ body.want = ex.builder[ds.id]; delete ex.reask[ds.id]; }
     if(ds.item) body.itemId = ds.item;
+    if(ds.act === 'qty') body.qty = parseInt(ds.qty, 10);
     if(ds.say) speak(ds.say);
     exApi('/api/card/deal/act', body).then(exPoll).catch(function(){ toast('うまく いかなかったよ'); exPoll(); });
   }

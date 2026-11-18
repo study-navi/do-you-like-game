@@ -360,6 +360,40 @@ function cardDealsOf(room){
   if(!cardEx.deals[room]) cardEx.deals[room] = [];
   return cardEx.deals[room];
 }
+const CARD_PAIR_MAX = 10;
+/* shopKey が customerKey に これまでに あげた こすう（やめた やりとりは かぞえない） */
+function cardGaveTo(room, shopKey, customerKey){
+  let n = 0;
+  cardDealsOf(room).forEach(function(d){ if(d.shopKey === shopKey && d.customerKey === customerKey && d.gaveQty) n += d.gaveQty; });
+  return n;
+}
+/* もらった ざいりょうを おなじ かたち・いろ・おおきさで まとめて こすうを だす（むかしの 1こずつの ざいりょうも のこす） */
+function cardInvOf(room, key){
+  const map = {}, order = [];
+  cardDealsOf(room).forEach(function(d){
+    if(d.customerKey !== key || !d.item) return;
+    if(d.gaveQty){
+      const id = 'm_' + d.item.shape + '_' + d.item.size + '_' + d.item.color;
+      if(!map[id]){ map[id] = { id: id, shape: d.item.shape, size: d.item.size, color: d.item.color, qty: 0 }; order.push(id); }
+      map[id].qty += d.gaveQty;
+    }else if(d.item.id && (d.state === 'given' || d.state === 'thanked' || d.state === 'done') && d.qty === undefined){
+      map[d.item.id] = { id: d.item.id, shape: d.item.shape, size: d.item.size, color: d.item.color, qty: 1 }; order.push(d.item.id);
+    }
+  });
+  return order.map(function(id){ return map[id]; });
+}
+/* サーバーの けいさんと ほぞんされた ざいりょうを あわせる（おなじ id は こすうが おおきい ほう） */
+function cardMergeInv(lists){
+  const merged = {}, order = [];
+  lists.forEach(function(list){
+    (list || []).forEach(function(it){
+      const q = Math.max(1, Math.min(10, Math.floor(Number(it.qty) || 1)));
+      if(!merged[it.id]){ merged[it.id] = { id: it.id, shape: it.shape, size: it.size, color: it.color, qty: q }; order.push(it.id); }
+      else if(q > merged[it.id].qty) merged[it.id].qty = q;
+    });
+  });
+  return order.map(function(id){ return merged[id]; });
+}
 function cardAct(room, deal, me, act, body){
   const isShop = deal.shopKey === me, isCust = deal.customerKey === me;
   const shop = cardEx.shops[room] && cardEx.shops[room][deal.shopKey];
@@ -384,14 +418,30 @@ function cardAct(room, deal, me, act, body){
   if(act === 'accept' && isCust && deal.state === 'offered'){
     deal.state = 'accepted'; say('customer', 'OK.'); return true;
   }
-  if(act === 'give' && isShop && (deal.state === 'wanted' || deal.state === 'accepted')){
+  /* ざいりょうは なんこでも あげられる（おみせの ざいりょうは へらない）。
+     おなじ あいてには ぜんぶで 10こまで。ほしい かずは "How many?" → "Three, please." で きめる */
+  if(act === 'howmany' && isShop && (deal.state === 'wanted' || deal.state === 'accepted')){
     let it = null;
     if(deal.state === 'accepted') it = shop && shop.stock.filter(function(x){ return deal.offer && x.id === deal.offer.id; })[0];
     else it = shop && shop.stock.filter(function(x){ return x.id === body.itemId; })[0];
     if(!it) return false;
     if(deal.state === 'wanted' && !cardSame(it, deal.want)) return false;
-    shop.stock = shop.stock.filter(function(x){ return x.id !== it.id; });
-    deal.item = it; deal.state = 'given';
+    if(cardGaveTo(room, deal.shopKey, deal.customerKey) >= CARD_PAIR_MAX) return false;
+    deal.item = { id: it.id, shape: it.shape, size: it.size, color: it.color };
+    deal.qty = 0; deal.state = 'howmany';
+    say('shop', 'How many?'); return true;
+  }
+  if(act === 'qty' && isCust && deal.state === 'howmany'){
+    const n = Math.floor(Number(body.qty));
+    const left = CARD_PAIR_MAX - cardGaveTo(room, deal.shopKey, deal.customerKey);
+    if(!(n >= 1) || n > left) return false;
+    deal.qty = n; deal.state = 'qtyset';
+    say('customer', 'qty:' + n); return true;
+  }
+  if(act === 'give' && isShop && deal.state === 'qtyset'){
+    if(!deal.item || !(deal.qty >= 1)) return false;
+    deal.gaveQty = deal.qty;
+    deal.state = 'given';
     say('shop', 'Here you are.'); return true;
   }
   if(act === 'thanks' && isCust && deal.state === 'given'){
@@ -406,7 +456,7 @@ function cardAct(room, deal, me, act, body){
   return false;
 }
 function cardPublicDeal(d){
-  return { id: d.id, shop: d.shop, customer: d.customer, state: d.state, want: d.want || null, offer: d.offer || null, item: d.item || null, log: d.log, updatedAt: d.updatedAt };
+  return { id: d.id, shop: d.shop, customer: d.customer, state: d.state, want: d.want || null, offer: d.offer || null, item: d.item || null, qty: d.qty || 0, gaveQty: d.gaveQty || 0, log: d.log, updatedAt: d.updatedAt };
 }
 const CARD_SHARES_FILE = path.join(__dirname, 'card_shares.json');
 let cardShares = {};
@@ -2470,11 +2520,12 @@ const server = http.createServer(function(req, res){
     const shops = cardEx.shops[room] || {};
     const mine = shops[me] || null;
     const deals = cardDealsOf(room).filter(function(d){ return d.shopKey === me || d.customerKey === me; });
-    const inventory = [];
-    deals.forEach(function(d){ if(d.customerKey === me && d.item) inventory.push(d.item); });
+    const sv0 = (cardEx.saves[room] || {})[me] || null;
+    const inventory = cardMergeInv([cardInvOf(room, me), sv0 ? sv0.inventory : []]);
     sendJson(res, 200, {
       myShop: mine ? { label: mine.label, stock: mine.stock } : null,
-      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return { label: shops[k].label, count: shops[k].stock.length }; }),
+      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return { label: shops[k].label, count: shops[k].stock.length, got: cardGaveTo(room, k, me) }; }),
+      pairMax: CARD_PAIR_MAX,
       deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 120000; }).slice(-12).map(cardPublicDeal),
       inventory: inventory,
       mode: cardModeOf(room)
@@ -2499,11 +2550,12 @@ const server = http.createServer(function(req, res){
       if(!me || !shops[me] || !shops[shopKey] || me === shopKey){ sendJson(res, 400, { error: 'invalid' }); return; }
       const list = cardDealsOf(room);
       let d = list.filter(function(x){ return x.customerKey === me && x.shopKey === shopKey && x.state !== 'done'; })[0];
+      if(!d && cardGaveTo(room, shopKey, me) >= CARD_PAIR_MAX){ sendJson(res, 400, { error: 'limit' }); return; }
       if(!d){
         d = { id: crypto.randomBytes(4).toString('hex'), customerKey: me, shopKey: shopKey, customer: shops[me].label, shop: shops[shopKey].label,
           state: 'start', want: null, offer: null, item: null, log: [], updatedAt: Date.now() };
         list.push(d);
-        if(list.length > 400) list.splice(0, list.length - 400);
+        if(list.length > 1500) list.splice(0, list.length - 1500);
         saveCardEx();
       }
       sendJson(res, 200, { ok: true, id: d.id });
@@ -2527,7 +2579,7 @@ const server = http.createServer(function(req, res){
       const st = body && body.state;
       if(!label || !st || !Array.isArray(st.items) || st.items.length > 200 || typeof st.w !== 'number'){ sendJson(res, 400, { error: 'invalid' }); return; }
       const inv = Array.isArray(body.inventory) ? body.inventory.slice(0, 200).map(function(it){
-        return { id: String(it.id || '').slice(0, 12), shape: String(it.shape || ''), size: String(it.size || ''), color: String(it.color || '') };
+        return { id: String(it.id || '').slice(0, 40), shape: String(it.shape || ''), size: String(it.size || ''), color: String(it.color || ''), qty: Math.max(1, Math.min(10, Math.floor(Number(it.qty) || 1))) };
       }) : [];
       if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
       const room = normalizeRoom(body.room);
@@ -2587,10 +2639,7 @@ const server = http.createServer(function(req, res){
     const deals = cardDealsOf(room);
     const students = Object.keys(keys).map(function(k){
       const sv = saves[k] || null, sh = shops[k] || null, sr = shares[k] || null;
-      const inv = [];
-      deals.forEach(function(d){ if(d.customerKey === k && d.item) inv.push(d.item); });
-      const merged = {};
-      inv.concat(sv ? sv.inventory || [] : []).forEach(function(it){ merged[it.id] = it; });
+      const mergedInv = cardMergeInv([cardInvOf(room, k), sv ? sv.inventory : []]);
       return {
         label: (sv && sv.label) || (sh && sh.label) || (sr && sr.label) || k,
         state: sv ? sv.state : (sr ? sr.state : null),
@@ -2601,8 +2650,9 @@ const server = http.createServer(function(req, res){
         meKey: k,
         shared: !!sr, sharedAt: sr ? sr.at : null,
         stockLeft: sh ? sh.stock.length : null,
-        inventory: Object.keys(merged).map(function(id){ return merged[id]; }),
-        dealsDone: deals.filter(function(d){ return (d.customerKey === k || d.shopKey === k) && d.state === 'done' && d.item; }).length
+        inventory: mergedInv,
+        dealsDone: deals.filter(function(d){ return (d.customerKey === k || d.shopKey === k) && d.state === 'done' && d.gaveQty; }).length,
+        givenTotal: deals.filter(function(d){ return d.shopKey === k && d.gaveQty; }).reduce(function(a, d){ return a + d.gaveQty; }, 0)
       };
     }).sort(function(a, b){ return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); });
     sendJson(res, 200, { room: room, students: students, mode: cardModeOf(room) });

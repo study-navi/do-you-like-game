@@ -109,7 +109,7 @@ function render(){
     d.innerHTML = (has ? '<svg class="card" xmlns="http://www.w3.org/2000/svg"></svg>' : '<div class="empty">カードは まだ</div>') +
       '<div class="nm"><span>' + escapeHtml(s.label) + '</span><small>' + hm(s.savedAt) + '</small></div>' +
       '<div class="line">' + (has ? '<b>' + cnt.total + '</b> こ ─ ' + escapeHtml(variantsText(cnt)) : 'かたち なし') + '</div>' +
-      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.length + '</span>' + (s.devSwitchedAt ? '<span class="tag o">⚠️ べつの たんまつ</span>' : '') + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span>' + ((s.more && s.more.length) ? '<span class="tag o">カード ' + (1 + s.more.length) + 'まい</span>' : '') + '</div>';
+      '<div class="line"><span class="tag">ざいりょう ' + s.inventory.reduce(function(a, it){ return a + (it.qty || 1); }, 0) + '</span>' + (s.devSwitchedAt ? '<span class="tag o">⚠️ べつの たんまつ</span>' : '') + (s.shared ? '<span class="tag o">おくった</span>' : '<span class="tag g">みおくり</span>') + '<span class="tag g">やりとり ' + s.dealsDone + '</span>' + ((s.more && s.more.length) ? '<span class="tag o">カード ' + (1 + s.more.length) + 'まい</span>' : '') + '</div>';
     if(has) drawCardInto(d.querySelector('svg'), s.state, { noShadow: true, noIds: true });
     d.addEventListener('click', function(){ openDetail(s); });
     g.appendChild(d);
@@ -153,12 +153,13 @@ function openDetail(s, idx){
     if(cnt.pieces.n) body += '<div class="row"><div class="ico" style="font-size:30px;text-align:center">✂️</div><div class="mid"><div class="t">きった かけら</div></div><div class="n">' + cnt.pieces.n + '<small> こ</small></div></div>';
     body += '<div class="row"><div class="mid"><div class="t">ごうけい</div></div><div class="n">' + cnt.total + '<small> こ</small></div></div>';
   } else { svg.innerHTML = ''; body = '<div style="color:#888780;padding:20px">カードは まだ ありません</div>'; }
-  body += '<h4>もらった ざいりょう（' + s.inventory.length + 'こ）</h4><div class="inv">' + (s.inventory.map(function(it){
+  var invTotal = s.inventory.reduce(function(a, it){ return a + (it.qty || 1); }, 0);
+  body += '<h4>もらった ざいりょう（' + invTotal + 'こ・' + s.inventory.length + 'しゅるい）</h4><div class="inv">' + (s.inventory.map(function(it){
     var sh = shapeById(it.shape), c = colorById(it.color); if(!sh) return '';
     var px = it.size === 'big' ? 38 : 24;
-    return '<div class="c">' + miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') + it.size + ' ' + c.en + '<br>' + sh.en + '</div>';
+    return '<div class="c">' + miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') + it.size + ' ' + c.en + '<br>' + sh.en + '<br><b>×' + (it.qty || 1) + '</b></div>';
   }).join('') || '<span style="color:#888780;font-size:12px">まだ ありません</span>') + '</div>';
-  body += '<h4>おみせ</h4><div class="line">のこりの ざいりょう: ' + (s.stockLeft == null ? '—' : s.stockLeft + ' こ') + ' ／ せいりつした やりとり: ' + s.dealsDone + ' ／ クラスに おくった: ' + (s.shared ? hm(s.sharedAt) : 'まだ') + '</div>';
+  body += '<h4>おみせ</h4><div class="line">あげた ざいりょう: ' + (s.givenTotal || 0) + ' こ ／ せいりつした やりとり: ' + s.dealsDone + ' ／ クラスに おくった: ' + (s.shared ? hm(s.sharedAt) : 'まだ') + '</div>';
   if(s.histCount){ body += '<div style="margin-top:10px"><button class="btn gray" id="histBtn">🕘 まえの ほぞんを みる（' + s.histCount + '）</button><div id="histBox"></div></div>'; }
   document.getElementById('ovBody').innerHTML = body;
   Array.prototype.forEach.call(document.querySelectorAll('#ovBody [data-card]'), function(b){ b.addEventListener('click', function(){ openDetail(s, parseInt(b.dataset.card, 10)); }); });

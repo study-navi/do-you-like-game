@@ -346,7 +346,7 @@ function makeCardStock(){
     list.push({
       id: crypto.randomBytes(3).toString('hex'),
       shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)],
-      size: CARD_SIZES[cardRand(CARD_SIZES.length)],
+      size: 'big',   /* おおきさは こうかんに かんけいなし（カードの うえで じぶんで かえる） */
       color: CARD_COLORS[cardRand(CARD_COLORS.length)]
     });
   }
@@ -2580,7 +2580,7 @@ const server = http.createServer(function(req, res){
       if(!me || !(cardEx.shops[room] || {})[me] || me === CARD_ALT_KEY){ sendJson(res, 400, { error: 'invalid' }); return; }
       const g = cardGachaOf(room, me);
       if(g.tickets < 1){ sendJson(res, 400, { error: 'no ticket' }); return; }
-      const r = { shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)], size: CARD_SIZES[cardRand(CARD_SIZES.length)], color: CARD_COLORS[cardRand(CARD_COLORS.length)], at: Date.now() };
+      const r = { shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)], size: 'big', color: CARD_COLORS[cardRand(CARD_COLORS.length)], at: Date.now() };
       if(!cardEx.gacha[room]) cardEx.gacha[room] = {};
       if(!cardEx.gacha[room][me]) cardEx.gacha[room][me] = [];
       cardEx.gacha[room][me].push(r);

@@ -574,16 +574,16 @@ function renderSelPanel(){
       (nm ? nm.ja + ' <span style="color:#888780;font-weight:400">' + nm.en + '</span>' : '✂️ かけら <span style="color:#888780;font-weight:400">piece</span>') + '</div>';
   }
   var lk = isLocked(it);
-  if(lk){ html += '<div class="color-name" style="margin:4px 0 8px">' + c.ja + ' ／ ' + c.en + '　🔒 あつめた ざいりょう（いろ・おおきさは かえられないよ）</div>'; }
+  if(lk){ html += '<div class="color-name" style="margin:4px 0 8px">' + c.ja + ' ／ ' + c.en + '　🔒 あつめた ざいりょう（いろは かえられないよ。おおきさは かえられるよ）</div>'; }
   else {
   html += '<div class="color-grid" id="selColors">' + colorChipsHtml(it.color) + '</div>';
   html += '<div class="color-name">' + c.ja + ' ／ ' + c.en + '</div>';
+  }
   html += '<div class="row"><label>おおきさ</label><input type="range" id="sSize" min="' + (it.type === 'text' ? 0.4 : 0.2) + '" max="' + (it.type === 'text' ? 3 : 4) + '" step="0.01" value="' + it.s + '"></div>';
-  if(it.type !== 'text'){
+  if(it.type !== 'text' && !lk){
     html += '<div class="row"><label>ほそさ</label><input type="range" id="sAsp" min="0.5" max="2" step="0.01" value="' + it.asp + '"></div>';
   }
-  }
-  if(it.type !== 'text' && it.type !== 'piece' && !lk){
+  if(it.type !== 'text' && it.type !== 'piece'){
     var sw = sizeWord(it);
     html += '<div class="btn-row" style="margin:0 0 8px"><button class="sbtn" id="sizeBig">big（おおきく）</button><button class="sbtn" id="sizeSmall">small（ちいさく）</button>' +
       '<span style="font-size:13px;font-weight:700;align-self:center;color:#185FA5">' + (sw || '') + '</span></div>';
@@ -858,7 +858,7 @@ stage.addEventListener('pointermove', function(ev){
     var ang = Math.atan2(p[1] - it.y, p[0] - it.x);
     var ns = drag.startS * (d / Math.max(10, drag.startDist));
     var lo = it.type === 'text' ? 0.4 : 0.2, hi = it.type === 'text' ? 3 : 4;
-    if(!isLocked(it)) it.s = Math.max(lo, Math.min(hi, ns));
+    it.s = Math.max(lo, Math.min(hi, ns));
     var nr = drag.startR + (ang - drag.startAng) * 180 / Math.PI;
     // 15°ごとに すいつく（まっすぐに しやすい）
     var snapped = Math.round(nr / 15) * 15;
@@ -1113,13 +1113,13 @@ function toast(t){
   clearTimeout(toast._t); toast._t = setTimeout(function(){ e.style.display = 'none'; }, 2200);
 }
 function norm(x){ return String(x || '').trim().slice(0, 12).toLowerCase(); }
-function itemPhrase(it, n){ return phrase(it.size, colorById(it.color).en, shapeById(it.shape).en, n || 1); }
+function itemPhrase(it, n){ return phrase('', colorById(it.color).en, shapeById(it.shape).en, n || 1); }
 function stockChip(it, cls, extra){
   var sh = shapeById(it.shape), c = colorById(it.color);
-  var px = it.size === 'big' ? 44 : 28;
+  var px = 44;
   return '<div class="st-chip ' + (cls || '') + '" ' + (extra || '') + '>' +
     miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') +
-    it.size + ' ' + c.en + '<br>' + sh.en + (it.tag ? '<br><b style="font-size:12px;color:#185FA5">' + it.tag + '</b>' : '') + '</div>';
+    c.en + '<br>' + sh.en + (it.tag ? '<br><b style="font-size:12px;color:#185FA5">' + it.tag + '</b>' : '') + '</div>';
 }
 function isAlt(){ return ex.me === 'ALT'; }
 function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
@@ -1189,11 +1189,11 @@ function logText(e){
   var t = e.text;
   if(t.indexOf('wanted:') === 0){
     var p = t.slice(7).split(' ');
-    return phrase(p[0], colorById(p[1]).en, shapeById(p[2]).en, 1).replace(/^(an?) /, function(m){ return m.toUpperCase().slice(0, 1) + m.slice(1); }) + ', please.';
+    return phrase('', colorById(p[1]).en, shapeById(p[2]).en, 1).replace(/^(an?) /, function(m){ return m.toUpperCase().slice(0, 1) + m.slice(1); }) + ', please.';
   }
   if(t.indexOf('offer:') === 0){
     var q = t.slice(6).split(' ');
-    return 'How about ' + phrase(q[0], colorById(q[1]).en, shapeById(q[2]).en, 1) + '?';
+    return 'How about ' + phrase('', colorById(q[1]).en, shapeById(q[2]).en, 1) + '?';
   }
   if(t.indexOf('qty:') === 0) return numWord(parseInt(t.slice(4), 10)).replace(/^./, function(m){ return m.toUpperCase(); }) + ', please.';
   if(t === 'cancel') return '（やめた）';
@@ -1252,7 +1252,7 @@ function dealHtml(dl, me){
       h += '<div class="wait">② ほしいもの: <b>' + escapeHtml(cap(itemPhrase(dl.want))) + ', please.</b> ─ ざいりょうから えらぼう</div><div class="stock" style="margin:6px 0">' +
         stock.map(function(it){ return stockChip(it, 'pick' + (it.id === sel ? ' sel' : ''), 'data-pick="' + it.id + '" data-deal="' + dl.id + '"'); }).join('') + '</div>';
       if(!selItem) h += B('x', 'ざいりょうを えらんでね', '', 'disabled');
-      else if(selItem.shape === dl.want.shape && selItem.size === dl.want.size && selItem.color === dl.want.color) h += B('howmany', 'How many?', '', 'data-item="' + selItem.id + '"');
+      else if(selItem.shape === dl.want.shape && selItem.color === dl.want.color) h += B('howmany', 'How many?', '', 'data-item="' + selItem.id + '"');
       else h += B('offer', 'How about ' + itemPhrase(selItem) + '?', 'alt', 'data-item="' + selItem.id + '"');
     }
     else if(st === 'offered') h += '<div class="wait">おきゃくさんの へんじを まっているよ…</div>';
@@ -1267,10 +1267,9 @@ function dealHtml(dl, me){
     else if(st === 'asked' || (st === 'offered' && ex.reask[dl.id])){
       var b = ex.builder[dl.id] || (ex.builder[dl.id] = { size: 'big', color: 'red', shape: 'star' });
       h += '<div class="wait">ほしい ものを えらんで、いってみよう</div><div class="builder">' +
-        ['big', 'small'].map(function(z){ return '<span class="opt' + (b.size === z ? ' on' : '') + '" data-bset="size" data-v="' + z + '" data-deal="' + dl.id + '">' + z + '</span>'; }).join('') +
         '<div class="color-grid">' + CARD_STD_COLORS().map(function(co){ return '<div class="color-chip' + (b.color === co.id ? ' on' : '') + '" data-bset="color" data-v="' + co.id + '" data-deal="' + dl.id + '" title="' + co.en + '" style="background:' + co.hex + ';--ink:' + co.ink + '"></div>'; }).join('') + '</div>' +
         '<div class="shape-opts">' + ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'].map(function(sid){ var s = shapeById(sid); return '<div class="so' + (b.shape === sid ? ' on' : '') + '" data-bset="shape" data-v="' + sid + '" data-deal="' + dl.id + '">' + miniShapeSvg(s.pts, colorById(b.color).hex) + s.en + '</div>'; }).join('') + '</div></div>' +
-        B('want', cap(phrase(b.size, colorById(b.color).en, shapeById(b.shape).en, 1)) + ', please.');
+        B('want', cap(phrase('', colorById(b.color).en, shapeById(b.shape).en, 1)) + ', please.');
     }
     else if(st === 'wanted') h += '<div class="wait">おみせの ひとの へんじを まっているよ…</div>';
     else if(st === 'offered') h += '<div class="wait">ほかのも ほしい？</div>' + B('accept', 'OK.') + B('reask', 'ほかのが ほしい', 'gray');
@@ -1328,7 +1327,7 @@ document.getElementById('exOv').addEventListener('click', function(ev){
     if(!leftOf(it)){ toast('この カードでは もらった ' + (it.qty || 1) + 'こ ぜんぶ つかったよ'); return; }
     pushHistory();
     var n = state.items.length;
-    var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'big' ? BIG_S : SMALL_S, asp: 1, r: 0, color: it.color, inv: it.id };
+    var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'small' ? SMALL_S : BIG_S, asp: 1, r: 0, color: it.color, inv: it.id };
     state.items.push(shape); selId = shape.id; render();
     toast(itemPhrase(it) + ' を カードに いれたよ'); exRender();
     return;

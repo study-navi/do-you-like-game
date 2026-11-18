@@ -156,8 +156,8 @@ function openDetail(s, idx){
   var invTotal = s.inventory.reduce(function(a, it){ return a + (it.qty || 1); }, 0);
   body += '<h4>もらった ざいりょう（' + invTotal + 'こ・' + s.inventory.length + 'しゅるい）</h4><div class="inv">' + (s.inventory.map(function(it){
     var sh = shapeById(it.shape), c = colorById(it.color); if(!sh) return '';
-    var px = it.size === 'big' ? 38 : 24;
-    return '<div class="c">' + miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') + it.size + ' ' + c.en + '<br>' + sh.en + '<br><b>×' + (it.qty || 1) + '</b></div>';
+    var px = 38;
+    return '<div class="c">' + miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') + c.en + '<br>' + sh.en + '<br><b>×' + (it.qty || 1) + '</b></div>';
   }).join('') || '<span style="color:#888780;font-size:12px">まだ ありません</span>') + '</div>';
   body += '<h4>おみせ</h4><div class="line">あげた ざいりょう: ' + (s.givenTotal || 0) + ' こ ／ せいりつした やりとり: ' + s.dealsDone + ' ／ クラスに おくった: ' + (s.shared ? hm(s.sharedAt) : 'まだ') + '</div>';
   if(s.histCount){ body += '<div style="margin-top:10px"><button class="btn gray" id="histBtn">🕘 まえの ほぞんを みる（' + s.histCount + '）</button><div id="histBox"></div></div>'; }

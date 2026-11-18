@@ -203,6 +203,17 @@
   .say-btn.alt { background: #EF9F27; }
   .say-btn.gray { background: #888780; font-size: 13px; }
   .wait { font-size: 12px; color: #888780; margin-top: 6px; }
+  #gachaFx { position: fixed; inset: 0; z-index: 9999; background: rgba(30,25,60,.72); display: flex; align-items: center; justify-content: center; }
+  .gfx-box { position: relative; background: #fff; border-radius: 20px; padding: 24px 32px; text-align: center; min-width: 280px; overflow: hidden; }
+  .gfx-cap { font-size: 96px; animation: gfxShake .35s infinite; }
+  @keyframes gfxShake { 0%{transform:rotate(-14deg) translateY(0)} 50%{transform:rotate(14deg) translateY(-10px)} 100%{transform:rotate(-14deg) translateY(0)} }
+  .gfx-msg { font-weight: 800; font-size: 18px; margin: 8px 0; color: #444441; }
+  .gfx-hit { font-size: 28px; font-weight: 900; color: #D85A30; animation: gfxPop .5s ease-out; }
+  .gfx-item { display: flex; justify-content: center; margin: 8px 0; animation: gfxPop .6s ease-out; }
+  .gfx-item .st-chip { transform: scale(1.5); margin: 14px 0; }
+  @keyframes gfxPop { 0%{transform:scale(.2);opacity:0} 70%{transform:scale(1.25)} 100%{transform:scale(1);opacity:1} }
+  .gfx-conf i { position: absolute; top: -20px; font-style: normal; font-size: 22px; animation: gfxFall 1.6s ease-in forwards; }
+  @keyframes gfxFall { to { transform: translateY(340px) rotate(360deg); opacity: .2; } }
   .shopcard { margin: 6px 0 10px; }
   .shophave { margin: 4px 0 0 6px; gap: 4px; }
   .shophave .st-chip { transform: scale(.85); transform-origin: top left; margin: 0 -6px -6px 0; }
@@ -1159,6 +1170,24 @@ function haveChips(have, cls, withData, dealId){
     return stockChip({ shape: h.shape, color: h.color, tag: '×' + h.n }, cls || '', withData ? 'data-bpick="' + h.shape + '|' + h.color + '" data-deal="' + dealId + '"' : '');
   }).join('');
 }
+function gachaFx(r, done){
+  var qty = r.qty || 1, old = document.getElementById('gachaFx'); if(old) old.remove();
+  var el = document.createElement('div'); el.id = 'gachaFx';
+  el.innerHTML = '<div class="gfx-box"><div class="gfx-cap">🥚</div><div class="gfx-msg">ガチャ…</div></div>';
+  document.body.appendChild(el);
+  var finished = false;
+  function close(){ if(finished) return; finished = true; el.remove(); done(); }
+  setTimeout(function(){
+    var box = el.querySelector('.gfx-box');
+    var conf = ['✨','🎉','⭐','🎊','💫'], cf = '';
+    for(var i = 0; i < 16; i++) cf += '<i style="left:' + (Math.random() * 100) + '%;animation-delay:' + (Math.random() * .5) + 's">' + conf[i % conf.length] + '</i>';
+    box.innerHTML = '<div class="gfx-conf">' + cf + '</div><div class="gfx-hit">' + (qty === 3 ? '🌟 だいあたり！ 🌟' : qty === 2 ? 'あたり！' : 'ゲット！') + '</div>' +
+      '<div class="gfx-item">' + stockChip({ shape: r.shape, color: r.color, tag: '×' + qty }) + '</div>' +
+      '<div class="gfx-msg">' + escapeHtml(cap(itemPhrase(r, qty))) + '</div><button class="say-btn" id="gfxOk">BOX に いれる</button>';
+    speak(itemPhrase(r, qty));
+    var ok = document.getElementById('gfxOk'); if(ok) ok.onclick = close;
+  }, 1500);
+}
 function isAlt(){ return ex.me === 'ALT'; }
 function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
 function isLocked(it){ return !!(it && it.inv && isMat()); }
@@ -1299,7 +1328,7 @@ function exRender(){
   if(d.gacha && !isAlt()){
     var gc = d.gacha, gh = '<div class="wait">こうりゅうした ともだち: <b>' + gc.partners + '</b> にん ／ ' + (gc.tickets ? '<b style="color:#D85A30">ガチャが ' + gc.tickets + 'かい ひけるよ！</b>' : 'あと <b>' + gc.next + '</b> にんで ガチャ 1かい') + '</div>';
     if(gc.tickets) gh += '<button class="say-btn" id="gachaBtn" style="margin-top:6px">🎰 ガチャを ひく！</button>';
-    if(ex.gachaNew){ var gr = ex.gachaNew; gh += '<div style="margin-top:8px;text-align:center"><div class="wait" style="color:#D85A30;font-weight:700">あたり！</div><div class="stock" style="justify-content:center">' + stockChip(gr) + '</div><div class="wait">' + escapeHtml(itemPhrase(gr)) + '（もらった ざいりょうに はいったよ）</div></div>'; }
+    if(ex.gachaNew){ var gr = ex.gachaNew; gh += '<div style="margin-top:8px;text-align:center"><div class="wait" style="color:#D85A30;font-weight:700">あたり！</div><div class="stock" style="justify-content:center">' + stockChip({ shape: gr.shape, color: gr.color, tag: '×' + (gr.qty || 1) }) + '</div><div class="wait">' + escapeHtml(itemPhrase(gr, gr.qty || 1)) + '（BOX に はいったよ）</div></div>'; }
     document.getElementById('exGacha').innerHTML = gh;
   }
   // もらった ざいりょう
@@ -1407,7 +1436,7 @@ document.getElementById('boxPanel').addEventListener('click', function(ev){
 document.getElementById('exOv').addEventListener('click', function(ev){
   var gbtn = ev.target.closest ? ev.target.closest('#gachaBtn') : null;
   if(gbtn){
-    exApi('/api/card/gacha', { room: ex.room, me: ex.me }).then(function(r){ ex.gachaNew = r.result; speak(itemPhrase(r.result)); ex.sig = ''; return exPoll(); }).catch(function(){ toast('ガチャは まだ ひけないよ'); exPoll(); });
+    exApi('/api/card/gacha', { room: ex.room, me: ex.me }).then(function(r){ gachaFx(r.result, function(){ ex.gachaNew = r.result; ex.sig = ''; exPoll(); }); }).catch(function(){ toast('ガチャは まだ ひけないよ'); exPoll(); });
     return;
   }
   var t = ev.target;

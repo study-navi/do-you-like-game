@@ -418,7 +418,7 @@ function cardInvOf(room, key){
   (((cardEx.gacha || {})[room] || {})[key] || []).forEach(function(g){
     const id = 'm_' + g.shape + '_' + g.size + '_' + g.color;
     if(!map[id]){ map[id] = { id: id, shape: g.shape, size: g.size, color: g.color, qty: 0 }; order.push(id); }
-    map[id].qty += 1;
+    map[id].qty += (g.qty || 1);
   });
   return order.map(function(id){ return map[id]; });
 }
@@ -2595,7 +2595,7 @@ const server = http.createServer(function(req, res){
       if(!me || !(cardEx.shops[room] || {})[me] || me === CARD_ALT_KEY){ sendJson(res, 400, { error: 'invalid' }); return; }
       const g = cardGachaOf(room, me);
       if(g.tickets < 1){ sendJson(res, 400, { error: 'no ticket' }); return; }
-      const r = { shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)], size: 'big', color: CARD_COLORS[cardRand(CARD_COLORS.length)], at: Date.now() };
+      const r = { shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)], size: 'big', color: CARD_COLORS[cardRand(CARD_COLORS.length)], qty: 1 + cardRand(3), at: Date.now() };
       if(!cardEx.gacha[room]) cardEx.gacha[room] = {};
       if(!cardEx.gacha[room][me]) cardEx.gacha[room][me] = [];
       cardEx.gacha[room][me].push(r);

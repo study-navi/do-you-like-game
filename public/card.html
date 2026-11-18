@@ -318,7 +318,7 @@
         <div class="ex-box"><h4>わたしの おみせ（この ざいりょうは なんこでも あげられるよ）</h4><div class="stock" id="exStock"></div></div>
         <div class="ex-box"><h4>ともだちの おみせに いく</h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box" id="exGachaBox"><h4>🎰 ガチャ（ともだち 3にんと こうりゅうする ごとに 1かい）</h4><div id="exGacha"></div></div>
-        <div class="ex-box"><h4>📦 BOX（カードを タップすると、のこりぜんぶ カードに はいるよ）</h4><div class="stock" id="exInv"></div></div>
+        <div class="ex-box"><h4>📦 BOX（カードを タップすると、1こ ずつ カードに のるよ）</h4><div class="stock" id="exInv"></div></div>
       </div>
       <div><div id="exDeals"></div></div>
     </div>
@@ -1268,7 +1268,7 @@ function invBox(inv, used){
     h += '<div class="' + cls + '" data-inv="' + (o.pick || o.first) + '" style="--tint:' + co.hex + '">' +
       '<div class="bxart">' + miniShapeSvg(sh.pts, co.hex).replace('<svg ', '<svg width="54" height="54" ') + '<span class="bxn">×' + o.qty + '</span></div>' +
       '<div class="bxnm">' + escapeHtml(co.en) + '<br>' + escapeHtml(sh.en) + '</div>' +
-      '<div class="bxlf">' + (o.left === o.qty ? 'タップで ぜんぶ いれる' : (o.left ? 'あと ' + o.left + ' こ' : 'つかいきり')) + '</div></div>';
+      '<div class="bxlf">' + (o.left === o.qty ? 'タップで 1こ のせる' : (o.left ? 'あと ' + o.left + ' こ' : 'つかいきり')) + '</div></div>';
   });
   return h + '</div>';
 }
@@ -1367,15 +1367,12 @@ function addInvAll(id){
   if(!it) return;
   var cnt = leftOf(it);
   if(!cnt){ toast('この カードでは もらった ' + (it.qty || 1) + 'こ ぜんぶ つかったよ'); return; }
-  /* 1タップで、のこりの こすう ぜんぶを カードに いれる */
+  /* 1タップで 1こ ずつ カードに のせる */
   pushHistory();
-  var n0 = state.items.length, last = null;
-  for(var k = 0; k < cnt; k++){
-    var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((k % 5) - 2) * 62, y: state.h / 2 - 30 + (Math.floor(k / 5) - 0.5) * 64 + ((n0 % 3) - 1) * 10, s: it.size === 'small' ? SMALL_S : BIG_S, asp: 1, r: 0, color: it.color, inv: it.id };
-    state.items.push(shape); last = shape;
-  }
-  selId = last.id; render();
-  toast(itemPhrase(it, cnt) + ' を カードに いれたよ（かたちを ひっぱって ならべかえよう）');
+  var n = state.items.length;
+  var shape = { id: newItemId(), type: 'shape', shape: it.shape, x: state.w / 2 + ((n % 5) - 2) * 60, y: state.h / 2 - 30 + ((n * 3) % 5 - 2) * 26, s: it.size === 'small' ? SMALL_S : BIG_S, asp: 1, r: 0, color: it.color, inv: it.id };
+  state.items.push(shape); selId = shape.id; render();
+  toast(itemPhrase(it, 1) + ' を カードに のせたよ（あと ' + (cnt - 1) + ' こ）');
   if(document.getElementById('exOv').className.indexOf('on') >= 0) exRender();
 }
 document.getElementById('boxPanel').addEventListener('click', function(ev){

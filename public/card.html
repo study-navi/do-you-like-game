@@ -1181,7 +1181,7 @@ function gachaFx(r, done){
     var box = el.querySelector('.gfx-box');
     var conf = ['✨','🎉','⭐','🎊','💫'], cf = '';
     for(var i = 0; i < 16; i++) cf += '<i style="left:' + (Math.random() * 100) + '%;animation-delay:' + (Math.random() * .5) + 's">' + conf[i % conf.length] + '</i>';
-    box.innerHTML = '<div class="gfx-conf">' + cf + '</div><div class="gfx-hit">' + (qty === 3 ? '🌟 だいあたり！ 🌟' : qty === 2 ? 'あたり！' : 'ゲット！') + '</div>' +
+    box.innerHTML = '<div class="gfx-conf">' + cf + '</div><div class="gfx-hit">' + (qty === 3 ? '🌟 おおあたり！ 🌟' : qty === 2 ? 'あたり！' : 'ゲット！') + '</div>' +
       '<div class="gfx-item">' + stockChip({ shape: r.shape, color: r.color, tag: '×' + qty }) + '</div>' +
       '<div class="gfx-msg">' + escapeHtml(cap(itemPhrase(r, qty))) + '</div><button class="say-btn" id="gfxOk">BOX に いれる</button>';
     speak(itemPhrase(r, qty));

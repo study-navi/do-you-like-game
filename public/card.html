@@ -1195,6 +1195,7 @@ function exStopTimer(){ if(ex.timer){ clearInterval(ex.timer); ex.timer = null; 
 document.getElementById('exBtn').addEventListener('click', function(){
   if(!idReady()){ needIdentity(); return; }
   document.getElementById('exOv').className = 'overlay on';
+  ex.sig = '';   /* カードの うえで けした ぶんが もどって みえるように、ひらく たびに かきなおす */
   exStartTimer(); exPoll();
 });
 document.getElementById('exClose').addEventListener('click', function(){ document.getElementById('exOv').className = 'overlay'; exStopTimer(); });

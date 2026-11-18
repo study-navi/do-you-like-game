@@ -314,6 +314,7 @@ if(!cardEx.saves) cardEx.saves = {};
 if(!cardEx.shops) cardEx.shops = {};
 if(!cardEx.deals) cardEx.deals = {};
 if(!cardEx.modes) cardEx.modes = {};
+if(!cardEx.gacha) cardEx.gacha = {};
 function cardModeOf(room){ return cardEx.modes[room] === 'free' ? 'free' : 'material'; }
 let cardExTimer = null;
 function saveCardExNow(){
@@ -361,6 +362,33 @@ function cardDealsOf(room){
   return cardEx.deals[room];
 }
 const CARD_PAIR_MAX = 10;
+/* ALT の せんせいの おみせ: ぜんぶの かたち・いろ・おおきさが ある。1にんに つき 3かいまで（1かいで 10こまで） */
+const CARD_ALT_KEY = 'alt', CARD_ALT_TIMES = 3, CARD_ALT_QTY = 10;
+function cardAltUsed(room, customerKey){
+  let n = 0;
+  cardDealsOf(room).forEach(function(d){ if(d.shopKey === CARD_ALT_KEY && d.customerKey === customerKey && d.gaveQty) n++; });
+  return n;
+}
+/* ガチャ: こうりゅうした ともだち 3にんごとに 1かい（ALT は かぞえない）。けっかは サーバーが きめる */
+const CARD_GACHA_EVERY = 3;
+function cardPartners(room, key){
+  const set = {};
+  cardDealsOf(room).forEach(function(d){
+    if(!d.gaveQty) return;
+    const other = d.customerKey === key ? d.shopKey : (d.shopKey === key ? d.customerKey : null);
+    if(other && other !== CARD_ALT_KEY && other !== key) set[other] = 1;
+  });
+  return Object.keys(set).length;
+}
+function cardGachaOf(room, key){
+  const pulls = ((cardEx.gacha[room] || {})[key]) || [];
+  const n = cardPartners(room, key);
+  return { partners: n, pulled: pulls.length, tickets: Math.max(0, Math.floor(n / CARD_GACHA_EVERY) - pulls.length), next: CARD_GACHA_EVERY - (n % CARD_GACHA_EVERY), history: pulls.slice(-12) };
+}
+function cardEnsureAlt(room){
+  if(!cardEx.shops[room]) cardEx.shops[room] = {};
+  if(!cardEx.shops[room][CARD_ALT_KEY]) cardEx.shops[room][CARD_ALT_KEY] = { label: 'ALT', alt: true, stock: [], openedAt: Date.now() };
+}
 /* shopKey が customerKey に これまでに あげた こすう（やめた やりとりは かぞえない） */
 function cardGaveTo(room, shopKey, customerKey){
   let n = 0;
@@ -380,6 +408,11 @@ function cardInvOf(room, key){
       map[d.item.id] = { id: d.item.id, shape: d.item.shape, size: d.item.size, color: d.item.color, qty: 1 }; order.push(d.item.id);
     }
   });
+  (((cardEx.gacha || {})[room] || {})[key] || []).forEach(function(g){
+    const id = 'm_' + g.shape + '_' + g.size + '_' + g.color;
+    if(!map[id]){ map[id] = { id: id, shape: g.shape, size: g.size, color: g.color, qty: 0 }; order.push(id); }
+    map[id].qty += 1;
+  });
   return order.map(function(id){ return map[id]; });
 }
 /* サーバーの けいさんと ほぞんされた ざいりょうを あわせる（おなじ id は こすうが おおきい ほう） */
@@ -387,7 +420,7 @@ function cardMergeInv(lists){
   const merged = {}, order = [];
   lists.forEach(function(list){
     (list || []).forEach(function(it){
-      const q = Math.max(1, Math.min(10, Math.floor(Number(it.qty) || 1)));
+      const q = Math.max(1, Math.min(99, Math.floor(Number(it.qty) || 1)));
       if(!merged[it.id]){ merged[it.id] = { id: it.id, shape: it.shape, size: it.size, color: it.color, qty: q }; order.push(it.id); }
       else if(q > merged[it.id].qty) merged[it.id].qty = q;
     });
@@ -422,18 +455,24 @@ function cardAct(room, deal, me, act, body){
      おなじ あいてには ぜんぶで 10こまで。ほしい かずは "How many?" → "Three, please." で きめる */
   if(act === 'howmany' && isShop && (deal.state === 'wanted' || deal.state === 'accepted')){
     let it = null;
-    if(deal.state === 'accepted') it = shop && shop.stock.filter(function(x){ return deal.offer && x.id === deal.offer.id; })[0];
-    else it = shop && shop.stock.filter(function(x){ return x.id === body.itemId; })[0];
-    if(!it) return false;
-    if(deal.state === 'wanted' && !cardSame(it, deal.want)) return false;
-    if(cardGaveTo(room, deal.shopKey, deal.customerKey) >= CARD_PAIR_MAX) return false;
+    if(shop && shop.alt){
+      if(deal.state !== 'wanted' || !cardValidWant(deal.want)) return false;
+      if(cardAltUsed(room, deal.customerKey) >= CARD_ALT_TIMES) return false;
+      it = { id: 'alt', shape: deal.want.shape, size: deal.want.size, color: deal.want.color };
+    }else{
+      if(deal.state === 'accepted') it = shop && shop.stock.filter(function(x){ return deal.offer && x.id === deal.offer.id; })[0];
+      else it = shop && shop.stock.filter(function(x){ return x.id === body.itemId; })[0];
+      if(!it) return false;
+      if(deal.state === 'wanted' && !cardSame(it, deal.want)) return false;
+      if(cardGaveTo(room, deal.shopKey, deal.customerKey) >= CARD_PAIR_MAX) return false;
+    }
     deal.item = { id: it.id, shape: it.shape, size: it.size, color: it.color };
     deal.qty = 0; deal.state = 'howmany';
     say('shop', 'How many?'); return true;
   }
   if(act === 'qty' && isCust && deal.state === 'howmany'){
     const n = Math.floor(Number(body.qty));
-    const left = CARD_PAIR_MAX - cardGaveTo(room, deal.shopKey, deal.customerKey);
+    const left = deal.shopKey === CARD_ALT_KEY ? CARD_ALT_QTY : CARD_PAIR_MAX - cardGaveTo(room, deal.shopKey, deal.customerKey);
     if(!(n >= 1) || n > left) return false;
     deal.qty = n; deal.state = 'qtyset';
     say('customer', 'qty:' + n); return true;
@@ -480,10 +519,10 @@ function sbHeaders(extra){
 }
 function cardStoreRows(){
   const rooms = {};
-  [cardEx.shops, cardEx.deals, cardEx.saves, cardEx.modes, cardShares].forEach(function(o){ Object.keys(o || {}).forEach(function(r){ rooms[r] = 1; }); });
+  [cardEx.shops, cardEx.deals, cardEx.saves, cardEx.modes, cardEx.gacha, cardShares].forEach(function(o){ Object.keys(o || {}).forEach(function(r){ rooms[r] = 1; }); });
   const rows = {};
   Object.keys(rooms).forEach(function(r){
-    rows['ex:' + r] = { shops: cardEx.shops[r] || {}, deals: cardEx.deals[r] || [], saves: cardEx.saves[r] || {}, mode: cardEx.modes[r] || null };
+    rows['ex:' + r] = { shops: cardEx.shops[r] || {}, deals: cardEx.deals[r] || [], saves: cardEx.saves[r] || {}, mode: cardEx.modes[r] || null, gacha: (cardEx.gacha || {})[r] || {} };
     if(cardShares[r]) rows['sh:' + r] = cardShares[r];
   });
   return rows;
@@ -495,12 +534,13 @@ async function cardStoreLoad(){
     if(!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
     const rows = await res.json();
     if(rows.length){
-      cardEx = { shops: {}, deals: {}, saves: {}, modes: {} }; cardShares = {};
+      cardEx = { shops: {}, deals: {}, saves: {}, modes: {}, gacha: {} }; cardShares = {};
       rows.forEach(function(row){
         const room = row.k.slice(3), v = row.v || {};
         if(row.k.indexOf('ex:') === 0){
           cardEx.shops[room] = v.shops || {}; cardEx.deals[room] = v.deals || []; cardEx.saves[room] = v.saves || {};
           if(v.mode) cardEx.modes[room] = v.mode;
+          cardEx.gacha[room] = v.gacha || {};
         }else if(row.k.indexOf('sh:') === 0){ cardShares[room] = v; }
         sbSig[row.k] = JSON.stringify(v);
       });
@@ -2506,9 +2546,10 @@ const server = http.createServer(function(req, res){
       if(!cardEx.shops[room]) cardEx.shops[room] = {};
       if(!cardEx.shops[room][key]){
         if(Object.keys(cardEx.shops[room]).length >= 80){ sendJson(res, 400, { error: 'room full' }); return; }
-        cardEx.shops[room][key] = { label: label, stock: makeCardStock(), openedAt: Date.now() };
+        cardEx.shops[room][key] = key === CARD_ALT_KEY ? { label: 'ALT', alt: true, stock: [], openedAt: Date.now() } : { label: label, stock: makeCardStock(), openedAt: Date.now() };
         saveCardEx();
       }
+      if(!cardEx.shops[room][CARD_ALT_KEY]){ cardEnsureAlt(room); saveCardEx(); }
       sendJson(res, 200, { ok: true });
     });
     return;
@@ -2524,11 +2565,27 @@ const server = http.createServer(function(req, res){
     const inventory = cardMergeInv([cardInvOf(room, me), sv0 ? sv0.inventory : []]);
     sendJson(res, 200, {
       myShop: mine ? { label: mine.label, stock: mine.stock } : null,
-      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return { label: shops[k].label, count: shops[k].stock.length, got: cardGaveTo(room, k, me) }; }),
+      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return k === CARD_ALT_KEY ? { label: shops[k].label, alt: true, got: 0, altLeft: Math.max(0, CARD_ALT_TIMES - cardAltUsed(room, me)), count: 0 } : { label: shops[k].label, count: shops[k].stock.length, got: cardGaveTo(room, k, me) }; }),
       pairMax: CARD_PAIR_MAX,
+      gacha: cardGachaOf(room, me),
       deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 120000; }).slice(-12).map(cardPublicDeal),
       inventory: inventory,
       mode: cardModeOf(room)
+    });
+    return;
+  }
+  if(req.method === 'POST' && url === '/api/card/gacha'){
+    readJsonBody(req, function(body){
+      const room = normalizeRoom(body && body.room), me = cardKey(body && body.me);
+      if(!me || !(cardEx.shops[room] || {})[me] || me === CARD_ALT_KEY){ sendJson(res, 400, { error: 'invalid' }); return; }
+      const g = cardGachaOf(room, me);
+      if(g.tickets < 1){ sendJson(res, 400, { error: 'no ticket' }); return; }
+      const r = { shape: CARD_SHAPES[cardRand(CARD_SHAPES.length)], size: CARD_SIZES[cardRand(CARD_SIZES.length)], color: CARD_COLORS[cardRand(CARD_COLORS.length)], at: Date.now() };
+      if(!cardEx.gacha[room]) cardEx.gacha[room] = {};
+      if(!cardEx.gacha[room][me]) cardEx.gacha[room][me] = [];
+      cardEx.gacha[room][me].push(r);
+      saveCardEx();
+      sendJson(res, 200, { ok: true, result: r, gacha: cardGachaOf(room, me) });
     });
     return;
   }
@@ -2550,7 +2607,8 @@ const server = http.createServer(function(req, res){
       if(!me || !shops[me] || !shops[shopKey] || me === shopKey){ sendJson(res, 400, { error: 'invalid' }); return; }
       const list = cardDealsOf(room);
       let d = list.filter(function(x){ return x.customerKey === me && x.shopKey === shopKey && x.state !== 'done'; })[0];
-      if(!d && cardGaveTo(room, shopKey, me) >= CARD_PAIR_MAX){ sendJson(res, 400, { error: 'limit' }); return; }
+      if(!d && shopKey === CARD_ALT_KEY && cardAltUsed(room, me) >= CARD_ALT_TIMES){ sendJson(res, 400, { error: 'limit' }); return; }
+      if(!d && shopKey !== CARD_ALT_KEY && cardGaveTo(room, shopKey, me) >= CARD_PAIR_MAX){ sendJson(res, 400, { error: 'limit' }); return; }
       if(!d){
         d = { id: crypto.randomBytes(4).toString('hex'), customerKey: me, shopKey: shopKey, customer: shops[me].label, shop: shops[shopKey].label,
           state: 'start', want: null, offer: null, item: null, log: [], updatedAt: Date.now() };
@@ -2579,7 +2637,7 @@ const server = http.createServer(function(req, res){
       const st = body && body.state;
       if(!label || !st || !Array.isArray(st.items) || st.items.length > 200 || typeof st.w !== 'number'){ sendJson(res, 400, { error: 'invalid' }); return; }
       const inv = Array.isArray(body.inventory) ? body.inventory.slice(0, 200).map(function(it){
-        return { id: String(it.id || '').slice(0, 40), shape: String(it.shape || ''), size: String(it.size || ''), color: String(it.color || ''), qty: Math.max(1, Math.min(10, Math.floor(Number(it.qty) || 1))) };
+        return { id: String(it.id || '').slice(0, 40), shape: String(it.shape || ''), size: String(it.size || ''), color: String(it.color || ''), qty: Math.max(1, Math.min(99, Math.floor(Number(it.qty) || 1))) };
       }) : [];
       if(JSON.stringify(st).length > 300 * 1024){ sendJson(res, 413, { error: 'too large' }); return; }
       const room = normalizeRoom(body.room);
@@ -2635,7 +2693,7 @@ const server = http.createServer(function(req, res){
     const room = normalizeRoom(getQueryParam(queryString, 'room'));
     const saves = cardEx.saves[room] || {}, shops = cardEx.shops[room] || {}, shares = cardShares[room] || {};
     const keys = {};
-    [saves, shops, shares].forEach(function(m){ Object.keys(m).forEach(function(k){ keys[k] = 1; }); });
+    [saves, shops, shares].forEach(function(m){ Object.keys(m).forEach(function(k){ if(k !== CARD_ALT_KEY) keys[k] = 1; }); });
     const deals = cardDealsOf(room);
     const students = Object.keys(keys).map(function(k){
       const sv = saves[k] || null, sh = shops[k] || null, sr = shares[k] || null;

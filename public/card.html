@@ -221,6 +221,10 @@
   #exBtn.ring { animation: exRing .8s infinite; border-color: #D85A30; }
   .exbell { background: #D85A30; color: #fff; border-radius: 999px; padding: 1px 8px; font-size: 13px; }
   @keyframes exRing { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  .deal.mini { padding: 6px 12px; margin: 4px 0; display: flex; justify-content: space-between; gap: 8px; align-items: center; cursor: pointer; background: #F1EFE8; border-color: #D3D1C7; font-size: 14px; font-weight: 700; color: #5F5E5A; }
+  .accar { color: #888780; font-size: 12px; white-space: nowrap; }
+  .accl { display: inline-block; font-size: 12px; color: #534AB7; margin: 2px 0 0 8px; text-decoration: none; font-weight: 700; }
+  #exGachaBox { border: 3px solid #D85A30 !important; background: #FFF4EC !important; }
   .shopcard { margin: 6px 0 10px; }
   .shophave { margin: 4px 0 0 6px; gap: 4px; }
   .shophave .st-chip { transform: scale(.85); transform-origin: top left; margin: 0 -6px -6px 0; }
@@ -338,9 +342,9 @@
   <div id="exMain">
     <div class="ex-grid">
       <div>
-        <div class="ex-box"><h4>わたしの おみせ（この ざいりょうは なんこでも あげられるよ）</h4><div class="stock" id="exStock"></div></div>
-        <div class="ex-box"><h4>ともだちの おみせに いく</h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box" id="exGachaBox"><h4>🎰 ガチャ（ともだち 3にんと こうりゅうする ごとに 1かい）</h4><div id="exGacha"></div></div>
+        <div class="ex-box"><h4>わたしの おみせ（この ざいりょうは なんこでも あげられるよ）</h4><div class="stock" id="exStock"></div></div>
+        <div class="ex-box"><h4 id="exShopsH" data-acc="shops" style="cursor:pointer">ともだちの おみせに いく <span class="accar" id="exShopsAr">▲</span></h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box"><h4>📦 BOX（もっている かず。カードに のせるのは、ひだりの BOX から えらぼう）</h4><div class="stock" id="exInv"></div></div>
       </div>
       <div><div id="exDeals"></div></div>
@@ -1157,7 +1161,7 @@ document.getElementById('galClose').addEventListener('click', function(){ docume
 
 
 /* ---------- やりとり（おみせ） ---------- */
-var ex = { me: '', room: '', data: null, timer: null, sig: '', sel: {}, builder: {}, reask: {}, qty: {}, gachaNew: null };
+var ex = { acc: {}, me: '', room: '', data: null, timer: null, sig: '', sel: {}, builder: {}, reask: {}, qty: {}, gachaNew: null };
 function toast(t){
   var e = document.getElementById('toast'); e.textContent = t; e.style.display = 'block';
   clearTimeout(toast._t); toast._t = setTimeout(function(){ e.style.display = 'none'; }, 2200);
@@ -1253,7 +1257,7 @@ function exPoll(){
   return fetch('/api/card/ex?room=' + encodeURIComponent(ex.room) + '&me=' + encodeURIComponent(ex.me))
     .then(function(r){ return r.json(); })
     .then(function(d){
-      var sig = JSON.stringify(d) + JSON.stringify(ex.sel) + JSON.stringify(ex.builder) + JSON.stringify(ex.reask);
+      var sig = JSON.stringify(d) + JSON.stringify(ex.acc) + JSON.stringify(ex.sel) + JSON.stringify(ex.builder) + JSON.stringify(ex.reask);
       d.inventory = mergeInv(d.inventory);
       ex.data = d;
       applyPaletteLock();
@@ -1270,9 +1274,12 @@ function exBadge(d){
     if(isShop ? EX_WAIT_SHOP[dl.state] : EX_WAIT_CUST[dl.state]){ n++; if(!firstShop) firstShop = isShop ? dl.customer : dl.shop; }
   });
   var btn = document.getElementById('exBtn'), open = document.getElementById('exOv').className.indexOf('on') >= 0;
-  var show = n > 0 && !open;
-  btn.innerHTML = show ? '🛍 やりとり <span class="exbell">🔔 ' + n + '</span>' : '🛍 やりとり';
+  var tk = (d.gacha && ex.me !== 'ALT' && d.gacha.tickets) || 0;
+  var show = (n > 0 || tk > 0) && !open;
+  btn.innerHTML = show ? '🛍 やりとり' + (n > 0 ? ' <span class="exbell">🔔 ' + n + '</span>' : '') + (tk > 0 ? ' <span class="exbell" style="background:#BA7517">🎰 ガチャ ' + tk + '</span>' : '') : '🛍 やりとり';
   btn.className = 'tbtn' + (show ? ' ring' : '');
+  if(tk > (ex.lastTk || 0) && !open) toast('🎰 ガチャが ひけるよ！「やりとり」を ひらこう');
+  ex.lastTk = tk;
   if(show && n > (ex.lastWait || 0)) toast('🔔 ' + firstShop + ' が まっているよ！「やりとり」を ひらこう');
   ex.lastWait = open ? 0 : n;
 }
@@ -1346,7 +1353,8 @@ function exRender(){
   document.getElementById('exStock').innerHTML = st.length ? st.map(function(it){ return stockChip(it); }).join('') : '<span class="wait">ざいりょうは ぜんぶ なくなったよ</span>';
   // ともだちの おみせ
   var sh = document.getElementById('exShops');
-  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ if(a.alt !== b.alt) return a.alt ? -1 : 1; return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ if(s.alt) return '<div class="shopcard"><button class="tbtn main" data-shop="' + escapeHtml(s.label) + '">🌟 ALTの せんせい <small>（ほしい ものが ぜんぶ もらえる・あと ' + s.altLeft + 'かい）</small></button><div class="wait shophave" style="color:#854F0B;font-weight:700">✨ ぜんぶの かたち × ぜんぶの いろが ある！（なんでも ほしいって いえるよ）</div></div>'; return '<div class="shopcard"><button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ' + (s.got ? ' <small>（もらった ' + s.got + '/' + (d.pairMax || 10) + '）</small>' : '') + '</button><div class="stock shophave">' + haveChips(s.have) + '</div></div>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
+  var shopsOpen = ex.acc.shops !== false; sh.style.display = shopsOpen ? '' : 'none'; document.getElementById('exShopsAr').textContent = shopsOpen ? '▲' : '▼ （ひらく）';
+  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ if(a.alt !== b.alt) return a.alt ? -1 : 1; return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ if(s.alt) return '<div class="shopcard"><button class="tbtn main" data-shop="' + escapeHtml(s.label) + '">🌟 ALTの せんせい <small>（ほしい ものが ぜんぶ もらえる・あと ' + s.altLeft + 'かい）</small></button><div class="wait shophave" style="color:#854F0B;font-weight:700">✨ ぜんぶの かたち × ぜんぶの いろが ある！（なんでも ほしいって いえるよ）</div></div>'; return '<div class="shopcard"><button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ' + (s.got ? ' <small>（もらった ' + s.got + '/' + (d.pairMax || 10) + '）</small>' : '') + '</button>' + (ex.acc['s' + s.label] ? '<div class="stock shophave">' + haveChips(s.have) + '</div>' : '') + '<a href="#" class="accl" data-acc="s' + escapeHtml(s.label) + '">' + (ex.acc['s' + s.label] ? '▲ なかみを とじる' : '▼ なかみを みる（' + ((s.have || []).reduce(function(n, h){ return n + h.n; }, 0)) + 'こ）') + '</a></div>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
   // ガチャ
   var gb = document.getElementById('exGachaBox'); gb.style.display = isAlt() ? 'none' : 'block';
   if(d.gacha && !isAlt()){
@@ -1360,7 +1368,12 @@ function exRender(){
   document.getElementById('exInv').innerHTML = invBox(d.inventory, used, true);
   // やりとり
   var html = '';
-  d.deals.slice().reverse().forEach(function(dl){ html += dealHtml(dl, me); });
+  d.deals.slice().reverse().forEach(function(dl){
+    if(dl.state !== 'done'){ html += dealHtml(dl, me); return; }
+    var isShopD = norm(dl.shop) === me, key = 'd' + dl.id, op = !!ex.acc[key];
+    html += '<div class="deal mini' + (op ? ' open' : '') + '" data-acc="' + key + '"><span>✔ ' + (isShopD ? '🛍 ' : '🙋 ') + escapeHtml(isShopD ? dl.customer : dl.shop) + (dl.item && dl.gaveQty ? ' ・ ' + escapeHtml(itemPhrase(dl.item, dl.gaveQty)) : '') + '</span><span class="accar">' + (op ? '▲' : '▼') + '</span></div>';
+    if(op) html += dealHtml(dl, me);
+  });
   document.getElementById('exDeals').innerHTML = html || '<div class="empty-note">ともだちの おみせに いくか、おきゃくさんが くるのを まとう！</div>';
 }
 function dealHtml(dl, me){
@@ -1464,10 +1477,11 @@ document.getElementById('exOv').addEventListener('click', function(ev){
     return;
   }
   var t = ev.target;
-  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.bpick || t.dataset.qset || t.dataset.boxsort || t.dataset.inv || t.dataset.again))) t = t.parentNode;
+  while(t && t !== this && !(t.dataset && (t.dataset.acc || t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.bpick || t.dataset.qset || t.dataset.boxsort || t.dataset.inv || t.dataset.again))) t = t.parentNode;
   if(!t || t === this) return;
   var ds = t.dataset;
   if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
+  if(ds.acc){ ev.preventDefault(); ex.acc[ds.acc] = ds.acc === 'shops' ? (ex.acc.shops === false) : !ex.acc[ds.acc]; ex.sig = ''; exRender(); return; }
   if(ds.shop){
     var cf = document.getElementById('exConfirm');
     cf.innerHTML = '<div class="cf-q">この ともだちの おみせに いく？<span class="cf-n">' + escapeHtml(ds.shop) + '</span></div><div style="font-size:15px;color:#5F5E5A;margin:8px 0 12px">となりに きた ともだちの がめんに「' + escapeHtml(ex.me) + '」と でて いるか たしかめてね</div>' +

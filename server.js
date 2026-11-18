@@ -2575,7 +2575,7 @@ const server = http.createServer(function(req, res){
       shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return k === CARD_ALT_KEY ? { label: shops[k].label, alt: true, got: 0, altLeft: Math.max(0, CARD_ALT_TIMES - cardAltUsed(room, me)), count: 0 } : { label: shops[k].label, count: shops[k].stock.length, got: cardGaveTo(room, k, me), have: cardStockSummary(shops[k].stock) }; }),
       pairMax: CARD_PAIR_MAX,
       gacha: cardGachaOf(room, me),
-      deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 120000; }).slice(-12).map(cardPublicDeal),
+      deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 3600000; }).slice(-20).map(cardPublicDeal),
       inventory: inventory,
       mode: cardModeOf(room)
     });

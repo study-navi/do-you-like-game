@@ -169,13 +169,15 @@
   table.mx { border-collapse: separate; border-spacing: 3px; margin: 0 auto; }
   table.mx th { font-size: 10px; font-weight: 700; color: #5F5E5A; padding: 2px; white-space: nowrap; }
   table.mx th.rh { text-align: left; padding-right: 6px; }
-  table.mx td { width: 50px; height: 50px; text-align: center; vertical-align: middle; border-radius: 10px; background: #F1EFE8; position: relative; padding: 0; }
+  table.mx td { width: 58px; height: 66px; text-align: center; vertical-align: middle; border-radius: 10px; background: #F1EFE8; position: relative; padding: 0; }
   table.mx td.has { background: #fff; border: 2px solid #378ADD; cursor: pointer; }
   table.mx td.has.out { border-color: #B4B2A9; opacity: .5; }
   table.mx td svg { display: block; margin: 0 auto; }
   table.mx td.none svg { opacity: .22; }
-  table.mx td .bd { position: absolute; right: 1px; bottom: 0; background: #185FA5; color: #fff; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 0 5px; line-height: 15px; }
-  table.mx td.out .bd { background: #888780; }
+  table.mx td .bd { display: block; font-size: 17px; font-weight: 800; color: #185FA5; line-height: 1.1; }
+  table.mx td .lf { display: block; font-size: 10px; color: #5F5E5A; line-height: 1.1; }
+  table.mx td.out .bd { color: #888780; }
+  table.mx td.out .lf { color: #D85A30; font-weight: 700; }
   .mxsum { font-size: 13px; color: #185FA5; font-weight: 700; margin-bottom: 6px; text-align: center; }
   .shop-btns { display: flex; flex-wrap: wrap; gap: 6px; }
   .deal { background: #fff; border: 2px solid #D3E4F5; border-radius: 14px; padding: 10px; margin-bottom: 10px; }
@@ -1222,7 +1224,7 @@ function invMatrix(inv, used){
   });
   Object.keys(g).forEach(function(k){ kinds++; total += g[k].qty; });
   if(!kinds) return '<span class="wait">まだ もらっていないよ。ともだちの おみせで あつめよう！</span>';
-  var h = '<div class="mxsum">あつめた: ' + kinds + ' しゅるい / ' + (SH.length * CO.length) + '　ぜんぶで ' + total + ' こ　<span style="font-weight:400;color:#5F5E5A">（すうじ = この カードで あと つかえる こすう）</span></div><div class="mxwrap"><table class="mx"><tr><th></th>';
+  var h = '<div class="mxsum">あつめた: ' + kinds + ' しゅるい / ' + (SH.length * CO.length) + '　ぜんぶで ' + total + ' こ　<span style="font-weight:400;color:#5F5E5A">（×すうじ = もらった こすう ／ 「あと」 = この カードで のこり）</span></div><div class="mxwrap"><table class="mx"><tr><th></th>';
   SH.forEach(function(sid){ h += '<th>' + shapeById(sid).en + '</th>'; });
   h += '</tr>';
   CO.forEach(function(co){
@@ -1230,7 +1232,7 @@ function invMatrix(inv, used){
     SH.forEach(function(sid){
       var o = g[sid + '|' + co.id], sh = shapeById(sid);
       if(!o){ h += '<td class="none">' + miniShapeSvg(sh.pts, '#888780').replace('<svg ', '<svg width="30" height="30" ') + '</td>'; return; }
-      h += '<td class="has' + (o.left ? '' : ' out') + '" data-inv="' + (o.pick || o.first) + '" title="' + escapeHtml(co.en + ' ' + sh.en) + '">' + miniShapeSvg(sh.pts, co.hex).replace('<svg ', '<svg width="32" height="32" ') + '<span class="bd">' + o.left + '</span></td>';
+      h += '<td class="has' + (o.left ? '' : ' out') + '" data-inv="' + (o.pick || o.first) + '" title="' + escapeHtml(co.en + ' ' + sh.en) + '">' + miniShapeSvg(sh.pts, co.hex).replace('<svg ', '<svg width="30" height="30" ') + '<span class="bd">×' + o.qty + '</span><span class="lf">' + (o.left === o.qty ? '&nbsp;' : (o.left ? 'あと ' + o.left : 'つかいきり')) + '</span></td>';
     });
     h += '</tr>';
   });

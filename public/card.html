@@ -203,6 +203,9 @@
   .say-btn.alt { background: #EF9F27; }
   .say-btn.gray { background: #888780; font-size: 13px; }
   .wait { font-size: 12px; color: #888780; margin-top: 6px; }
+  .shopcard { margin: 6px 0 10px; }
+  .shophave { margin: 4px 0 0 6px; gap: 4px; }
+  .shophave .st-chip { transform: scale(.85); transform-origin: top left; margin: 0 -6px -6px 0; }
   .builder { background: #F8F7F2; border-radius: 12px; padding: 8px; margin-top: 6px; }
   .builder .opt { display: inline-block; border: 2px solid #E2E0D6; background: #fff; border-radius: 999px; padding: 6px 14px; margin: 2px 4px 2px 0; font-weight: 700; font-size: 14px; cursor: pointer; }
   .builder .opt.on { border-color: #534AB7; background: #EEEDFE; color: #534AB7; }
@@ -1150,6 +1153,12 @@ function stockChip(it, cls, extra){
     miniShapeSvg(sh.pts, c.hex).replace('<svg ', '<svg width="' + px + '" height="' + px + '" ') +
     c.en + '<br>' + sh.en + (it.tag ? '<br><b style="font-size:12px;color:#185FA5">' + it.tag + '</b>' : '') + '</div>';
 }
+function haveChips(have, cls, withData, dealId){
+  if(!have || !have.length) return '<span class="wait">いま ざいりょうは ないよ</span>';
+  return have.map(function(h){
+    return stockChip({ shape: h.shape, color: h.color, tag: '×' + h.n }, cls || '', withData ? 'data-bpick="' + h.shape + '|' + h.color + '" data-deal="' + dealId + '"' : '');
+  }).join('');
+}
 function isAlt(){ return ex.me === 'ALT'; }
 function isMat(){ return !!(ex.room && ex.me && ex.data && ex.data.mode === 'material'); }
 function isLocked(it){ return !!(it && it.inv && isMat()); }
@@ -1284,7 +1293,7 @@ function exRender(){
   document.getElementById('exStock').innerHTML = st.length ? st.map(function(it){ return stockChip(it); }).join('') : '<span class="wait">ざいりょうは ぜんぶ なくなったよ</span>';
   // ともだちの おみせ
   var sh = document.getElementById('exShops');
-  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ if(a.alt !== b.alt) return a.alt ? -1 : 1; return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ if(s.alt) return '<button class="tbtn main" data-shop="' + escapeHtml(s.label) + '">🌟 ALTの せんせい <small>（ほしい ものが ぜんぶ もらえる・あと ' + s.altLeft + 'かい）</small></button>'; return '<button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ' + (s.got ? ' <small>（もらった ' + s.got + '/' + (d.pairMax || 10) + '）</small>' : '') + '</button>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
+  sh.innerHTML = d.shops.length ? d.shops.slice().sort(function(a, b){ if(a.alt !== b.alt) return a.alt ? -1 : 1; return String(a.label).localeCompare(String(b.label), 'ja', { numeric: true }); }).map(function(s){ if(s.alt) return '<div class="shopcard"><button class="tbtn main" data-shop="' + escapeHtml(s.label) + '">🌟 ALTの せんせい <small>（ほしい ものが ぜんぶ もらえる・あと ' + s.altLeft + 'かい）</small></button><div class="wait shophave" style="color:#854F0B;font-weight:700">✨ ぜんぶの かたち × ぜんぶの いろが ある！（なんでも ほしいって いえるよ）</div></div>'; return '<div class="shopcard"><button class="tbtn" data-shop="' + escapeHtml(s.label) + '">🛍 ' + escapeHtml(s.label) + ' の おみせ' + (s.got ? ' <small>（もらった ' + s.got + '/' + (d.pairMax || 10) + '）</small>' : '') + '</button><div class="stock shophave">' + haveChips(s.have) + '</div></div>'; }).join('') : '<span class="wait">まだ ほかの おみせは ないよ</span>';
   // ガチャ
   var gb = document.getElementById('exGachaBox'); gb.style.display = isAlt() ? 'none' : 'block';
   if(d.gacha && !isAlt()){
@@ -1336,6 +1345,9 @@ function dealHtml(dl, me){
     if(st === 'start') h += '<div class="wait">おみせの ひとが きいてくれるのを まっているよ…</div>';
     else if(st === 'asked' || (st === 'offered' && ex.reask[dl.id])){
       var b = ex.builder[dl.id] || (ex.builder[dl.id] = { size: 'big', color: 'red', shape: 'star' });
+      var shI = (ex.data.shops || []).filter(function(x){ return norm(x.label) === norm(dl.shop); })[0];
+      if(shI && shI.alt) h += '<div class="wait" style="color:#854F0B;font-weight:700">✨ ALTの せんせいは ぜんぶ もっているよ。すきな ものを えらぼう</div>';
+      else if(shI) h += '<div class="wait">おみせに ある もの（タップで えらべるよ）</div><div class="stock shophave" style="margin:4px 0">' + haveChips(shI.have, 'pick', true, dl.id) + '</div>';
       h += '<div class="wait">ほしい ものを えらんで、いってみよう</div><div class="builder">' +
         '<div class="color-grid">' + CARD_STD_COLORS().map(function(co){ return '<div class="color-chip' + (b.color === co.id ? ' on' : '') + '" data-bset="color" data-v="' + co.id + '" data-deal="' + dl.id + '" title="' + co.en + '" style="background:' + co.hex + ';--ink:' + co.ink + '"></div>'; }).join('') + '</div>' +
         '<div class="shape-opts">' + ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'].map(function(sid){ var s = shapeById(sid); return '<div class="so' + (b.shape === sid ? ' on' : '') + '" data-bset="shape" data-v="' + sid + '" data-deal="' + dl.id + '">' + miniShapeSvg(s.pts, colorById(b.color).hex) + s.en + '</div>'; }).join('') + '</div></div>' +
@@ -1399,7 +1411,7 @@ document.getElementById('exOv').addEventListener('click', function(ev){
     return;
   }
   var t = ev.target;
-  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.qset || t.dataset.boxsort || t.dataset.inv || t.dataset.again))) t = t.parentNode;
+  while(t && t !== this && !(t.dataset && (t.dataset.shop || t.dataset.go || t.dataset.nogo || t.dataset.act || t.dataset.pick || t.dataset.bset || t.dataset.bpick || t.dataset.qset || t.dataset.boxsort || t.dataset.inv || t.dataset.again))) t = t.parentNode;
   if(!t || t === this) return;
   var ds = t.dataset;
   if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
@@ -1420,6 +1432,7 @@ document.getElementById('exOv').addEventListener('click', function(ev){
   if(ds.qset){ ex.qty[ds.deal] = parseInt(ds.qset, 10); ex.sig = ''; exRender(); return; }
   if(ds.pick){ ex.sel[ds.deal] = ds.pick; ex.sig = ''; exPoll(); return; }
   if(ds.bset){ var b = ex.builder[ds.deal] || (ex.builder[ds.deal] = { size: 'big', color: 'red', shape: 'star' }); b[ds.bset] = ds.v; ex.sig = ''; exRender(); return; }
+  if(ds.bpick){ var bp = ds.bpick.split('|'); var bb = ex.builder[ds.deal] || (ex.builder[ds.deal] = { size: 'big', color: 'red', shape: 'star' }); bb.shape = bp[0]; bb.color = bp[1]; ex.sig = ''; exRender(); return; }
   if(ds.inv){ addInvAll(ds.inv); return; }
   if(ds.act){
     var body = { room: ex.room, me: ex.me, id: ds.id, act: ds.act };

@@ -340,6 +340,11 @@ const CARD_SHAPES = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'd
 const CARD_SIZES = ['big', 'small'];
 const CARD_COLORS = ['red', 'orange', 'yellow', 'green', 'lblue', 'lgreen', 'blue', 'purple', 'pink', 'brown', 'white', 'black'];
 function cardRand(n){ return crypto.randomBytes(2).readUInt16BE(0) % n; }
+function cardStockSummary(stock){
+  const m = {}, out = [];
+  (stock || []).forEach(function(it){ const k = it.shape + '|' + it.color; if(!m[k]){ m[k] = { shape: it.shape, color: it.color, n: 0 }; out.push(m[k]); } m[k].n++; });
+  return out;
+}
 function makeCardStock(){
   const list = [];
   for(let i = 0; i < 14; i++){
@@ -2567,7 +2572,7 @@ const server = http.createServer(function(req, res){
     const inventory = cardMergeInv([cardInvOf(room, me), sv0 ? sv0.inventory : []]);
     sendJson(res, 200, {
       myShop: mine ? { label: mine.label, stock: mine.stock } : null,
-      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return k === CARD_ALT_KEY ? { label: shops[k].label, alt: true, got: 0, altLeft: Math.max(0, CARD_ALT_TIMES - cardAltUsed(room, me)), count: 0 } : { label: shops[k].label, count: shops[k].stock.length, got: cardGaveTo(room, k, me) }; }),
+      shops: Object.keys(shops).filter(function(k){ return k !== me; }).map(function(k){ return k === CARD_ALT_KEY ? { label: shops[k].label, alt: true, got: 0, altLeft: Math.max(0, CARD_ALT_TIMES - cardAltUsed(room, me)), count: 0 } : { label: shops[k].label, count: shops[k].stock.length, got: cardGaveTo(room, k, me), have: cardStockSummary(shops[k].stock) }; }),
       pairMax: CARD_PAIR_MAX,
       gacha: cardGachaOf(room, me),
       deals: deals.filter(function(d){ return d.state !== 'done' || Date.now() - d.updatedAt < 120000; }).slice(-12).map(cardPublicDeal),

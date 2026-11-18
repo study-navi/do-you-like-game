@@ -165,6 +165,18 @@
   .st-chip.pick { cursor: pointer; }
   .st-chip.sel { border-color: #534AB7; background: #EEEDFE; }
   .st-chip.used { opacity: .35; }
+  .mxwrap { overflow-x: auto; }
+  table.mx { border-collapse: separate; border-spacing: 3px; margin: 0 auto; }
+  table.mx th { font-size: 10px; font-weight: 700; color: #5F5E5A; padding: 2px; white-space: nowrap; }
+  table.mx th.rh { text-align: left; padding-right: 6px; }
+  table.mx td { width: 50px; height: 50px; text-align: center; vertical-align: middle; border-radius: 10px; background: #F1EFE8; position: relative; padding: 0; }
+  table.mx td.has { background: #fff; border: 2px solid #378ADD; cursor: pointer; }
+  table.mx td.has.out { border-color: #B4B2A9; opacity: .5; }
+  table.mx td svg { display: block; margin: 0 auto; }
+  table.mx td.none svg { opacity: .22; }
+  table.mx td .bd { position: absolute; right: 1px; bottom: 0; background: #185FA5; color: #fff; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 0 5px; line-height: 15px; }
+  table.mx td.out .bd { background: #888780; }
+  .mxsum { font-size: 13px; color: #185FA5; font-weight: 700; margin-bottom: 6px; text-align: center; }
   .shop-btns { display: flex; flex-wrap: wrap; gap: 6px; }
   .deal { background: #fff; border: 2px solid #D3E4F5; border-radius: 14px; padding: 10px; margin-bottom: 10px; }
   .deal-head { font-size: 12px; color: #5F5E5A; margin-bottom: 6px; display: flex; justify-content: space-between; }
@@ -292,7 +304,7 @@
         <div class="ex-box"><h4>わたしの おみせ（この ざいりょうは なんこでも あげられるよ）</h4><div class="stock" id="exStock"></div></div>
         <div class="ex-box"><h4>ともだちの おみせに いく</h4><div id="exConfirm" style="display:none;background:#FAEEDA;border-radius:12px;padding:10px;margin-bottom:8px;text-align:center"></div><div class="shop-btns" id="exShops"></div></div>
         <div class="ex-box" id="exGachaBox"><h4>🎰 ガチャ（ともだち 3にんと こうりゅうする ごとに 1かい）</h4><div id="exGacha"></div></div>
-        <div class="ex-box"><h4>もらった ざいりょう（タップで カードに いれる）</h4><div class="stock" id="exInv"></div></div>
+        <div class="ex-box"><h4>もらった かたち・いろ（いろの ついた ところを タップで カードに いれる）</h4><div class="stock" id="exInv"></div></div>
       </div>
       <div><div id="exDeals"></div></div>
     </div>
@@ -1200,6 +1212,30 @@ function logText(e){
   return t;
 }
 function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+/* もらった ざいりょうを「いろ × かたち」の ひょうで みせる（もっている ものは いろが つく） */
+function invMatrix(inv, used){
+  var SH = ['circle', 'triangle', 'square', 'rect', 'star', 'heart', 'diamond', 'oval'], CO = CARD_STD_COLORS();
+  var g = {}, kinds = 0, total = 0;
+  (inv || []).forEach(function(it){
+    var k = it.shape + '|' + it.color, o = g[k] || (g[k] = { qty: 0, left: 0, pick: null, first: it.id });
+    var l = leftOf(it, used); o.qty += it.qty || 1; o.left += l; if(l && !o.pick) o.pick = it.id;
+  });
+  Object.keys(g).forEach(function(k){ kinds++; total += g[k].qty; });
+  if(!kinds) return '<span class="wait">まだ もらっていないよ。ともだちの おみせで あつめよう！</span>';
+  var h = '<div class="mxsum">あつめた: ' + kinds + ' しゅるい / ' + (SH.length * CO.length) + '　ぜんぶで ' + total + ' こ　<span style="font-weight:400;color:#5F5E5A">（すうじ = この カードで あと つかえる こすう）</span></div><div class="mxwrap"><table class="mx"><tr><th></th>';
+  SH.forEach(function(sid){ h += '<th>' + shapeById(sid).en + '</th>'; });
+  h += '</tr>';
+  CO.forEach(function(co){
+    h += '<tr><th class="rh"><i style="display:inline-block;width:11px;height:11px;border-radius:50%;background:' + co.hex + ';border:1px solid #B4B2A9;vertical-align:-1px"></i> ' + co.en + '</th>';
+    SH.forEach(function(sid){
+      var o = g[sid + '|' + co.id], sh = shapeById(sid);
+      if(!o){ h += '<td class="none">' + miniShapeSvg(sh.pts, '#888780').replace('<svg ', '<svg width="30" height="30" ') + '</td>'; return; }
+      h += '<td class="has' + (o.left ? '' : ' out') + '" data-inv="' + (o.pick || o.first) + '" title="' + escapeHtml(co.en + ' ' + sh.en) + '">' + miniShapeSvg(sh.pts, co.hex).replace('<svg ', '<svg width="32" height="32" ') + '<span class="bd">' + o.left + '</span></td>';
+    });
+    h += '</tr>';
+  });
+  return h + '</table></div>';
+}
 function exRender(){
   var d = ex.data; if(!d) return;
   document.getElementById('exMain').style.display = 'block';
@@ -1221,11 +1257,7 @@ function exRender(){
   }
   // もらった ざいりょう
   var used = usedCounts();
-  document.getElementById('exInv').innerHTML = d.inventory.length ? d.inventory.map(function(it){
-    var left = leftOf(it, used), c2 = {}; for(var k in it) c2[k] = it[k];
-    c2.tag = 'のこり ' + left + ' / ' + (it.qty || 1);
-    return stockChip(c2, 'pick' + (left ? '' : ' used'), 'data-inv="' + it.id + '"');
-  }).join('') : '<span class="wait">まだ もらっていないよ</span>';
+  document.getElementById('exInv').innerHTML = invMatrix(d.inventory, used);
   // やりとり
   var html = '';
   d.deals.slice().reverse().forEach(function(dl){ html += dealHtml(dl, me); });

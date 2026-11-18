@@ -1,0 +1,16 @@
+name: keepalive
+on:
+  schedule:
+    - cron: '17 21 * * *'   # 毎日 06:17 JST（Render と Supabase を起こす）
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ping server (wakes Render, reads Supabase once)
+        run: |
+          for i in 1 2 3 4; do
+            if curl -fsS --max-time 90 https://do-you-like-game.onrender.com/api/card/keepalive; then exit 0; fi
+            sleep 20
+          done
+          exit 1

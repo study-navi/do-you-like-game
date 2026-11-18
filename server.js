@@ -2581,6 +2581,14 @@ const server = http.createServer(function(req, res){
     });
     return;
   }
+  if(req.method === 'GET' && url === '/api/card/keepalive'){
+    /* Supabase が つかわれなくて とまらないように、1かい よみだす（GitHub Actions から ていきてきに よぶ） */
+    if(!SB_ON) return sendJson(res, 200, { ok: true, supabase: false });
+    fetch(SB_URL + '/rest/v1/card_kv?select=k&limit=1', { headers: sbHeaders() })
+      .then(function(r){ sendJson(res, 200, { ok: r.ok, supabase: true, status: r.status }); })
+      .catch(function(){ sendJson(res, 200, { ok: false, supabase: true }); });
+    return;
+  }
   if(req.method === 'POST' && url === '/api/card/gacha'){
     readJsonBody(req, function(body){
       const room = normalizeRoom(body && body.room), me = cardKey(body && body.me);

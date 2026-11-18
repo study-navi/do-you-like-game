@@ -214,6 +214,10 @@
   @keyframes gfxPop { 0%{transform:scale(.2);opacity:0} 70%{transform:scale(1.25)} 100%{transform:scale(1);opacity:1} }
   .gfx-conf i { position: absolute; top: -20px; font-style: normal; font-size: 22px; animation: gfxFall 1.6s ease-in forwards; }
   @keyframes gfxFall { to { transform: translateY(340px) rotate(360deg); opacity: .2; } }
+  #exConfirm { position: fixed !important; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10000; width: min(440px, 90vw); padding: 22px 18px !important; border: 4px solid #BA7517; border-radius: 18px !important; background: #FFF4DC !important; box-shadow: 0 0 0 100vmax rgba(30,25,60,.6); }
+  #exConfirm .cf-q { font-size: 20px; font-weight: 800; line-height: 1.5; }
+  #exConfirm .cf-n { display: block; font-size: 56px; font-weight: 900; color: #185FA5; line-height: 1.2; }
+  #exConfirm .tbtn { font-size: 20px !important; padding: 14px 26px !important; margin: 4px; }
   .shopcard { margin: 6px 0 10px; }
   .shophave { margin: 4px 0 0 6px; gap: 4px; }
   .shophave .st-chip { transform: scale(.85); transform-origin: top left; margin: 0 -6px -6px 0; }
@@ -1446,15 +1450,15 @@ document.getElementById('exOv').addEventListener('click', function(ev){
   if(ds.act === 'cancel'){ ev.preventDefault(); exApi('/api/card/deal/act', { room: ex.room, me: ex.me, id: ds.id, act: 'cancel' }).then(exPoll); return; }
   if(ds.shop){
     var cf = document.getElementById('exConfirm');
-    cf.innerHTML = '<div style="font-size:18px;font-weight:700;margin-bottom:6px"><b style="font-size:26px;color:#185FA5">' + escapeHtml(ds.shop) + '</b> の おみせに いく？</div><div style="font-size:13px;color:#5F5E5A;margin-bottom:8px">となりの ともだちの がめんに「' + escapeHtml(ex.me) + '」と でて いるか、たしかめよう</div>' +
-      '<button class="tbtn main" data-go="' + escapeHtml(ds.shop) + '" style="padding:10px 22px">いく</button> <button class="tbtn" data-nogo="1" style="padding:10px 22px">ちがう</button>';
+    cf.innerHTML = '<div class="cf-q">この ともだちの おみせに いく？<span class="cf-n">' + escapeHtml(ds.shop) + '</span></div><div style="font-size:15px;color:#5F5E5A;margin:8px 0 12px">となりに きた ともだちの がめんに「' + escapeHtml(ex.me) + '」と でて いるか たしかめてね</div>' +
+      '<button class="tbtn main" data-go="' + escapeHtml(ds.shop) + '">✅ いく</button> <button class="tbtn" data-nogo="1">✖ ちがう</button>';
     cf.style.display = 'block';
     return;
   }
   if(ds.nogo){ document.getElementById('exConfirm').style.display = 'none'; return; }
   if(ds.go || ds.again){
     document.getElementById('exConfirm').style.display = 'none';
-    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.go || ds.again }).then(exPoll).catch(function(e){ toast(e && e.message === 'limit' ? (norm(ds.go || ds.again) === 'alt' ? 'ALTの せんせいとは もう 3かい こうりゅうしたよ。ほかの ともだちの おみせに いこう' : 'この ともだちからは もう 10こ もらったよ。ほかの ともだちの おみせに いこう') : 'おみせに いけなかったよ'); });
+    exApi('/api/card/deal/start', { room: ex.room, me: ex.me, shop: ds.go || ds.again }).then(function(){ var dd = document.getElementById('exDeals'); if(dd && dd.scrollIntoView) dd.scrollIntoView({ behavior: 'smooth', block: 'start' }); return exPoll(); }).catch(function(e){ toast(e && e.message === 'limit' ? (norm(ds.go || ds.again) === 'alt' ? 'ALTの せんせいとは もう 3かい こうりゅうしたよ。ほかの ともだちの おみせに いこう' : 'この ともだちからは もう 10こ もらったよ。ほかの ともだちの おみせに いこう') : 'おみせに いけなかったよ'); });
     return;
   }
   if(ds.boxsort){ try{ localStorage.setItem('card_boxsort', ds.boxsort); }catch(e){} ex.sig = ''; exRender(); renderBoxPanel(); return; }
